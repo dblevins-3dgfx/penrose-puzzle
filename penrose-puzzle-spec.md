@@ -1,6 +1,6 @@
 # Penrose Puzzle: Specification
 
-Status: reflects the app as currently implemented. The rules (sections 3 to 6, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the React component `PenrosePuzzle` in `penrose-puzzle.tsx` draws the board and handles input. Rules without tests are listed in `untested-requirements.md`.
+Status: reflects the app as currently implemented. The rules (sections 3 to 6, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the React component `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
 
 ## 1. Overview
 

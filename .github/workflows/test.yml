@@ -1,5 +1,5 @@
-# Checks every pull request: the type checker, the unit tests, and the
-# production build. (Pushes to main are tested by deploy.yml before it
+# Checks every pull request: the type checker, the linter, the unit tests,
+# and the production build. (Pushes to main are tested by deploy.yml before it
 # publishes.)
 name: Test
 
@@ -25,5 +25,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm test
       - run: npm run build

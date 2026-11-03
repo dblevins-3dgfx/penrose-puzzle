@@ -90,6 +90,28 @@ export const getVertexColors = (tile: Pick<Tile, 'type'>): readonly VertexColor[
 // handles the dart's concave notch.
 export const toTriangles = (v: readonly Point[]): Point[][] => [[v[0], v[1], v[2]], [v[0], v[2], v[3]]];
 
+// A tile's four edges in perimeter order, each with its end colors and
+// length label.
+interface Edge {
+  a: Point;
+  b: Point;
+  colorA: VertexColor;
+  colorB: VertexColor;
+  label: EdgeLength;
+}
+
+export const edgesOf = (tile: Tile): Edge[] => {
+  const v = getVertices(tile);
+  const c = getVertexColors(tile);
+  return [0, 1, 2, 3].map(i => ({
+    a: v[i], b: v[(i + 1) % 4], colorA: c[i], colorB: c[(i + 1) % 4], label: EDGE_LENGTHS[i]
+  }));
+};
+
+// Do two edges have the same end points, in either direction?
+export const sameEdge = (e: Pick<Edge, 'a' | 'b'>, f: Pick<Edge, 'a' | 'b'>): boolean =>
+  (samePoint(e.a, f.a) && samePoint(e.b, f.b)) || (samePoint(e.a, f.b) && samePoint(e.b, f.a));
+
 // ---------------------------------------------------------------------
 // Section 4: Matching rules
 // ---------------------------------------------------------------------
@@ -110,23 +132,21 @@ export const isOutsidePlayfield = (verts: readonly Point[]): boolean => {
 // Rule 2: does the candidate touch the structure at a vertex at all, and
 // does every coincident vertex agree in Penrose color?
 export const checkVertexMatching = (candidate: Tile, allTiles: readonly Tile[]) => {
-  const cVerts = getVertices(candidate);
+  const corners = allTiles.flatMap(tile => {
+    const colors = getVertexColors(tile);
+    return getVertices(tile).map((p, i) => ({ p, color: colors[i] }));
+  });
   const cColors = getVertexColors(candidate);
   let touches = false;
   let colorsMatch = true;
 
-  for (const tile of allTiles) {
-    const tVerts = getVertices(tile);
-    const tColors = getVertexColors(tile);
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 4; j++) {
-        if (samePoint(cVerts[i], tVerts[j])) {
-          touches = true;
-          if (cColors[i] !== tColors[j]) colorsMatch = false;
-        }
-      }
+  getVertices(candidate).forEach((v, i) => {
+    for (const corner of corners) {
+      if (!samePoint(v, corner.p)) continue;
+      touches = true;
+      if (cColors[i] !== corner.color) colorsMatch = false;
     }
-  }
+  });
   return { touches, colorsMatch };
 };
 
@@ -146,22 +166,15 @@ export const pointOnEdgeInterior = (p: Point, a: Point, b: Point): boolean => {
 // T-junction), in either direction.
 export const checkEdgeContact = (candidate: Tile, allTiles: readonly Tile[]) => {
   const cv = getVertices(candidate);
+  const candidateEdges = edgesOf(candidate);
   let sharesEdge = false;
   let tJunction = false;
 
   for (const tile of allTiles) {
     const tv = getVertices(tile);
 
-    for (let a = 0; a < 4; a++) {
-      const a1 = cv[a], a2 = cv[(a + 1) % 4];
-      for (let b = 0; b < 4; b++) {
-        const b1 = tv[b], b2 = tv[(b + 1) % 4];
-        if ((samePoint(a1, b1) && samePoint(a2, b2)) ||
-            (samePoint(a1, b2) && samePoint(a2, b1))) {
-          sharesEdge = true;
-        }
-      }
-    }
+    const tileEdges = edgesOf(tile);
+    if (candidateEdges.some(e => tileEdges.some(f => sameEdge(e, f)))) sharesEdge = true;
 
     for (const p of cv) {
       for (let b = 0; b < 4; b++) {
@@ -251,44 +264,46 @@ export const snapPosition = (allTiles: readonly Tile[], candidate: Tile): { x: n
 
   const cv = getVertices(candidate);
   const cc = centroidOf(cv);
+  const candidateEdges = edgesOf(candidate);
+  // Every existing edge, with the centroid of the tile it belongs to
+  const targets = allTiles.flatMap(tile => {
+    const tc = centroidOf(getVertices(tile));
+    return edgesOf(tile).map(edge => ({ edge, tc }));
+  });
   let best: { x: number; y: number; rank: number } | null = null;
 
-  for (const tile of allTiles) {
-    const tv = getVertices(tile);
-    const tc = centroidOf(tv);
+  // Moving the candidate by (tx, ty) lays its edge c1-c2 on target edge
+  // t1-t2. Returns the ranked position, or null if that is not a snap.
+  const trySnap = (c1: Point, c2: Point, t1: Point, t2: Point, tc: Point) => {
+    const tx = t1.x - c1.x, ty = t1.y - c1.y;
 
-    for (let a = 0; a < 4; a++) {
-      const a1 = tv[a], a2 = tv[(a + 1) % 4];
+    // Both endpoints must land on the target edge (edge is parallel)
+    if (Math.hypot(c2.x + tx - t2.x, c2.y + ty - t2.y) > 2) return null;
 
-      for (let k = 0; k < 4; k++) {
-        if (EDGE_LENGTHS[k] !== EDGE_LENGTHS[a]) continue;
-        const c1 = cv[k], c2 = cv[(k + 1) % 4];
+    const dist = Math.hypot(tx, ty);
+    if (dist > SNAP_RADIUS) return null;
+    if (best && dist >= best.rank) return null;
 
-        // The edges can coincide in either direction
-        for (const [t1, t2] of [[a1, a2], [a2, a1]]) {
-          const tx = t1.x - c1.x, ty = t1.y - c1.y;
+    // Tiles must sit on opposite sides of the shared edge
+    const ex = t2.x - t1.x, ey = t2.y - t1.y;
+    const sideExisting = ex * (tc.y - t1.y) - ey * (tc.x - t1.x);
+    const sideCandidate = ex * (cc.y + ty - t1.y) - ey * (cc.x + tx - t1.x);
+    if (sideExisting * sideCandidate >= 0) return null;
 
-          // Both endpoints must land on the target edge (edge is parallel)
-          if (Math.hypot(c2.x + tx - t2.x, c2.y + ty - t2.y) > 2) continue;
+    const moved = { ...candidate, x: x + tx, y: y + ty };
+    const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })));
+    if (!isLegalPlacement(allTiles, moved, oob)) return null;
 
-          const dist = Math.hypot(tx, ty);
-          if (dist > SNAP_RADIUS) continue;
-          if (best && dist >= best.rank) continue;
+    return { x: moved.x, y: moved.y, rank: dist + (oob ? 1000 : 0) };
+  };
 
-          // Tiles must sit on opposite sides of the shared edge
-          const ex = a2.x - a1.x, ey = a2.y - a1.y;
-          const sideExisting = ex * (tc.y - a1.y) - ey * (tc.x - a1.x);
-          const sideCandidate = ex * (cc.y + ty - a1.y) - ey * (cc.x + tx - a1.x);
-          if (sideExisting * sideCandidate >= 0) continue;
-
-          const moved = { ...candidate, x: x + tx, y: y + ty };
-          const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })));
-          if (!isLegalPlacement(allTiles, moved, oob)) continue;
-
-          const rank = dist + (oob ? 1000 : 0);
-          if (best && rank >= best.rank) continue;
-          best = { x: moved.x, y: moved.y, rank };
-        }
+  for (const { edge, tc } of targets) {
+    for (const ce of candidateEdges) {
+      if (ce.label !== edge.label) continue;
+      // The edges can coincide in either direction
+      for (const [t1, t2] of [[edge.a, edge.b], [edge.b, edge.a]]) {
+        const snap = trySnap(ce.a, ce.b, t1, t2, tc);
+        if (snap && (!best || snap.rank < best.rank)) best = snap;
       }
     }
   }
@@ -315,25 +330,18 @@ export const countTiles = (tiles: readonly Tile[]) => ({
 // vertex colors also agree at both ends.
 export const findConnectedEdges = (allTiles: readonly Tile[]): Segment[] => {
   const connected: Segment[] = [];
+  const edges = allTiles.map(edgesOf);
 
-  for (let i = 0; i < allTiles.length; i++) {
-    const vi = getVertices(allTiles[i]);
-    const ci = getVertexColors(allTiles[i]);
-    for (let j = i + 1; j < allTiles.length; j++) {
-      const vj = getVertices(allTiles[j]);
-      const cj = getVertexColors(allTiles[j]);
-      for (let a = 0; a < 4; a++) {
-        const a1 = vi[a], a2 = vi[(a + 1) % 4];
-        const ca1 = ci[a], ca2 = ci[(a + 1) % 4];
-        for (let b = 0; b < 4; b++) {
-          const b1 = vj[b], b2 = vj[(b + 1) % 4];
-          const cb1 = cj[b], cb2 = cj[(b + 1) % 4];
-          const forward = samePoint(a1, b1) && samePoint(a2, b2) && ca1 === cb1 && ca2 === cb2;
-          const reverse = samePoint(a1, b2) && samePoint(a2, b1) && ca1 === cb2 && ca2 === cb1;
-          if (forward || reverse) {
-            connected.push({ x1: a1.x, y1: a1.y, x2: a2.x, y2: a2.y });
-          }
-        }
+  // An edge of one tile that coincides with an edge of the other, with the
+  // colors agreeing at both ends
+  const matches = (e: Edge, f: Edge) =>
+    (samePoint(e.a, f.a) && samePoint(e.b, f.b) && e.colorA === f.colorA && e.colorB === f.colorB) ||
+    (samePoint(e.a, f.b) && samePoint(e.b, f.a) && e.colorA === f.colorB && e.colorB === f.colorA);
+
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      for (const e of edges[i]) {
+        if (edges[j].some(f => matches(e, f))) connected.push({ x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y });
       }
     }
   }

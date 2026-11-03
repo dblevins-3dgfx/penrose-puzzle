@@ -25,7 +25,7 @@ Every push to `main` builds the game and publishes it to GitHub Pages at https:/
 
 ## Checks
 
-Every pull request runs the type checker, the unit tests and the production build (`.github/workflows/test.yml`). Deploys from `main` also run the tests first, and don't publish if they fail.
+Every pull request runs the type checker, the linter, the unit tests and the production build (`.github/workflows/test.yml`). Deploys from `main` also run the tests first, and don't publish if they fail.
 
 ## Scripts
 
@@ -35,11 +35,13 @@ Every pull request runs the type checker, the unit tests and the production buil
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm test` | Run the unit tests for the rules |
+| `npm run lint` | Run the linter ([oxlint](https://oxc.rs), configured in `.oxlintrc.json`) |
 | `npm run typecheck` | Run the TypeScript checker |
 
 ## Layout
 
 - `rules.ts`: the game rules as plain functions (geometry, matching rules, snapping, rotation), tested in `rules.test.ts`
-- `penrose-puzzle.tsx`: the React component that draws the board and handles input, calling `rules.ts`
+- `penrose-puzzle.tsx`: the main React component: game state, pointer input and page layout
+- `ui/`: the rest of the React side: `draw.ts` (canvas drawing), `useControls.ts` (keyboard and wheel), `Toolbar.tsx` and `HelpOverlay.tsx`. All of it calls `rules.ts` for decisions
 - `untested-requirements.md`: spec rules that have no unit test, and why
 - `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup
