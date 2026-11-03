@@ -23,6 +23,10 @@ Then open http://localhost:5173. The dev server also listens on your local netwo
 
 Every push to `main` builds the game and publishes it to GitHub Pages at https://dblevins-3dgfx.github.io/penrose-puzzle/ (see `.github/workflows/deploy.yml`). The workflow pushes the build to the `gh-pages` branch. To serve it, set the repository's Settings → Pages → Source to "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
 
+## Checks
+
+Every pull request runs the type checker, the unit tests and the production build (`.github/workflows/test.yml`). Deploys from `main` also run the tests first, and don't publish if they fail.
+
 ## Scripts
 
 | Command | Does |
