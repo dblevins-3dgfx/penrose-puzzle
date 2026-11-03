@@ -1,6 +1,6 @@
 # Penrose Puzzle: Specification
 
-Status: reflects the app as currently implemented (single React component, `PenrosePuzzle`, in `penrose-puzzle.tsx`).
+Status: reflects the app as currently implemented. The rules (sections 3 to 6, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the React component `PenrosePuzzle` in `penrose-puzzle.tsx` draws the board and handles input. Rules without tests are listed in `untested-requirements.md`.
 
 ## 1. Overview
 
@@ -13,7 +13,8 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Item | Choice |
 |---|---|
 | Framework | React 19 (functional component, hooks) |
-| Build | Vite, TypeScript (the component itself is untyped; `npm run typecheck` runs separately from the build) |
+| Build | Vite, TypeScript (`rules.ts` is fully typed, the component only loosely; `npm run typecheck` runs separately from the build) |
+| Tests | Node's test runner through `tsx` (`npm test`) |
 | Rendering | HTML5 Canvas 2D, 800 x 600 internal resolution, scaled to the largest 4:3 size that fits the window |
 | Styling | Tailwind CSS v4 utility classes |
 | Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `CircleHelp`, `X`) |

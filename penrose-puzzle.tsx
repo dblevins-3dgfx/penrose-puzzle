@@ -1,272 +1,23 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { RotateCw, Trash2, Undo2, CircleHelp, X } from 'lucide-react';
-
-const PHI = (1 + Math.sqrt(5)) / 2;
-const TILE_SIZE = 60;
-const VERTEX_EPS = 4;
-
-// Edge length labels walking the perimeter from vertex i to vertex i+1.
-// Both kite and dart share this long/short/short/long pattern.
-const EDGE_LENGTHS = ['long', 'short', 'short', 'long'];
-
-// Penrose's actual matching rule (vertex 2-coloring): whenever a point is
-// a vertex of more than one tile, it must be the same color on every tile
-// touching it. Colors follow vertex order [O,B,C,D] for the kite and
-// [M,N,A',N'] for the dart:
-// Kite: axis vertices (O at 72°, C at 144°) = black; off-axis (B,D) = white.
-// Dart: axis vertices (M at 72°, A' at 216°) = white; off-axis (N,N') = black.
-const KITE_VERTEX_COLORS = ['black', 'white', 'black', 'white'];
-const DART_VERTEX_COLORS = ['white', 'black', 'white', 'black'];
-
-const normalize = (dx, dy) => {
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  return { x: dx / len, y: dy / len };
-};
-
-const samePoint = (p, q) =>
-  Math.abs(p.x - q.x) < VERTEX_EPS && Math.abs(p.y - q.y) < VERTEX_EPS;
-
-// Kite: verified via law-of-cosines closure check.
-// Vertices O(72°) -> B(72°) -> C(144°) -> D(72°), edges: long,short,short,long
-// Axis of symmetry passes through O and C. Centered on centroid so the
-// shape is anchored under the cursor/placement point, not by vertex O.
-const getKiteVertices = (x, y, rotation) => {
-  const r = rotation * Math.PI / 180;
-  const long = TILE_SIZE;
-  const deg36 = 36 * Math.PI / 180;
-
-  const local = [
-    { x: 0, y: 0 },
-    { x: long * Math.cos(r + deg36), y: long * Math.sin(r + deg36) },
-    { x: long * Math.cos(r), y: long * Math.sin(r) },
-    { x: long * Math.cos(r - deg36), y: long * Math.sin(r - deg36) }
-  ];
-
-  const cx = local.reduce((s, v) => s + v.x, 0) / local.length;
-  const cy = local.reduce((s, v) => s + v.y, 0) / local.length;
-
-  return local.map(v => ({ x: x + v.x - cx, y: y + v.y - cy }));
-};
-
-// Dart: verified via law-of-cosines closure check.
-// Vertices M(72°) -> N(36°) -> A'(216°, reflex) -> N'(36°), edges: long,short,short,long
-// Axis of symmetry passes through M and A'. Centered on centroid so the
-// shape is anchored under the cursor/placement point, not by vertex M.
-const getDartVertices = (x, y, rotation) => {
-  const r = rotation * Math.PI / 180;
-  const long = TILE_SIZE;
-  const deg36 = 36 * Math.PI / 180;
-
-  const local = [
-    { x: 0, y: 0 },
-    { x: long * Math.cos(r + deg36), y: long * Math.sin(r + deg36) },
-    { x: (long / PHI) * Math.cos(r), y: (long / PHI) * Math.sin(r) },
-    { x: long * Math.cos(r - deg36), y: long * Math.sin(r - deg36) }
-  ];
-
-  const cx = local.reduce((s, v) => s + v.x, 0) / local.length;
-  const cy = local.reduce((s, v) => s + v.y, 0) / local.length;
-
-  return local.map(v => ({ x: x + v.x - cx, y: y + v.y - cy }));
-};
-
-// Returns this tile's polygon vertices, dispatching on its type.
-const getVertices = (tile) => tile.type === 'kite'
-  ? getKiteVertices(tile.x, tile.y, tile.rotation)
-  : getDartVertices(tile.x, tile.y, tile.rotation);
-
-const getVertexColors = (tile) =>
-  tile.type === 'kite' ? KITE_VERTEX_COLORS : DART_VERTEX_COLORS;
-
-// Checks a candidate tile against all placed tiles: does it touch the
-// existing structure at all, and does every coincident vertex agree in
-// Penrose color with every tile it touches there? (Edge-length mismatches
-// are already ruled out by checkEdgeContact's T-junction test.)
-const checkVertexMatching = (candidate, allTiles) => {
-  const cVerts = getVertices(candidate);
-  const cColors = getVertexColors(candidate);
-  let touches = false;
-  let colorsMatch = true;
-
-  for (const tile of allTiles) {
-    const tVerts = getVertices(tile);
-    const tColors = getVertexColors(tile);
-    for (let i = 0; i < 4; i++) {
-      for (let j = 0; j < 4; j++) {
-        if (samePoint(cVerts[i], tVerts[j])) {
-          touches = true;
-          if (cColors[i] !== tColors[j]) colorsMatch = false;
-        }
-      }
-    }
-  }
-  return { touches, colorsMatch };
-};
-
-// Finds every edge shared between two placed tiles (both endpoints
-// coincide) where the Penrose vertex colors also agree at both ends -
-// i.e. genuinely valid connections, not just geometric proximity.
-const findConnectedEdges = (allTiles) => {
-  const connected = [];
-
-  for (let i = 0; i < allTiles.length; i++) {
-    const vi = getVertices(allTiles[i]);
-    const ci = getVertexColors(allTiles[i]);
-    for (let j = i + 1; j < allTiles.length; j++) {
-      const vj = getVertices(allTiles[j]);
-      const cj = getVertexColors(allTiles[j]);
-      for (let a = 0; a < 4; a++) {
-        const a1 = vi[a], a2 = vi[(a + 1) % 4];
-        const ca1 = ci[a], ca2 = ci[(a + 1) % 4];
-        for (let b = 0; b < 4; b++) {
-          const b1 = vj[b], b2 = vj[(b + 1) % 4];
-          const cb1 = cj[b], cb2 = cj[(b + 1) % 4];
-          const forward = samePoint(a1, b1) && samePoint(a2, b2) && ca1 === cb1 && ca2 === cb2;
-          const reverse = samePoint(a1, b2) && samePoint(a2, b1) && ca1 === cb2 && ca2 === cb1;
-          if (forward || reverse) {
-            connected.push({ x1: a1.x, y1: a1.y, x2: a2.x, y2: a2.y });
-          }
-        }
-      }
-    }
-  }
-  return connected;
-};
-
-// True if point p lies on the interior of segment a-b (not at an endpoint).
-const pointOnEdgeInterior = (p, a, b) => {
-  const abx = b.x - a.x, aby = b.y - a.y;
-  const len2 = abx * abx + aby * aby || 1;
-  const t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2;
-  if (t <= 0 || t >= 1) return false;
-  const px = a.x + t * abx, py = a.y + t * aby;
-  if (Math.hypot(p.x - px, p.y - py) > VERTEX_EPS) return false;
-  return !samePoint(p, a) && !samePoint(p, b);
-};
-
-// Penrose kite/dart tilings are edge-to-edge. A candidate must share at
-// least one full edge with an existing tile (a single-vertex contact is not
-// enough), and no corner may land in the middle of another tile's edge
-// (a T-junction), in either direction.
-const checkEdgeContact = (candidate, allTiles) => {
-  const cv = getVertices(candidate);
-  let sharesEdge = false;
-  let tJunction = false;
-
-  for (const tile of allTiles) {
-    const tv = getVertices(tile);
-
-    for (let a = 0; a < 4; a++) {
-      const a1 = cv[a], a2 = cv[(a + 1) % 4];
-      for (let b = 0; b < 4; b++) {
-        const b1 = tv[b], b2 = tv[(b + 1) % 4];
-        if ((samePoint(a1, b1) && samePoint(a2, b2)) ||
-            (samePoint(a1, b2) && samePoint(a2, b1))) {
-          sharesEdge = true;
-        }
-      }
-    }
-
-    for (const p of cv) {
-      for (let b = 0; b < 4; b++) {
-        if (pointOnEdgeInterior(p, tv[b], tv[(b + 1) % 4])) tJunction = true;
-      }
-    }
-    for (const p of tv) {
-      for (let a = 0; a < 4; a++) {
-        if (pointOnEdgeInterior(p, cv[a], cv[(a + 1) % 4])) tJunction = true;
-      }
-    }
-  }
-  return { sharesEdge, tJunction };
-};
-
-const centroidOf = (verts) => ({
-  x: verts.reduce((s, v) => s + v.x, 0) / verts.length,
-  y: verts.reduce((s, v) => s + v.y, 0) / verts.length
-});
-
-// Separating-axis test for two triangles. Shapes that merely touch (or
-// overlap by less than `tol` pixels) are NOT considered overlapping, so
-// tiles sharing an edge or vertex are fine.
-const trianglesOverlap = (t1, t2, tol) => {
-  for (const tri of [t1, t2]) {
-    for (let i = 0; i < 3; i++) {
-      const p = tri[i], q = tri[(i + 1) % 3];
-      const n = normalize(-(q.y - p.y), q.x - p.x);
-      let min1 = Infinity, max1 = -Infinity, min2 = Infinity, max2 = -Infinity;
-      for (const v of t1) {
-        const d = v.x * n.x + v.y * n.y;
-        min1 = Math.min(min1, d); max1 = Math.max(max1, d);
-      }
-      for (const v of t2) {
-        const d = v.x * n.x + v.y * n.y;
-        min2 = Math.min(min2, d); max2 = Math.max(max2, d);
-      }
-      if (max1 <= min2 + tol || max2 <= min1 + tol) return false;
-    }
-  }
-  return true;
-};
-
-// Both the kite and the dart split cleanly into two triangles along the
-// diagonal from vertex 0 to vertex 2 (their axis of symmetry), which also
-// handles the dart's concave notch correctly.
-const toTriangles = (v) => [[v[0], v[1], v[2]], [v[0], v[2], v[3]]];
-
-const tilesOverlap = (vertsA, vertsB) => {
-  for (const ta of toTriangles(vertsA)) {
-    for (const tb of toTriangles(vertsB)) {
-      if (trianglesOverlap(ta, tb, 1.5)) return true;
-    }
-  }
-  return false;
-};
-
-// ---------------------------------------------------------------------
-// Placement rules
-// ---------------------------------------------------------------------
-
-// Playfield size (matches the canvas). Every tile vertex must stay inside it.
-const BOARD_W = 800;
-const BOARD_H = 600;
-
-// True if any vertex lies outside the playfield (small rounding tolerance).
-const isOutsidePlayfield = (verts) => {
-  const EDGE_TOL = 0.5;
-  return verts.some(v =>
-    v.x < -EDGE_TOL || v.x > BOARD_W + EDGE_TOL ||
-    v.y < -EDGE_TOL || v.y > BOARD_H + EDGE_TOL
-  );
-};
-
-// Is `candidate` ({type, x, y, rotation}) a legal placement?
-// `ignoreBounds` skips only the playfield test; it lets the preview show a
-// snapped position that is blocked solely for being out of bounds.
-const isLegalPlacement = (allTiles, candidate, ignoreBounds = false) => {
-  const candVerts = getVertices(candidate);
-
-  // Keep every vertex inside the playfield
-  if (!ignoreBounds && isOutsidePlayfield(candVerts)) return false;
-
-  if (allTiles.length === 0) return true;
-
-  // Reject real overlaps (positive-area intersection with any tile)
-  for (const tile of allTiles) {
-    if (tilesOverlap(candVerts, getVertices(tile))) return false;
-  }
-
-  // Must touch the existing structure, and every point where tiles meet
-  // must agree in Penrose vertex color - the real matching rule.
-  const { touches, colorsMatch } = checkVertexMatching(candidate, allTiles);
-  if (!touches || !colorsMatch) return false;
-
-  // Must be edge-to-edge: share a full edge, and no T-junctions.
-  const { sharesEdge, tJunction } = checkEdgeContact(candidate, allTiles);
-  if (!sharesEdge || tJunction) return false;
-
-  return true;
-};
+import {
+  getVertices,
+  getVertexColors,
+  isLegalPlacement,
+  isOutsidePlayfield,
+  snapPosition,
+  findConnectedEdges,
+  countTiles,
+  removeLastTile,
+  rotateBy,
+  wheelDeltaPixels,
+  wheelSteps,
+  WHEEL_NOTCH,
+  BOARD_W,
+  BOARD_H,
+  type Tile,
+  type TileType
+} from './rules';
 
 // Tile fills: kites and darts get their own colors so the pattern reads.
 const TILE_STYLE = {
@@ -276,8 +27,8 @@ const TILE_STYLE = {
 
 const PenrosePuzzle = () => {
   const canvasRef = useRef(null);
-  const [tiles, setTiles] = useState([]);
-  const [selectedTileType, setSelectedTileType] = useState('kite');
+  const [tiles, setTiles] = useState<Tile[]>([]);
+  const [selectedTileType, setSelectedTileType] = useState<TileType>('kite');
   const [rotation, setRotation] = useState(0);
   const [hoveredPos, setHoveredPos] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -292,12 +43,9 @@ const PenrosePuzzle = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showHelp]);
 
-  const counts = useMemo(() => ({
-    kite: tiles.filter(t => t.type === 'kite').length,
-    dart: tiles.filter(t => t.type === 'dart').length
-  }), [tiles]);
+  const counts = useMemo(() => countTiles(tiles), [tiles]);
 
-  const undo = () => setTiles(prev => prev.slice(0, -1));
+  const undo = () => setTiles(removeLastTile);
   const clearBoard = () => {
     setTiles([]);
     setRotation(0);
@@ -356,69 +104,9 @@ const PenrosePuzzle = () => {
   const isValidPlacement = (x, y) =>
     isLegalPlacement(tiles, { type: selectedTileType, x, y, rotation });
 
-  // Snaps the tile so one of its edges lands exactly on an existing tile's
-  // edge (no gaps). Tries every equal-length edge pairing, keeps only those
-  // that put the tile on the opposite side of the shared edge and pass the
-  // full placement rules, and picks the smallest movement.
-  const SNAP_RADIUS = 45;
-  const getSnappedPosition = (x, y) => {
-    if (tiles.length === 0) return { x, y, snapped: false };
-
-    const cv = getVertices({ type: selectedTileType, x, y, rotation });
-    const cc = centroidOf(cv);
-    let best = null;
-
-    for (const tile of tiles) {
-      const tv = getVertices(tile);
-      const tc = centroidOf(tv);
-
-      for (let a = 0; a < 4; a++) {
-        const a1 = tv[a], a2 = tv[(a + 1) % 4];
-
-        for (let k = 0; k < 4; k++) {
-          if (EDGE_LENGTHS[k] !== EDGE_LENGTHS[a]) continue;
-          const c1 = cv[k], c2 = cv[(k + 1) % 4];
-
-          // The edges can coincide in either direction
-          for (const [t1, t2] of [[a1, a2], [a2, a1]]) {
-            const tx = t1.x - c1.x, ty = t1.y - c1.y;
-
-            // Both endpoints must land on the target edge (edge is parallel)
-            if (Math.hypot(c2.x + tx - t2.x, c2.y + ty - t2.y) > 2) continue;
-
-            const dist = Math.hypot(tx, ty);
-            if (dist > SNAP_RADIUS) continue;
-            if (best && dist >= best.dist) continue;
-
-            // Tiles must sit on opposite sides of the shared edge
-            const ex = a2.x - a1.x, ey = a2.y - a1.y;
-            const sideExisting = ex * (tc.y - a1.y) - ey * (tc.x - a1.x);
-            const sideCandidate = ex * (cc.y + ty - a1.y) - ey * (cc.x + tx - a1.x);
-            if (sideExisting * sideCandidate >= 0) continue;
-
-            // A snap position that fails only the playfield test is still
-            // shown (so the red border warning can appear), but any
-            // in-bounds legal snap always wins over it.
-            const nx = x + tx, ny = y + ty;
-            const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })));
-            const legal = isLegalPlacement(
-              tiles,
-              { type: selectedTileType, x: nx, y: ny, rotation },
-              oob
-            );
-            if (!legal) continue;
-
-            const rank = dist + (oob ? 1000 : 0);
-            if (best && rank >= best.dist) continue;
-
-            best = { x: nx, y: ny, dist: rank, snapped: true };
-          }
-        }
-      }
-    }
-
-    return best || { x, y, snapped: false };
-  };
+  // Where the selected tile goes with the pointer at (x, y) (spec 5).
+  const getSnappedPosition = (x, y) =>
+    snapPosition(tiles, { type: selectedTileType, x, y, rotation });
 
   const drawPreview = (ctx, rawX, rawY) => {
     const { x, y } = getSnappedPosition(rawX, rawY);
@@ -464,13 +152,13 @@ const PenrosePuzzle = () => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setRotation(prev => (prev - 36 + 360) % 360);
+        setRotation(prev => rotateBy(prev, -1));
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setRotation(prev => (prev + 36) % 360);
+        setRotation(prev => rotateBy(prev, 1));
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        setTiles(prev => prev.slice(0, -1));
+        setTiles(removeLastTile);
       }
     };
 
@@ -487,28 +175,20 @@ const PenrosePuzzle = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const WHEEL_NOTCH = 50;
-    const TRACKPAD_STEP = 50; // lower = faster trackpad rotation
     const SWIPE_END_MS = 150;
     const swipe = { total: 0, timer: null };
 
-    const rotateBy = (dy) => setRotation(prev => (prev + (dy < 0 ? 36 : -36) + 360) % 360);
-
     const handleWheel = (e) => {
       e.preventDefault();
-      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-      if (Math.abs(dy) >= WHEEL_NOTCH) {
-        rotateBy(dy);
-        return;
+      const dy = wheelDeltaPixels(e.deltaY, e.deltaMode);
+      const { steps, total } = wheelSteps(swipe.total, dy);
+      if (Math.abs(dy) < WHEEL_NOTCH) {
+        // Part of a trackpad swipe: forget the leftover after a pause
+        clearTimeout(swipe.timer);
+        swipe.timer = setTimeout(() => { swipe.total = 0; }, SWIPE_END_MS);
       }
-
-      clearTimeout(swipe.timer);
-      swipe.timer = setTimeout(() => { swipe.total = 0; }, SWIPE_END_MS);
-      swipe.total += dy;
-      while (Math.abs(swipe.total) >= TRACKPAD_STEP) {
-        rotateBy(swipe.total);
-        swipe.total -= Math.sign(swipe.total) * TRACKPAD_STEP;
-      }
+      swipe.total = total;
+      if (steps) setRotation(prev => rotateBy(prev, steps));
     };
 
     // Non-passive so preventDefault can stop the page from scrolling
@@ -606,7 +286,7 @@ const PenrosePuzzle = () => {
   // instead of opening the browser menu.
   const handleContextMenu = (e) => {
     e.preventDefault();
-    setRotation(prev => (prev + (e.shiftKey ? -36 : 36) + 360) % 360);
+    setRotation(prev => rotateBy(prev, e.shiftKey ? -1 : 1));
   };
 
   const handlePointerLeave = (e) => {
@@ -622,7 +302,7 @@ const PenrosePuzzle = () => {
     setHoveredPos(null);
   };
 
-  const tileButton = (type, label) => (
+  const tileButton = (type: TileType, label: string) => (
     <button
       onClick={() => setSelectedTileType(type)}
       className={`px-4 py-2 rounded-lg font-semibold ${
@@ -667,7 +347,7 @@ const PenrosePuzzle = () => {
           {isTouchDevice ? (
             <>
               <button
-                onClick={() => setRotation((rotation - 36 + 360) % 360)}
+                onClick={() => setRotation(rotateBy(rotation, -1))}
                 aria-label="Rotate counter-clockwise"
                 className="bg-slate-700 active:bg-slate-600 text-white px-5 py-3 rounded-lg flex items-center gap-2"
               >
@@ -675,7 +355,7 @@ const PenrosePuzzle = () => {
               </button>
 
               <button
-                onClick={() => setRotation((rotation + 36) % 360)}
+                onClick={() => setRotation(rotateBy(rotation, 1))}
                 aria-label="Rotate clockwise"
                 className="bg-slate-700 active:bg-slate-600 text-white px-5 py-3 rounded-lg flex items-center gap-2"
               >

@@ -30,9 +30,12 @@ Every push to `main` builds the game and publishes it to GitHub Pages at https:/
 | `npm run dev` | Start the dev server with hot reload |
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Serve the production build |
+| `npm test` | Run the unit tests for the rules |
 | `npm run typecheck` | Run the TypeScript checker |
 
 ## Layout
 
-- `penrose-puzzle.tsx`: the whole app, a single React component
+- `rules.ts`: the game rules as plain functions (geometry, matching rules, snapping, rotation), tested in `rules.test.ts`
+- `penrose-puzzle.tsx`: the React component that draws the board and handles input, calling `rules.ts`
+- `untested-requirements.md`: spec rules that have no unit test, and why
 - `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup
