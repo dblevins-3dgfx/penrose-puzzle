@@ -1,5 +1,7 @@
 # Penrose Puzzle
 
+**Play it at https://dblevins-3dgfx.github.io/penrose-puzzle/**
+
 A tile placement puzzle played with Penrose kite and dart tiles.
 
 For now it is a single-player sandbox: place kites and darts edge to edge under Penrose's matching rules. The puzzle itself is still to be designed. See [penrose-puzzle-spec.md](penrose-puzzle-spec.md) for the rules and design.
