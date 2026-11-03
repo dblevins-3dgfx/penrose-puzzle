@@ -6,7 +6,13 @@ import {
   EDGE_LENGTHS,
   KITE_VERTEX_COLORS,
   PHI,
+  AUTO_ROTATE_RADIUS,
   SNAP_RADIUS,
+  autoRotatePlacement,
+  distanceToSegment,
+  edgesOf,
+  findOpenEdges,
+  fitsOnEdge,
   TILE_SIZE,
   checkEdgeContact,
   checkVertexMatching,
@@ -245,6 +251,110 @@ test('a snap blocked only by the board edge is still shown', () => {
   near(s.x, target.x, `x ${s.x}`);
   near(s.y, target.y, `y ${s.y}`);
   assert.equal(isLegalPlacement([edgeKite], { ...target, x: s.x, y: s.y }), false, 'and is not placeable');
+});
+
+// ---------------------------------------------------------------------
+// Spec 5b: Auto-rotate
+// ---------------------------------------------------------------------
+
+// Does tile t have an edge lying exactly on edge e?
+const liesOn = (t: Tile, e: { a: Point; b: Point }) =>
+  edgesOf(t).some(f => (dist(f.a, e.a) < 1e-6 && dist(f.b, e.b) < 1e-6) || (dist(f.a, e.b) < 1e-6 && dist(f.b, e.a) < 1e-6));
+
+// A point just outside the middle of a kite edge, on the empty side
+const outsideMiddleOf = (tile: Tile, e: { a: Point; b: Point }, by = 10): Point => {
+  const c = { x: tile.x, y: tile.y };
+  const m = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 };
+  const len = dist(m, c);
+  return { x: m.x + (m.x - c.x) / len * by, y: m.y + (m.y - c.y) / len * by };
+};
+
+test('free edges are the edges no other tile shares', () => {
+  assert.equal(findOpenEdges([]).length, 0);
+  assert.equal(findOpenEdges([kite]).length, 4);
+  assert.equal(findOpenEdges([kite, kiteNeighbor]).length, 6, 'the shared edge is not free');
+});
+
+test('distance to an edge is measured to its nearest point', () => {
+  const a = { x: 0, y: 0 }, b = { x: 10, y: 0 };
+  near(distanceToSegment({ x: 5, y: 3 }, a, b), 3);
+  near(distanceToSegment({ x: -4, y: 3 }, a, b), 5, 'beyond an end, to that end');
+  near(distanceToSegment({ x: 13, y: 4 }, a, b), 5);
+});
+
+test('the fits on an edge are legal tiles lying on that edge', () => {
+  const [ob] = edgesOf(kite);
+  const fits = fitsOnEdge([kite], 'kite', ob);
+  assert.equal(fits.length, 1);
+  near(fits[0].x, kiteNeighbor.x);
+  near(fits[0].y, kiteNeighbor.y);
+  assert.equal(fits[0].rotation, kiteNeighbor.rotation);
+  for (const type of ['kite', 'dart'] as const) {
+    for (const e of edgesOf(kite)) {
+      for (const f of fitsOnEdge([kite], type, e)) {
+        assert.equal(isLegalPlacement([kite], f), true);
+        assert.ok(liesOn(f, e));
+      }
+    }
+  }
+});
+
+test('auto-rotate does nothing on an empty board or far from every free edge', () => {
+  assert.equal(autoRotatePlacement([], 'kite', { x: 400, y: 300 }), null);
+  assert.equal(autoRotatePlacement([kite], 'kite', { x: kite.x + AUTO_ROTATE_RADIUS + 60, y: kite.y }), null);
+});
+
+test('auto-rotate turns the tile to fit the nearest free edge', () => {
+  for (const type of ['kite', 'dart'] as const) {
+    for (const e of edgesOf(kite)) {
+      const p = outsideMiddleOf(kite, e);
+      const auto = autoRotatePlacement([kite], type, p);
+      assert.ok(auto, `${type} near edge ${e.label}`);
+      assert.ok(liesOn(auto.tile, e), `${type} goes on the edge nearest the pointer`);
+      assert.equal(isLegalPlacement([kite], auto.tile), true);
+    }
+  }
+});
+
+test('auto-rotate works whatever the current rotation', () => {
+  // The rotation the player had chosen plays no part: only the pointer does
+  const [ob] = edgesOf(kite);
+  const auto = autoRotatePlacement([kite], 'kite', outsideMiddleOf(kite, ob));
+  assert.equal(auto?.tile.rotation, kiteNeighbor.rotation);
+});
+
+test('auto-rotate skips a nearer free edge the tile cannot fit', () => {
+  // A kite against the left side of the board: its O-B edge only takes
+  // tiles that would stick off the board, so the next nearest edge is used
+  const edgeKite = tileWithVertexAt('kite', 0, 0, { x: 1, y: 300 });
+  const [ob, bc] = edgesOf(edgeKite);
+  assert.equal(fitsOnEdge([edgeKite], 'kite', ob).length, 0);
+  const auto = autoRotatePlacement([edgeKite], 'kite', outsideMiddleOf(edgeKite, ob, 5));
+  assert.ok(auto);
+  assert.ok(!liesOn(auto.tile, ob));
+  assert.ok(liesOn(auto.tile, bc), 'the B-C edge is next nearest');
+});
+
+test('rotating in auto-rotate steps through the nearby fits, nearest edge first, and wraps', () => {
+  const [ob] = edgesOf(kite);
+  const p = outsideMiddleOf(kite, ob);
+  const first = autoRotatePlacement([kite], 'kite', p, 0);
+  assert.ok(first);
+  assert.ok(first.fits.length > 1, 'more than one free edge is near the pointer');
+  assert.ok(liesOn(first.fits[0], ob));
+  const n = first.fits.length;
+  assert.deepEqual(autoRotatePlacement([kite], 'kite', p, 1)?.tile, first.fits[1]);
+  assert.deepEqual(autoRotatePlacement([kite], 'kite', p, n)?.tile, first.fits[0]);
+  assert.deepEqual(autoRotatePlacement([kite], 'kite', p, -1)?.tile, first.fits[n - 1]);
+  const dists = first.fits.map(t => Math.min(...edgesOf(t).map(e => distanceToSegment(p, e.a, e.b))));
+  dists.forEach((d, i) => i && assert.ok(dists[i - 1] <= d + 1e-9, 'ordered by distance to the edge'));
+});
+
+test('every fit auto-rotate offers is a different placement', () => {
+  const auto = autoRotatePlacement([kite, kiteNeighbor], 'dart', O, 0);
+  assert.ok(auto);
+  const keys = auto.fits.map(t => `${t.rotation}|${t.x.toFixed(3)}|${t.y.toFixed(3)}`);
+  assert.equal(new Set(keys).size, keys.length);
 });
 
 // ---------------------------------------------------------------------

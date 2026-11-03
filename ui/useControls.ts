@@ -1,20 +1,21 @@
 // Keyboard and mouse wheel controls (spec 8). The step arithmetic is in
 // rules.ts; these hooks only listen for the events.
-import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
-import { WHEEL_NOTCH, rotateBy, wheelDeltaPixels, wheelSteps } from '../rules';
+import { useEffect, type RefObject } from 'react';
+import { WHEEL_NOTCH, wheelDeltaPixels, wheelSteps } from '../rules';
 
-type SetRotation = Dispatch<SetStateAction<number>>;
+// Turns the tile by a number of 36° steps (positive = clockwise).
+type Rotate = (steps: number) => void;
 
 // Left / Right arrows rotate; Ctrl/Cmd+Z undoes the last tile.
-export const useKeyboardControls = (setRotation: SetRotation, undo: () => void) => {
+export const useKeyboardControls = (rotate: Rotate, undo: () => void) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        setRotation(prev => rotateBy(prev, -1));
+        rotate(-1);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        setRotation(prev => rotateBy(prev, 1));
+        rotate(1);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();
@@ -23,7 +24,7 @@ export const useKeyboardControls = (setRotation: SetRotation, undo: () => void) 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setRotation, undo]);
+  }, [rotate, undo]);
 };
 
 // Mouse wheel over the board rotates the tile: up = clockwise. A mouse
@@ -32,7 +33,7 @@ export const useKeyboardControls = (setRotation: SetRotation, undo: () => void) 
 // is dropped after a short pause in the swipe.
 const SWIPE_END_MS = 150;
 
-export const useWheelRotation = (canvasRef: RefObject<HTMLCanvasElement | null>, setRotation: SetRotation) => {
+export const useWheelRotation = (canvasRef: RefObject<HTMLCanvasElement | null>, rotate: Rotate) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -48,7 +49,7 @@ export const useWheelRotation = (canvasRef: RefObject<HTMLCanvasElement | null>,
         swipe.timer = setTimeout(() => { swipe.total = 0; }, SWIPE_END_MS);
       }
       swipe.total = total;
-      if (steps) setRotation(prev => rotateBy(prev, steps));
+      if (steps) rotate(steps);
     };
 
     // Non-passive so preventDefault can stop the page from scrolling
@@ -57,5 +58,5 @@ export const useWheelRotation = (canvasRef: RefObject<HTMLCanvasElement | null>,
       canvas.removeEventListener('wheel', handleWheel);
       clearTimeout(swipe.timer);
     };
-  }, [canvasRef, setRotation]);
+  }, [canvasRef, rotate]);
 };

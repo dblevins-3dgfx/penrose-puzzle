@@ -1,7 +1,7 @@
 // The controls above the board: tile type, rotation, Place (touch only),
 // Undo and Clear (spec 6 and 8).
 import type { ReactNode } from 'react';
-import { RotateCw, Trash2, Undo2 } from 'lucide-react';
+import { Magnet, RotateCw, Trash2, Undo2 } from 'lucide-react';
 import type { TileType } from '../rules';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   onSelectTileType: (type: TileType) => void;
   rotation: number;
   onRotate: (steps: number) => void;
+  autoRotate: boolean;
+  onToggleAutoRotate: () => void;
   canPlace: boolean;
   onPlace: () => void;
   boardEmpty: boolean;
@@ -91,10 +93,22 @@ export const Toolbar = (props: Props) => {
       ) : (
         <div className="text-slate-300 text-sm flex items-center gap-2">
           <RotateCw size={18} />
-          <span>Rotate: scroll wheel, right-click, or ←/→</span>
+          <span>{props.autoRotate ? 'Next fit' : 'Rotate'}: scroll wheel, right-click, or ←/→</span>
           <span className="text-white font-semibold w-10">{rotation}°</span>
         </div>
       )}
+
+      <button
+        onClick={props.onToggleAutoRotate}
+        aria-pressed={props.autoRotate}
+        title="Turn the tile to fit the nearest free edge"
+        className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 ${
+          props.autoRotate ? 'bg-emerald-500 text-slate-900' : 'bg-slate-700 text-slate-300'
+        }`}
+      >
+        <Magnet size={18} />
+        Auto-rotate
+      </button>
 
       <ActionButton onClick={props.onUndo} disabled={boardEmpty}>
         <Undo2 size={18} />
