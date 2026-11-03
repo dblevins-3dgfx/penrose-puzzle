@@ -1,6 +1,6 @@
 # Penrose Puzzle: Specification
 
-Status: reflects the app as currently implemented. The rules (sections 3 to 6, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the React component `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
+Status: reflects the app as currently implemented. The rules (sections 3 to 6, including auto-rotate in 5b, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the React component `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
 
 ## 1. Overview
 
@@ -80,10 +80,22 @@ While placing, the tile snaps so one of its edges lies exactly on an existing ed
 - Choose the remaining candidate with the smallest translation.
 - If none remain, the tile follows the cursor unsnapped and is (almost always) illegal.
 
+## 5b. Auto-rotate
+
+An optional mode, switched on and off with the **Auto-rotate** button (off when the page loads; not saved). While it is on, the player chooses only the tile type and where to point; the app chooses the rotation.
+
+- A **free edge** is an edge of a placed tile that no other tile shares.
+- A **fit** is a legal placement (section 4, including staying inside the board) of the selected tile type, at any of the 10 rotations, with one of its edges lying exactly on a free edge.
+- The fits considered are those on free edges within 60 canvas units (`AUTO_ROTATE_RADIUS`, one long edge) of the pointer, measured to the nearest point of the edge. They are ordered by that distance, nearest edge first, then by how close the tile's center would be to the pointer. The same placement fitting two free edges is listed once.
+- The preview shows the first fit, so the tile turns to fit the nearest free edge it can go on. A nearer free edge the tile can't fit is skipped.
+- The rotation controls (section 8) step forward or back through the fits instead of turning the tile, wrapping around at either end.
+- Placing a tile keeps its rotation as the current rotation (used if the mode is switched off) and goes back to the first fit for the next tile.
+- With no fit near the pointer, or on an empty board, the tile behaves as with the mode off: current rotation, normal snapping (section 5).
+
 ## 6. Play
 
 1. The board starts empty. The first tile can be a kite or dart, at any rotation, anywhere inside the board.
-2. The player chooses **Kite** or **Dart**, rotates it, positions it, and places it. Each later tile must follow the rules in section 4. The rotation is kept after placing, so several tiles at the same angle can be placed in a row.
+2. The player chooses **Kite** or **Dart**, rotates it (or lets auto-rotate turn it, section 5b), positions it, and places it. Each later tile must follow the rules in section 4. The rotation is kept after placing, so several tiles at the same angle can be placed in a row.
 3. Illegal placements are ignored silently (the preview shows why, see section 7).
 4. **Undo** removes the most recently placed tile (repeatable back to an empty board). **Clear** removes every tile and resets the rotation to 0. Both are disabled while the board is empty.
 5. The header shows how many kites and darts are on the board.
@@ -97,7 +109,7 @@ Nothing is saved: reloading the page starts with an empty board.
 | Tile fill | Kites amber, darts indigo, semi-transparent, each with a darker outline of its own color. The selected Kite / Dart button uses the same color |
 | Edge ticks | Small tick marks at each edge midpoint (decorative only; not part of the rules) |
 | Vertex colors | Each vertex is drawn as a 5 px dot: black dot with white ring, or white dot with black ring, showing the matching color. Shown on placed tiles and the preview |
-| Preview tile | Drawn at 55% opacity at the snapped position |
+| Preview tile | Drawn at 55% opacity at the snapped position, or at the auto-rotate fit (section 5b) |
 | Preview outline | Solid green if placement is legal, dashed red if blocked |
 | Connected edges | Edges shared by two placed tiles, with colors agreeing at both endpoints, are stroked green (4 px, round caps) |
 | Grid | Light 40 px background grid |
@@ -113,8 +125,9 @@ Nothing is saved: reloading the page starts with an empty board.
 | Scroll wheel over the board | Rotate 36 deg: up = clockwise, down = counter-clockwise. One step per wheel notch, or one per 50 px of trackpad scrolling (`TRACKPAD_STEP`), so longer swipes turn further; a partial step left over is dropped after a 150 ms pause. The page does not scroll while the pointer is over the board |
 | Right click | Rotate 36 deg clockwise (Shift + right click: counter-clockwise); the browser menu is suppressed on the board |
 | Left / Right arrow | Rotate 36 deg counter-clockwise / clockwise |
-| Rotation hint | Replaces the rotate buttons: lists the rotation controls and shows the current angle |
+| Rotation hint | Replaces the rotate buttons: lists the rotation controls and shows the previewed tile's angle. Reads "Next fit" instead of "Rotate" while auto-rotate is on |
 | Kite / Dart buttons | Choose tile type |
+| Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on. While on, the scroll wheel, right click and arrow keys step through the fits instead of turning the tile |
 | Ctrl+Z / Cmd+Z | Undo the last tile |
 | Undo / Clear buttons | See section 6 |
 
@@ -126,7 +139,8 @@ Nothing is saved: reloading the page starts with an empty board.
 | Lift finger | Preview stays in place (adjustable) |
 | **Place** button | Confirm placement; disabled while the preview is illegal |
 | Undo / Clear buttons | See section 6 |
-| Rotate buttons | Large tap targets, clockwise button also shows current angle. Shown only on touch devices (`navigator.maxTouchPoints > 0`); desktop gets the rotation hint instead |
+| Auto-rotate button | As on desktop; while on, the rotate buttons step through the fits |
+| Rotate buttons | Large tap targets, clockwise button also shows the previewed tile's angle. Shown only on touch devices (`navigator.maxTouchPoints > 0`); desktop gets the rotation hint instead |
 
 Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` on the canvas, and pointer coordinates scaled from CSS pixels to the 800 x 600 canvas space. The page fills exactly the visible window (`h-dvh`, which follows mobile browser toolbars) and never scrolls: header and controls take their natural height, and the board gets the rest, sized with CSS container units to the largest 4:3 rectangle that fits. The rules are on a separate **How to Play** screen (button in the header), a full-screen overlay closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
 

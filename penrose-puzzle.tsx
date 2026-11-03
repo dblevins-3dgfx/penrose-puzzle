@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import { CircleHelp } from 'lucide-react';
 import {
+  autoRotatePlacement,
   BOARD_H,
   BOARD_W,
   countTiles,
@@ -40,18 +41,25 @@ const PenrosePuzzle = () => {
   const [rotation, setRotation] = useState(0);
   const [hoveredPos, setHoveredPos] = useState<Point | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  // Auto-rotate (spec 5b): on/off, and which of the fits near the pointer
+  // to show (the rotate controls step through them)
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoChoice, setAutoChoice] = useState(0);
 
   const counts = useMemo(() => countTiles(tiles), [tiles]);
 
-  // The tile under the pointer, snapped into place (spec 5), and whether it
-  // can be placed there (spec 4).
+  // The tile under the pointer: turned to fit the nearest free edge in
+  // auto-rotate mode (spec 5b), otherwise snapped into place at the chosen
+  // rotation (spec 5). Whether it can be placed there is spec 4.
   const snapped = useCallback(
     (p: Point): Tile => {
+      const auto = autoRotate ? autoRotatePlacement(tiles, selectedTileType, p, autoChoice) : null;
+      if (auto) return auto.tile;
       const candidate = { type: selectedTileType, x: p.x, y: p.y, rotation };
       const { x, y } = snapPosition(tiles, candidate);
       return { ...candidate, x, y };
     },
-    [tiles, selectedTileType, rotation]
+    [tiles, selectedTileType, rotation, autoRotate, autoChoice]
   );
   const preview = useMemo(() => {
     if (!hoveredPos) return null;
@@ -60,8 +68,18 @@ const PenrosePuzzle = () => {
   }, [hoveredPos, snapped, tiles]);
 
   const place = (tile: Tile) => {
-    if (isLegalPlacement(tiles, tile)) setTiles([...tiles, tile]);
+    if (!isLegalPlacement(tiles, tile)) return;
+    setTiles([...tiles, tile]);
+    // Keep the angle auto-rotate chose, and start the next tile at the
+    // nearest fit again
+    setRotation(tile.rotation);
+    setAutoChoice(0);
   };
+  // Rotating turns the tile, or in auto-rotate mode steps through the fits
+  const rotate = useCallback(
+    (steps: number) => (autoRotate ? setAutoChoice(c => c + steps) : setRotation(r => rotateBy(r, steps))),
+    [autoRotate]
+  );
   const undo = useCallback(() => setTiles(removeLastTile), []);
   const clearBoard = () => {
     setTiles([]);
@@ -70,8 +88,8 @@ const PenrosePuzzle = () => {
   };
   const closeHelp = useCallback(() => setShowHelp(false), []);
 
-  useKeyboardControls(setRotation, undo);
-  useWheelRotation(canvasRef, setRotation);
+  useKeyboardControls(rotate, undo);
+  useWheelRotation(canvasRef, rotate);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -125,8 +143,13 @@ const PenrosePuzzle = () => {
           isTouchDevice={isTouchDevice}
           selectedTileType={selectedTileType}
           onSelectTileType={setSelectedTileType}
-          rotation={rotation}
-          onRotate={steps => setRotation(prev => rotateBy(prev, steps))}
+          rotation={preview ? preview.tile.rotation : rotation}
+          onRotate={rotate}
+          autoRotate={autoRotate}
+          onToggleAutoRotate={() => {
+            setAutoRotate(a => !a);
+            setAutoChoice(0);
+          }}
           canPlace={!!preview?.valid}
           onPlace={placeAtPreview}
           boardEmpty={tiles.length === 0}
@@ -149,7 +172,7 @@ const PenrosePuzzle = () => {
             // counter-clockwise) instead of opening the browser menu.
             onContextMenu={e => {
               e.preventDefault();
-              setRotation(prev => rotateBy(prev, e.shiftKey ? -1 : 1));
+              rotate(e.shiftKey ? -1 : 1);
             }}
             style={{ touchAction: 'none', width: 'min(100cqw, 100cqh * 4 / 3)' }}
             className="h-auto bg-white rounded shadow-2xl cursor-crosshair"

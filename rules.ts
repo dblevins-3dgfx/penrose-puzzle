@@ -92,7 +92,7 @@ export const toTriangles = (v: readonly Point[]): Point[][] => [[v[0], v[1], v[2
 
 // A tile's four edges in perimeter order, each with its end colors and
 // length label.
-interface Edge {
+export interface Edge {
   a: Point;
   b: Point;
   colorA: VertexColor;
@@ -309,6 +309,72 @@ export const snapPosition = (allTiles: readonly Tile[], candidate: Tile): { x: n
   }
 
   return best ? { x: best.x, y: best.y, snapped: true } : { x, y, snapped: false };
+};
+
+// ---------------------------------------------------------------------
+// Section 5b: Auto-rotate
+// ---------------------------------------------------------------------
+
+// How close (in canvas units) the pointer must be to a free edge for
+// auto-rotate to use it.
+export const AUTO_ROTATE_RADIUS = 60;
+
+// Edges of placed tiles that no other tile shares: where a new tile can go.
+export const findOpenEdges = (allTiles: readonly Tile[]): Edge[] => {
+  const edges = allTiles.map(edgesOf);
+  return edges.flatMap((own, i) =>
+    own.filter(e => !edges.some((other, j) => j !== i && other.some(f => sameEdge(e, f))))
+  );
+};
+
+// Shortest distance from p to the segment a-b.
+export const distanceToSegment = (p: Point, a: Point, b: Point): number => {
+  const abx = b.x - a.x, aby = b.y - a.y;
+  const len2 = abx * abx + aby * aby;
+  const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2)) : 0;
+  return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby));
+};
+
+// Every legal placement of a `type` tile with one of its edges laid exactly
+// on `edge` (at any of the 10 rotations, either way round).
+export const fitsOnEdge = (allTiles: readonly Tile[], type: TileType, edge: Pick<Edge, 'a' | 'b' | 'label'>): Tile[] => {
+  const fits: Tile[] = [];
+  for (let rotation = 0; rotation < 360; rotation += ROTATION_STEP) {
+    for (const ce of edgesOf({ type, x: 0, y: 0, rotation })) {
+      if (ce.label !== edge.label) continue;
+      for (const [t1, t2] of [[edge.a, edge.b], [edge.b, edge.a]]) {
+        const tx = t1.x - ce.a.x, ty = t1.y - ce.a.y;
+        if (!samePoint({ x: ce.b.x + tx, y: ce.b.y + ty }, t2)) continue;
+        const tile = { type, x: tx, y: ty, rotation };
+        const duplicate = fits.some(f => f.rotation === rotation && samePoint(f, tile));
+        if (!duplicate && isLegalPlacement(allTiles, tile)) fits.push(tile);
+      }
+    }
+  }
+  return fits;
+};
+
+// Where auto-rotate puts a `type` tile with the pointer at p. `fits` are
+// all the ways the tile fits a free edge within AUTO_ROTATE_RADIUS of p,
+// ordered by how near p the edge is, then how near p the tile would be;
+// `tile` is fits[choice], wrapping around, so choice 0 is the nearest free
+// edge the tile fits and rotating steps through the others. Null when no
+// free edge near p takes the tile; the board is then played as without
+// auto-rotate.
+export const autoRotatePlacement = (allTiles: readonly Tile[], type: TileType, p: Point, choice = 0): { tile: Tile; fits: Tile[] } | null => {
+  const tileDist = (t: Tile) => Math.hypot(t.x - p.x, t.y - p.y);
+  const fits = findOpenEdges(allTiles)
+    .map(edge => ({ edge, dist: distanceToSegment(p, edge.a, edge.b) }))
+    .filter(e => e.dist <= AUTO_ROTATE_RADIUS)
+    .flatMap(({ edge, dist }) => fitsOnEdge(allTiles, type, edge).map(tile => ({ tile, dist })))
+    .sort((s, t) => s.dist - t.dist || tileDist(s.tile) - tileDist(t.tile) || s.tile.rotation - t.tile.rotation)
+    .map(f => f.tile)
+    // The same placement can fit two neighboring free edges at once
+    .filter((t, i, all) => all.findIndex(u => u.rotation === t.rotation && samePoint(u, t)) === i);
+
+  if (fits.length === 0) return null;
+  const n = fits.length;
+  return { tile: fits[((choice % n) + n) % n], fits };
 };
 
 // ---------------------------------------------------------------------

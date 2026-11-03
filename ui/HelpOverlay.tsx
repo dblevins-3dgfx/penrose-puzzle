@@ -40,6 +40,10 @@ export const HelpOverlay = ({ isTouchDevice, onClose }: Props) => {
               : 'Click to place. Rotate with the scroll wheel over the board, right-click (Shift + right-click for the other way), or Left/Right arrow keys (36° steps)'}
           </li>
           <li>Green preview outline = the tile fits; red dashed = it doesn't</li>
+          <li>
+            Auto-rotate turns the tile to fit the free edge nearest the pointer; rotating then steps through the
+            other ways it fits nearby
+          </li>
           <li>{isTouchDevice ? 'Undo' : 'Undo (or Ctrl/Cmd+Z)'} removes the last tile; Clear empties the board</li>
         </ul>
       </div>
