@@ -15,6 +15,10 @@ npm run dev
 
 Then open http://localhost:5173. The dev server also listens on your local network, so you can play from a phone or tablet at the network address Vite prints.
 
+## Deployment
+
+Every push to `main` builds the game and publishes it to GitHub Pages at https://dblevins-3dgfx.github.io/penrose-puzzle/ (see `.github/workflows/deploy.yml`). The workflow pushes the build to the `gh-pages` branch. To serve it, set the repository's Settings → Pages → Source to "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
+
 ## Scripts
 
 | Command | Does |
