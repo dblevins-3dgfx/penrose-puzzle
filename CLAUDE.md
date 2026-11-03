@@ -6,3 +6,7 @@
 
 A pull request that adds or changes a rule in `penrose-puzzle-spec.md` adds or updates the unit tests for it (`*.test.ts` beside the module, such as `rules.test.ts`; run them with `npm test`) in the same pull request. Put the rule's logic in a plain function in a module without React (like `rules.ts` or `geometry.ts`) so it can be tested; the React code (`penrose-puzzle.tsx` and the hooks, components and drawing in `ui/`) should only call it. A rule that can't be unit-tested (timers, page events, storage, drawing, layout) gets a row in `untested-requirements.md` saying where it lives and why. Remove a row from that file when its rule gains a test.
 
+
+# Work on a branch, merge by pull request
+
+Never commit or push to `main` directly: every push to `main` deploys the live site. Make each change on a branch, push the branch, and open a pull request for it; the owner merges. The Test workflow checks every pull request (typecheck, lint, tests, build), so run the same checks locally (`npm run typecheck`, `npm run lint`, `npm test`, `npm run build`) before pushing. Once a pull request is merged, start the next change from the latest `main`.
