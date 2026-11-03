@@ -2,7 +2,9 @@
 
 A tile placement puzzle played with Penrose kite and dart tiles.
 
-This project was seeded from the `original-game` branch of [Penrogo](https://github.com/dblevins-3dgfx/penrogo), a two-player territory game. Its code is still here as a starting point (`penrose-territory.tsx`, described in `penrose-territory-spec.md`) and will be replaced as Penrose Puzzle takes shape.
+For now it is a single-player sandbox: place kites and darts edge to edge under Penrose's matching rules. The puzzle itself is still to be designed. See [penrose-puzzle-spec.md](penrose-puzzle-spec.md) for the rules and design.
+
+The project was seeded from the `original-game` branch of [Penrogo](https://github.com/dblevins-3dgfx/penrogo), a two-player territory game, with the two-player and Go-like parts removed.
 
 ## Running
 
@@ -30,5 +32,5 @@ Every push to `main` builds the game and publishes it to GitHub Pages at https:/
 
 ## Layout
 
-- `penrose-territory.tsx`: the inherited Penrogo game, a single React component
+- `penrose-puzzle.tsx`: the whole app, a single React component
 - `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup

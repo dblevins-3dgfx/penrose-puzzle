@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "penrose-territory.tsx", "vite.config.ts"]
+  "include": ["src", "penrose-puzzle.tsx", "vite.config.ts"]
 }

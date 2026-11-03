@@ -1,10 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import PenroseTerritoryGame from '../penrose-territory';
+import PenrosePuzzle from '../penrose-puzzle';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PenroseTerritoryGame />
+    <PenrosePuzzle />
   </StrictMode>
 );
