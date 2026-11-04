@@ -6,14 +6,14 @@ import { CircleHelp } from 'lucide-react';
 import { BOARD_H, BOARD_W, type Point } from '../rules';
 import {
   bringToFront,
-  dropPiece,
   isSolved,
-  movePiece,
+  moveGroup,
   newPuzzle,
   pieceAt,
   progress,
-  rotatePiece,
+  rotateGroup,
   seedFromQuery,
+  settleGroup,
   type Piece,
   type PuzzleSize
 } from '../jigsaw';
@@ -34,10 +34,6 @@ const canvasCoords = (canvas: HTMLCanvasElement, e: MouseEvent): Point => {
     y: (e.clientY - rect.top) * (canvas.height / rect.height)
   };
 };
-
-// Changes the piece with this id, leaving the others alone.
-const updatePiece = (pieces: Piece[], id: number, change: (p: Piece) => Piece) =>
-  pieces.map(p => (p.id === id ? change(p) : p));
 
 export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,7 +71,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
 
   const rotate = useCallback(
     (steps: number) => {
-      if (selectedId !== null) setPieces(ps => updatePiece(ps, selectedId, p => rotatePiece(p, steps)));
+      if (selectedId !== null) setPieces(ps => rotateGroup(ps, selectedId, steps));
     },
     [selectedId]
   );
@@ -89,9 +85,10 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     if (ctx) drawJigsaw(ctx, view);
   }, [view]);
 
-  // Pressing on a loose piece picks it up, selects it, and brings it to
-  // the top; dragging moves it; letting go drops it, locking it in if it is
-  // home. Right-click turns the piece under the pointer.
+  // Pressing on a loose piece picks up its group, selects it, and brings it
+  // to the top; dragging moves the group; letting go drops it, locking it
+  // in if it is home or snapping it to a matching neighbor. Right-click
+  // turns the group under the pointer.
   const handlePointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
     const p = canvasCoords(e.currentTarget, e);
@@ -107,13 +104,16 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     const d = drag.current;
     if (!d) return;
     const p = canvasCoords(e.currentTarget, e);
-    setPieces(ps => updatePiece(ps, d.id, piece => movePiece(piece, p.x - d.dx, p.y - d.dy)));
+    setPieces(ps => {
+      const piece = ps.find(q => q.id === d.id);
+      return piece ? moveGroup(ps, d.id, p.x - d.dx - piece.x, p.y - d.dy - piece.y) : ps;
+    });
   };
   const handlePointerUp = () => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
-    setPieces(ps => updatePiece(ps, d.id, dropPiece));
+    setPieces(ps => settleGroup(ps, d.id));
   };
   const handleContextMenu = (e: MouseEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -121,7 +121,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     if (i < 0) return;
     const id = pieces[i].id;
     setSelectedId(id);
-    setPieces(ps => updatePiece(bringToFront(ps, i), id, p => rotatePiece(p, e.shiftKey ? -1 : 1)));
+    setPieces(ps => rotateGroup(bringToFront(ps, i), id, e.shiftKey ? -1 : 1));
   };
 
   return (
@@ -178,6 +178,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
           <ul className="list-disc list-inside space-y-2">
             <li>The gray outline on the left shows where the pieces go</li>
             <li>Drag a piece to move it; it locks in when you drop it in its own place at the right angle</li>
+            <li>Drop a piece next to one it borders in the picture, at the same angle, and they snap together and move as one</li>
             <li>
               {isTouchDevice
                 ? 'Tap a piece to select it, then turn it with the rotate buttons (36° steps)'

@@ -95,5 +95,7 @@ export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, sho
   }
   // Locked pieces first, so loose ones are always drawn over them
   pieces.filter(p => p.locked).forEach(p => drawPiece(ctx, p, picture, rect, false));
-  pieces.filter(p => !p.locked).forEach(p => drawPiece(ctx, p, picture, rect, p.id === selectedId));
+  // The selected piece's whole group is outlined in blue
+  const selectedGroup = pieces.find(p => p.id === selectedId)?.group;
+  pieces.filter(p => !p.locked).forEach(p => drawPiece(ctx, p, picture, rect, p.group === selectedGroup));
 };

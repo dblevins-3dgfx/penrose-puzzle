@@ -164,10 +164,12 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### Play
 
-- **Picking up.** Pressing on a loose piece selects it and brings it to the top of the stack; the topmost loose piece under the pointer is taken. Locked pieces can't be picked up.
-- **Dragging** moves the piece; its center can't leave the board.
-- **Turning.** The selected piece turns in 36° steps about its center: scroll wheel (as in section 8) or Left / Right arrows; right-click turns the piece under the pointer (Shift + right-click the other way) and selects it. On touch devices, two rotate buttons turn the selected piece; they are disabled when no loose piece is selected.
-- **Locking in.** When a piece is dropped, or turned, at its home angle with its center within 20 units of its home, it snaps exactly into place and locks. A piece only locks into its own home, even where another piece of the same shape and angle would fit.
+- **Groups.** Every piece starts in a group of its own. Pieces that have snapped together (below) form one group, which moves, turns, snaps and locks as a whole.
+- **Picking up.** Pressing on a loose piece selects it and brings its whole group to the top of the stack (keeping the group's own stacking order); the topmost loose piece under the pointer is taken. Locked pieces can't be picked up.
+- **Dragging** moves the group. The move stops short where needed so that no piece's center leaves the board.
+- **Turning.** The selected piece's group turns in 36° steps about the selected piece's center: scroll wheel (as in section 8) or Left / Right arrows; right-click turns the group of the piece under the pointer (Shift + right-click the other way) and selects that piece. On touch devices, two rotate buttons turn the selected group; they are disabled when no loose piece is selected.
+- **Locking in.** When a group is dropped, or turned, at its home angle with a piece's center within 20 units of its home, every piece in the group snaps exactly into place and locks. A piece only locks into its own home, even where another piece of the same shape and angle would fit.
+- **Snapping together.** Otherwise, when a group is dropped or turned, each of its pieces is compared with every piece outside the group that borders it in the solved puzzle (shares a full edge) and is turned the same amount from its home angle. If the piece is within 20 units of where it would sit against that neighbor (the neighbor's position plus the difference of their homes, turned by the neighbor's turn), the group moves by that difference, so the two touch exactly as in the solved puzzle, and the two groups become one. The closest such match is used, and this repeats until no more pieces snap, since one snap can bring another neighbor into reach. Snapping against a locked piece is the same as locking in: a locked piece is at home, so a group within reach of it is within reach of its own home.
 - **Progress.** The header shows "*placed* / *total* placed", and "Solved! All *n* pieces in place" in green once every piece is locked.
 - **New puzzle** starts a new puzzle of the chosen size with a new seed; changing the size does too.
 - **Show picture** (off by default) shows the whole picture faintly (30% opacity) inside the outline, like the picture on a puzzle box.
@@ -178,14 +180,14 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 | Element | Behavior |
 |---|---|
 | Outline | The solved puzzle's tiles, filled light gray with slightly darker edges: where the pieces go |
-| Loose pieces | Their part of the picture, with a dark outline and a soft shadow; the selected piece has a thick blue outline instead |
+| Loose pieces | Their part of the picture, with a dark outline and a soft shadow; every piece in the selected piece's group has a thick blue outline instead |
 | Locked pieces | Their part of the picture with a faint outline, drawn under all loose pieces |
 | Board | White, 800 x 600, scaled to fit the window as in section 8 |
 
 ## 9. Known Limitations and Not Yet Implemented
 
 - **No goal in the sandbox.** The sandbox has no score, win condition or end; the jigsaw (section 11) is the only goal so far.
-- **Jigsaw.** No timer, move count or saved progress; reloading starts a new puzzle (or the `?seed=` one). Pieces only lock into their own home, not into a matching neighbor, and locked groups can't be moved together.
+- **Jigsaw.** No timer, move count or saved progress; reloading starts a new puzzle (or the `?seed=` one). Pieces only lock into their own home, not into a spot where an identical piece would fit, and a piece only snaps to its own neighbors from the solved puzzle.
 - **Rule completeness.** The rules combine vertex coloring with an edge-direction/length check. They have not been proven to prevent every dead-end configuration, and vertex-only contacts are not snapped (only edge-to-edge snapping exists).
 - **Performance.** Connected-edge detection and placement checks are O(n^2) over placed tiles per render; fine for dozens of tiles, not for hundreds.
 - **No save/load.** The board is lost on reload.

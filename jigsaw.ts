@@ -213,6 +213,9 @@ export interface Piece {
   y: number;
   rotation: number;
   locked: boolean;
+  // Pieces snapped together share a group and move as one. A piece on its
+  // own is a group of one, numbered with its id.
+  group: number;
 }
 
 // The piece as a tile where it is now.
@@ -257,7 +260,8 @@ export const scatterPieces = (homes: readonly Tile[], random: () => number): Pie
       x: spot.x + nudge,
       y: spot.y + nudge,
       rotation: Math.floor(random() * 10) * ROTATION_STEP,
-      locked: false
+      locked: false,
+      group: id
     };
   });
   // Shuffle the stacking order too
@@ -307,36 +311,117 @@ export const pieceAt = (pieces: readonly Piece[], p: Point): number => {
   return -1;
 };
 
-// Moves piece i to the end of the list, so it is drawn on top.
-export const bringToFront = (pieces: readonly Piece[], i: number): Piece[] =>
-  [...pieces.slice(0, i), ...pieces.slice(i + 1), pieces[i]];
-
-// A loose piece dragged to (x, y): its centroid stays on the board, so it
-// can't be lost off the edge.
-export const movePiece = (piece: Piece, x: number, y: number): Piece =>
-  piece.locked ? piece : {
-    ...piece,
-    x: Math.min(BOARD_W, Math.max(0, x)),
-    y: Math.min(BOARD_H, Math.max(0, y))
-  };
-
-// A loose piece turned `steps` 36° steps about its centroid (positive =
-// clockwise). Turning a piece that sits near its home to its home angle
-// locks it in, as dropping it there would.
-export const rotatePiece = (piece: Piece, steps: number): Piece =>
-  piece.locked ? piece : dropPiece({ ...piece, rotation: rotateBy(piece.rotation, steps) });
-
-// How close to its home (in canvas units, centroid to centroid) a piece at
-// its home angle must be dropped to lock in.
+// How close (in canvas units, centroid to centroid) a piece at the right
+// angle must be dropped to lock into its home, or to join a neighbor.
 export const LOCK_RADIUS = 20;
+
+// How far a piece is turned from its home angle, in degrees [0, 360).
+export const turnOf = (p: Piece): number => ((p.rotation - p.home.rotation) % 360 + 360) % 360;
+
+// q turned by `degrees` (clockwise on screen) about `pivot`.
+const turnAbout = (q: Point, pivot: Point, degrees: number): Point => {
+  const a = (degrees * Math.PI) / 180;
+  const dx = q.x - pivot.x, dy = q.y - pivot.y;
+  return { x: pivot.x + dx * Math.cos(a) - dy * Math.sin(a), y: pivot.y + dx * Math.sin(a) + dy * Math.cos(a) };
+};
 
 // A dropped piece: locked into its exact home if it is at its home angle
 // and within LOCK_RADIUS of it, otherwise unchanged.
 export const dropPiece = (piece: Piece): Piece => {
-  const sameAngle = ((piece.rotation - piece.home.rotation) % 360 + 360) % 360 === 0;
   const near = Math.hypot(piece.x - piece.home.x, piece.y - piece.home.y) <= LOCK_RADIUS;
-  if (!sameAngle || !near) return piece;
+  if (turnOf(piece) !== 0 || !near) return piece;
   return { ...piece, x: piece.home.x, y: piece.home.y, rotation: piece.home.rotation, locked: true };
+};
+
+// Where piece m goes to sit against piece n as it does in the solved
+// puzzle: m's home seen from n's home, turned as n is turned.
+export const placeBeside = (n: Piece, m: Piece): Point =>
+  turnAbout({ x: n.x + m.home.x - n.home.x, y: n.y + m.home.y - n.home.y }, n, turnOf(n));
+
+// Do the two pieces border each other in the solved puzzle?
+export const neighbors = (m: Piece, n: Piece): boolean => shareEdge(m.home, n.home);
+
+// Moves the group of piece i to the end of the list (keeping its pieces'
+// order), so it is drawn on top.
+export const bringToFront = (pieces: readonly Piece[], i: number): Piece[] => {
+  const group = pieces[i].group;
+  return [...pieces.filter(p => p.group !== group), ...pieces.filter(p => p.group === group)];
+};
+
+const groupOf = (pieces: readonly Piece[], id: number) => {
+  const piece = pieces.find(p => p.id === id);
+  return piece ? piece.group : -1;
+};
+
+// The group of piece `id` dragged by (dx, dy). The move is cut short so
+// every piece's center stays on the board. Locked pieces don't move.
+export const moveGroup = (pieces: readonly Piece[], id: number, dx: number, dy: number): Piece[] => {
+  const group = groupOf(pieces, id);
+  const members = pieces.filter(p => p.group === group && !p.locked);
+  if (members.length === 0) return [...pieces];
+  const cdx = Math.min(Math.max(dx, ...members.map(p => -p.x)), ...members.map(p => BOARD_W - p.x));
+  const cdy = Math.min(Math.max(dy, ...members.map(p => -p.y)), ...members.map(p => BOARD_H - p.y));
+  return pieces.map(p => (p.group === group && !p.locked ? { ...p, x: p.x + cdx, y: p.y + cdy } : p));
+};
+
+// The best neighbor for the group to join: a piece outside the group,
+// bordering one of its pieces in the solved puzzle, turned the same way,
+// with that piece within LOCK_RADIUS of where it would sit against it.
+// Returns the move that puts it there, or null.
+const nearestJoin = (pieces: readonly Piece[], group: number) => {
+  let best: { dx: number; dy: number; dist: number; other: Piece } | null = null;
+  for (const m of pieces.filter(p => p.group === group)) {
+    for (const n of pieces) {
+      if (n.group === group || turnOf(n) !== turnOf(m) || !neighbors(m, n)) continue;
+      const at = placeBeside(n, m);
+      const dist = Math.hypot(at.x - m.x, at.y - m.y);
+      if (dist <= LOCK_RADIUS && (!best || dist < best.dist)) best = { dx: at.x - m.x, dy: at.y - m.y, dist, other: n };
+    }
+  }
+  return best;
+};
+
+const lockGroup = (pieces: readonly Piece[], group: number): Piece[] =>
+  pieces.map(p => (p.group === group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true } : p));
+
+// A group just dropped or turned: locks into place if it is at its home
+// angle near its home (the whole group locks), and otherwise snaps against
+// the nearest matching neighbor (see nearestJoin) and joins its group.
+// Repeats until nothing more snaps, since a snap can bring another
+// neighbor into reach. (Snapping against a locked piece needs no rule of
+// its own: a locked piece is at home, so a group close enough to snap
+// against it is close enough to its own home and locks in first.)
+export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
+  let current = [...pieces];
+  for (let round = 0; round < current.length; round++) {
+    const group = groupOf(current, id);
+    const members = current.filter(p => p.group === group);
+    if (members.length === 0 || members.some(p => p.locked)) return current;
+    if (dropPiece(members[0]).locked) return lockGroup(current, group);
+
+    const join = nearestJoin(current, group);
+    if (!join) return current;
+    const joined = Math.min(group, join.other.group);
+    current = current.map(p => {
+      if (p.group === group) return { ...p, x: p.x + join.dx, y: p.y + join.dy, group: joined };
+      if (p.group === join.other.group) return { ...p, group: joined };
+      return p;
+    });
+  }
+  return current;
+};
+
+// The group of piece `id` turned `steps` 36° steps (positive = clockwise)
+// about that piece's center, then settled as if dropped.
+export const rotateGroup = (pieces: readonly Piece[], id: number, steps: number): Piece[] => {
+  const pivot = pieces.find(p => p.id === id);
+  if (!pivot || pivot.locked) return [...pieces];
+  const turned = pieces.map(p => {
+    if (p.group !== pivot.group) return p;
+    const at = turnAbout(p, pivot, steps * ROTATION_STEP);
+    return { ...p, x: at.x, y: at.y, rotation: rotateBy(p.rotation, steps) };
+  });
+  return settleGroup(turned, id);
 };
 
 export const progress = (pieces: readonly Piece[]) => ({
