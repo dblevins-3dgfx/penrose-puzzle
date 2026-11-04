@@ -424,6 +424,33 @@ export const rotateGroup = (pieces: readonly Piece[], id: number, steps: number)
   return settleGroup(turned, id);
 };
 
+// The pieces in the layers they are drawn in, bottom first: all locked
+// pieces together, then each loose group, ordered by where its topmost
+// piece is in the stacking order. Each layer is drawn as one shape, so no
+// seams show between pieces that fit together.
+export const drawLayers = (pieces: readonly Piece[]): Piece[][] => {
+  const locked = pieces.filter(p => p.locked);
+  const loose = pieces.filter(p => !p.locked);
+  const top = new Map<number, number>();
+  loose.forEach((p, i) => top.set(p.group, i));
+  const groups = [...top.keys()].sort((g, h) => (top.get(g) ?? 0) - (top.get(h) ?? 0));
+  const layers = groups.map(g => loose.filter(p => p.group === g));
+  return locked.length ? [locked, ...layers] : layers;
+};
+
+// ---------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------
+
+export interface JigsawSettings {
+  // The whole picture shown faintly inside the outline, like a puzzle box
+  showPicture: boolean;
+  // Edges drawn around each piece and each tile of the outline
+  showOutlines: boolean;
+}
+
+export const DEFAULT_SETTINGS: JigsawSettings = { showPicture: false, showOutlines: true };
+
 export const progress = (pieces: readonly Piece[]) => ({
   placed: pieces.filter(p => p.locked).length,
   total: pieces.length

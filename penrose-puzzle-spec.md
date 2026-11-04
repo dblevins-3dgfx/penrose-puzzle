@@ -20,7 +20,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Tests | Node's test runner through `tsx` (`npm test`) |
 | Rendering | HTML5 Canvas 2D, 800 x 600 internal resolution, scaled to the largest 4:3 size that fits the window |
 | Styling | Tailwind CSS v4 utility classes |
-| Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `Eye`, `ImagePlus`) |
+| Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`) |
 | Persistence | None (all state in memory; a picture the player chooses is read in the browser and never uploaded) |
 
 ## 3. Tile Geometry
@@ -172,16 +172,19 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 - **Snapping together.** Otherwise, when a group is dropped or turned, each of its pieces is compared with every piece outside the group that borders it in the solved puzzle (shares a full edge) and is turned the same amount from its home angle. If the piece is within 20 units of where it would sit against that neighbor (the neighbor's position plus the difference of their homes, turned by the neighbor's turn), the group moves by that difference, so the two touch exactly as in the solved puzzle, and the two groups become one. The closest such match is used, and this repeats until no more pieces snap, since one snap can bring another neighbor into reach. Snapping against a locked piece is the same as locking in: a locked piece is at home, so a group within reach of it is within reach of its own home.
 - **Progress.** The header shows "*placed* / *total* placed", and "Solved! All *n* pieces in place" in green once every piece is locked.
 - **New puzzle** starts a new puzzle of the chosen size with a new seed; changing the size does too.
-- **Show picture** (off by default) shows the whole picture faintly (30% opacity) inside the outline, like the picture on a puzzle box.
+- **Settings** (gear button in the header, next to How to Play) opens a dialog of switches, in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once. The settings last until the page is reloaded and carry over to new puzzles; they aren't saved.
+  - **Show picture** (off by default): the whole picture shown faintly (30% opacity) inside the outline, like the picture on a puzzle box.
+  - **Show tile outlines** (on by default): the edges of every piece and of every tile in the gray outline. Off, the outline is one plain gray shape and pieces have no edges, so placed pieces read as one seamless picture; the selected group's blue outline is still drawn.
 - **How to Play** shows the jigsaw's instructions in the same kind of overlay as the sandbox's (section 8).
 
 ### Drawing
 
 | Element | Behavior |
 |---|---|
-| Outline | The solved puzzle's tiles, filled light gray with slightly darker edges: where the pieces go |
-| Loose pieces | Their part of the picture, with a dark outline and a soft shadow; every piece in the selected piece's group has a thick blue outline instead |
-| Locked pieces | Their part of the picture with a faint outline, drawn under all loose pieces |
+| Outline | The solved puzzle's tiles, filled light gray, with slightly darker tile edges when Show tile outlines is on: where the pieces go |
+| Loose pieces | Their part of the picture with a soft shadow, and a dark outline when Show tile outlines is on; every piece in the selected piece's group has a thick blue outline instead, whatever the setting |
+| Locked pieces | Their part of the picture, with a faint outline when Show tile outlines is on, drawn under all loose pieces |
+| Layers | Locked pieces are drawn as one layer, then each loose group as one layer, in stacking order (by each group's topmost piece). A layer's picture is clipped to all its pieces at once, so no hairline seams show between pieces that fit together |
 | Board | White, 800 x 600, scaled to fit the window as in section 8 |
 
 ## 9. Known Limitations and Not Yet Implemented

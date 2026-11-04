@@ -2,10 +2,11 @@
 // this keeps the state, turns pointer events into calls, and lays out the
 // page.
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, Settings } from 'lucide-react';
 import { BOARD_H, BOARD_W, type Point } from '../rules';
 import {
   bringToFront,
+  DEFAULT_SETTINGS,
   isSolved,
   moveGroup,
   newPuzzle,
@@ -14,12 +15,14 @@ import {
   rotateGroup,
   seedFromQuery,
   settleGroup,
+  type JigsawSettings,
   type Piece,
   type PuzzleSize
 } from '../jigsaw';
 import { makeDefaultPicture } from './defaultPicture';
-import { Overlay } from './HelpOverlay';
 import { drawJigsaw, type Picture } from './jigsawDraw';
+import { JigsawHelp } from './JigsawHelp';
+import { JigsawSettingsDialog } from './JigsawSettingsDialog';
 import { JigsawToolbar } from './JigsawToolbar';
 import { useKeyboardControls, useWheelRotation } from './useControls';
 
@@ -44,7 +47,8 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     const image = makeDefaultPicture();
     return { image, width: image.width, height: image.height };
   });
-  const [showPicture, setShowPicture] = useState(false);
+  const [settings, setSettings] = useState<JigsawSettings>(DEFAULT_SETTINGS);
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   // The piece being dragged, and where on it the pointer took hold
@@ -78,8 +82,9 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   useKeyboardControls(rotate, noUndo);
   useWheelRotation(canvasRef, rotate);
   const closeHelp = useCallback(() => setShowHelp(false), []);
+  const closeSettings = useCallback(() => setShowSettings(false), []);
 
-  const view = useMemo(() => ({ pieces, picture, showPicture, selectedId }), [pieces, picture, showPicture, selectedId]);
+  const view = useMemo(() => ({ pieces, picture, settings, selectedId }), [pieces, picture, settings, selectedId]);
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) drawJigsaw(ctx, view);
@@ -136,8 +141,19 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
             <div className={`text-sm font-semibold ${solved ? 'text-emerald-400' : 'text-slate-300'}`} aria-live="polite">
               {solved ? `Solved! All ${total} pieces in place` : `${placed} / ${total} placed`}
             </div>
-            <button onClick={() => setShowHelp(true)}
-              aria-label="How to Play" className="text-slate-300 hover:text-white flex items-center gap-1 text-sm">
+            <button
+              onClick={() => setShowSettings(true)}
+              aria-label="Settings"
+              className="text-slate-300 hover:text-white flex items-center gap-1 text-sm"
+            >
+              <Settings size={20} />
+              <span className="hidden sm:inline">Settings</span>
+            </button>
+            <button
+              onClick={() => setShowHelp(true)}
+              aria-label="How to Play"
+              className="text-slate-300 hover:text-white flex items-center gap-1 text-sm"
+            >
               <CircleHelp size={20} />
               <span className="hidden sm:inline">How to Play</span>
             </button>
@@ -149,8 +165,6 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
           size={size}
           onSize={startPuzzle}
           onNewPuzzle={() => startPuzzle(size)}
-          showPicture={showPicture}
-          onToggleShowPicture={() => setShowPicture(s => !s)}
           onChoosePicture={choosePicture}
           canRotate={selectedId !== null && !pieces.find(p => p.id === selectedId)?.locked}
           onRotate={rotate}
@@ -172,24 +186,9 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
         </div>
       </div>
 
-      {showHelp && (
-        <Overlay onClose={closeHelp}>
-          <p className="mb-3">Put the picture back together. Every piece is a kite or dart from a Penrose tiling.</p>
-          <ul className="list-disc list-inside space-y-2">
-            <li>The gray outline on the left shows where the pieces go</li>
-            <li>Drag a piece to move it; it locks in when you drop it in its own place at the right angle</li>
-            <li>Drop a piece next to one it borders in the picture, at the same angle, and they snap together and move as one</li>
-            <li>
-              {isTouchDevice
-                ? 'Tap a piece to select it, then turn it with the rotate buttons (36° steps)'
-                : 'Turn the selected piece with the scroll wheel or Left/Right arrow keys, or right-click a piece to turn it (Shift + right-click for the other way)'}
-            </li>
-            <li>Show picture faintly shows the whole picture in the outline</li>
-            <li>Your picture swaps in a photo from your device (it stays on your device)</li>
-            <li>New puzzle starts over with a different part of the tiling</li>
-          </ul>
-        </Overlay>
-      )}
+      {showSettings && <JigsawSettingsDialog settings={settings} onChange={setSettings} onClose={closeSettings} />}
+
+      {showHelp && <JigsawHelp isTouchDevice={isTouchDevice} onClose={closeHelp} />}
     </div>
   );
 };

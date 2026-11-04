@@ -9,7 +9,9 @@ import {
   bringToFront,
   choosePieces,
   coverRect,
+  DEFAULT_SETTINGS,
   dropPiece,
+  drawLayers,
   generatePatch,
   isSolved,
   moveGroup,
@@ -227,6 +229,18 @@ test('a picked-up piece is drawn on top, with the rest of its group', () => {
   assert.deepEqual(bringToFront(grouped, 2).map(p => p.id), [1, 3, 0, 2]);
 });
 
+test('pieces are drawn in layers: locked pieces first, then each loose group by its topmost piece', () => {
+  const ps = [
+    kitePiece({ id: 0, group: 0 }),
+    kitePiece({ id: 1, locked: true }),
+    kitePiece({ id: 2, group: 2 }),
+    kitePiece({ id: 3, group: 0 }),
+    kitePiece({ id: 4, locked: true })
+  ];
+  assert.deepEqual(drawLayers(ps).map(layer => layer.map(p => p.id)), [[1, 4], [2], [0, 3]]);
+  assert.deepEqual(drawLayers([kitePiece({ id: 5 })]).map(l => l.map(p => p.id)), [[5]], 'no empty layer when nothing is locked');
+});
+
 test('every piece starts in a group of its own', () => {
   for (const p of newPuzzle('medium', 4)) assert.equal(p.group, p.id);
 });
@@ -427,4 +441,12 @@ test('each piece carries its part of the picture to wherever it is', () => {
       near(moved.y, nowCorners[i].y);
     });
   }
+});
+
+// ---------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------
+
+test('by default the picture is hidden and tile outlines are shown', () => {
+  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true });
 });

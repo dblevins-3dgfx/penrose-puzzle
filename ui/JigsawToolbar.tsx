@@ -1,7 +1,7 @@
-// The jigsaw's controls: puzzle size, New puzzle, Show picture, Your
-// picture, and rotating the selected piece (spec 11).
+// The jigsaw's controls: puzzle size, New puzzle, Your picture, and
+// rotating the selected piece (spec 11).
 import { useRef, type ChangeEvent } from 'react';
-import { Eye, ImagePlus, RotateCw, Shuffle } from 'lucide-react';
+import { ImagePlus, RotateCw, Shuffle } from 'lucide-react';
 import { PIECE_COUNTS, type PuzzleSize } from '../jigsaw';
 
 interface Props {
@@ -9,8 +9,6 @@ interface Props {
   size: PuzzleSize;
   onSize: (size: PuzzleSize) => void;
   onNewPuzzle: () => void;
-  showPicture: boolean;
-  onToggleShowPicture: () => void;
   onChoosePicture: (file: File) => void;
   canRotate: boolean;
   onRotate: (steps: number) => void;
@@ -44,17 +42,6 @@ export const JigsawToolbar = (props: Props) => {
       <button onClick={props.onNewPuzzle} className={button}>
         <Shuffle size={18} />
         New puzzle
-      </button>
-
-      <button
-        onClick={props.onToggleShowPicture}
-        aria-pressed={props.showPicture}
-        className={`px-3 py-2 rounded-lg font-semibold flex items-center gap-2 ${
-          props.showPicture ? 'bg-sky-500 text-slate-900' : 'bg-slate-700 text-slate-300'
-        }`}
-      >
-        <Eye size={18} />
-        Show picture
       </button>
 
       <button onClick={() => fileInput.current?.click()} className={button}>

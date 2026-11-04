@@ -8,8 +8,9 @@ interface Props {
   onClose: () => void;
 }
 
-// The overlay frame: a How to Play title, a close button and the content.
-export const Overlay = ({ onClose, children }: { onClose: () => void; children: ReactNode }) => {
+// The overlay frame: a title (How to Play unless given), a close button and
+// the content.
+export const Overlay = ({ onClose, children, title = 'How to Play' }: { onClose: () => void; children: ReactNode; title?: string }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -25,7 +26,7 @@ export const Overlay = ({ onClose, children }: { onClose: () => void; children: 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl sm:text-2xl font-bold text-white">How to Play</h2>
+          <h2 className="text-xl sm:text-2xl font-bold text-white">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="text-slate-300 hover:text-white p-1">
             <X size={24} />
           </button>
