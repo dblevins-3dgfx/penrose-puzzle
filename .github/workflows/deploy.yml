@@ -1,7 +1,15 @@
-# Builds the game and publishes it to GitHub Pages on every push to main
-# (or when run by hand from the Actions tab). The site is served at
-# https://<user>.github.io/penrose-puzzle/ from the root of the gh-pages
-# branch, so the build gets BASE_PATH=/penrose-puzzle/.
+# Builds the game and publishes it to GitHub Pages on every push (or when
+# run by hand from the Actions tab), and tests it first.
+#
+#   main          -> https://<user>.github.io/penrose-puzzle/
+#   other branch  -> https://<user>.github.io/penrose-puzzle/branch/<name>/
+#
+# where <name> is the branch name with every character other than letters,
+# digits, ".", "_" and "-" replaced by "-" (feature/x -> feature-x). The
+# site is the gh-pages branch: main at its root, each other branch in its
+# own folder under branch/. A main deploy leaves branch/ alone, a branch
+# deploy only touches its own folder, and deleting a branch removes its
+# folder.
 #
 # One-time setup, after the first run has created the gh-pages branch:
 # repository Settings -> Pages -> Build and deployment ->
@@ -10,19 +18,23 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches-ignore: [gh-pages]
+  delete:
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# One deploy at a time; a newer push replaces a queued one
+# One deploy at a time per branch; a newer push replaces a queued one.
+# Deploys of different branches can run together: each pushes to gh-pages
+# without force, rebasing onto the others.
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
+    if: github.event_name != 'delete'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,15 +42,62 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Where this branch is served
+        id: target
+        env:
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          if [ "$BRANCH" = "main" ]; then
+            echo "folder=" >> "$GITHUB_OUTPUT"
+            echo "base=/$REPO/" >> "$GITHUB_OUTPUT"
+          else
+            name=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+            echo "folder=branch/$name" >> "$GITHUB_OUTPUT"
+            echo "base=/$REPO/branch/$name/" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm ci
       # Don't publish if a rule test fails
       - run: npm test
       - run: npm run build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          BASE_PATH: ${{ steps.target.outputs.base }}
       # Serve the files as they are, without Jekyll processing
       - run: touch dist/.nojekyll
       - uses: JamesIves/github-pages-deploy-action@v4
         with:
           folder: dist
           branch: gh-pages
+          target-folder: ${{ steps.target.outputs.folder }}
+          # A main deploy replaces the root but keeps the branch previews
+          clean-exclude: branch
+          force: false
+      - name: Preview link
+        run: echo "Deployed to https://${{ github.repository_owner }}.github.io${{ steps.target.outputs.base }}" >> "$GITHUB_STEP_SUMMARY"
+
+  remove-preview:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+      - name: Remove the deleted branch's folder
+        env:
+          BRANCH: ${{ github.event.ref }}
+        run: |
+          name=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+          if [ ! -d "branch/$name" ]; then
+            echo "No preview for $BRANCH"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -rq "branch/$name"
+          git commit -qm "Remove the preview of deleted branch $BRANCH"
+          for attempt in 1 2 3 4; do
+            git push && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase
+          done
+          exit 1
