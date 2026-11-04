@@ -216,10 +216,25 @@ export interface Piece {
   // Pieces snapped together share a group and move as one. A piece on its
   // own is a group of one, numbered with its id.
   group: number;
+  // Which of the piece's edges (by index: edge i runs from corner i to
+  // corner i + 1) lie on the outer border of the solved puzzle. Empty for
+  // an interior piece.
+  border: number[];
 }
 
 // The piece as a tile where it is now.
 export const pieceTile = (p: Piece): Tile => ({ type: p.home.type, x: p.x, y: p.y, rotation: p.rotation });
+
+// For each tile, the indices of its edges that no other tile shares: the
+// outer border of the solved puzzle (and of any hole in it).
+export const borderEdges = (homes: readonly Tile[]): number[][] => {
+  const edges = homes.map(edgesOf);
+  return edges.map((own, i) =>
+    own.flatMap((e, k) => (edges.some((other, j) => j !== i && other.some(f => sameEdge(e, f))) ? [] : [k]))
+  );
+};
+
+export const isEdgePiece = (p: Piece): boolean => p.border.length > 0;
 
 // Spacing of the spots where loose pieces start, and how far a spot's
 // center stays from the board edge and the solved puzzle's box. A piece
@@ -246,6 +261,7 @@ export const scatterSpots = (frame: { x: number; y: number; w: number; h: number
 // (spots are reused, slightly offset, if there are more pieces than spots)
 // at a random angle, in random order.
 export const scatterPieces = (homes: readonly Tile[], random: () => number): Piece[] => {
+  const borders = borderEdges(homes);
   const spots = scatterSpots(boundsOf(homes));
   for (let i = spots.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -261,7 +277,8 @@ export const scatterPieces = (homes: readonly Tile[], random: () => number): Pie
       y: spot.y + nudge,
       rotation: Math.floor(random() * 10) * ROTATION_STEP,
       locked: false,
-      group: id
+      group: id,
+      border: borders[id]
     };
   });
   // Shuffle the stacking order too

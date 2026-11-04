@@ -155,7 +155,8 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 2. **The pieces.** A random point within 360 units of the patch center is chosen (so puzzles don't all show the sun at the center). Starting from the tile nearest it, the tile nearest it that shares a full edge with those already chosen is added until the puzzle has its size: **Small** 12, **Medium** 24 (the default) or **Large** 40 pieces. The pieces are always one edge-connected group, and could be built under the sandbox's rules (section 4).
 3. **Placement.** The whole group is turned to a random one of the ten orientations and moved so its bounding box is centered at (270, 300), on the left of the board.
 4. **Breaking it up.** Loose pieces go to spots on a 72-unit grid over the board (centers at least 42 units from the board edge), leaving out spots within 42 units of the solved puzzle's bounding box. Spots are shuffled and each piece takes one (if there are more pieces than spots, the extra pieces reuse spots, offset by 18 units). Each piece gets a random one of the ten angles, and the stacking order is shuffled.
-5. **Seeds.** Every random choice comes from one seeded generator (mulberry32), so a seed always gives the same puzzle. A new puzzle uses a random seed; the first puzzle on the page uses `?seed=<n>` from the address if it is a whole number from 0 to 2^31 - 1.
+5. **Border.** A tile edge that no other tile of the puzzle shares lies on the puzzle's outer border (or the border of a hole in it). Each piece records which of its edges these are; a piece with any is an **edge piece**, the rest are **interior pieces**.
+6. **Seeds.** Every random choice comes from one seeded generator (mulberry32), so a seed always gives the same puzzle. A new puzzle uses a random seed; the first puzzle on the page uses `?seed=<n>` from the address if it is a whole number from 0 to 2^31 - 1.
 
 ### The picture
 
@@ -190,6 +191,7 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 | Outline | The solved puzzle's tiles, filled light gray, with slightly darker tile edges when Show tile outlines is on: where the pieces go |
 | Loose pieces | Their part of the picture with a soft shadow, and a dark outline when Show tile outlines is on; every piece in the selected piece's group has a thick blue outline instead, whatever the setting |
 | Locked pieces | Their part of the picture, with a faint outline when Show tile outlines is on, drawn under all loose pieces |
+| Border | The puzzle's outer border, so edge pieces can be told from interior ones: each piece's border edges are drawn as a thick dark line (5 units) with a gold stripe (2 units), with round ends, on the piece wherever it is, loose or locked. Shown whatever Show tile outlines is set to. Around the gray outline, the border is a 3-unit slate line, drawn under the pieces |
 | Layers | Locked pieces are drawn as one layer, then each loose group as one layer, in stacking order (by each group's topmost piece). A layer's picture is clipped to all its pieces at once, so no hairline seams show between pieces that fit together |
 | Board | White, 800 x 600, scaled to fit the window as in section 8 |
 

@@ -91,6 +91,50 @@ const drawOutline = (ctx: CanvasRenderingContext2D, piece: Piece, selected: bool
   ctx.restore();
 };
 
+// The puzzle's outer border along a piece's border edges, so edge pieces
+// stand out: a thick dark line with a gold stripe, which shows on light
+// and dark parts of the picture alike. Drawn whatever the outline setting.
+const BORDER_STYLES = [
+  { color: '#0f172a', width: 5 },
+  { color: '#fbbf24', width: 2 }
+];
+
+const drawBorder = (ctx: CanvasRenderingContext2D, piece: Piece) => {
+  if (piece.border.length === 0) return;
+  const v = getVertices(pieceTile(piece));
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  piece.border.forEach(k => {
+    ctx.moveTo(v[k].x, v[k].y);
+    ctx.lineTo(v[(k + 1) % 4].x, v[(k + 1) % 4].y);
+  });
+  for (const { color, width } of BORDER_STYLES) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
+// The same border around the gray outline of the solved puzzle.
+const drawFrameBorder = (ctx: CanvasRenderingContext2D, pieces: Piece[]) => {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  pieces.forEach(p => {
+    const v = getVertices(p.home);
+    p.border.forEach(k => {
+      ctx.moveTo(v[k].x, v[k].y);
+      ctx.lineTo(v[(k + 1) % 4].x, v[(k + 1) % 4].y);
+    });
+  });
+  ctx.stroke();
+  ctx.restore();
+};
+
 export interface JigsawView {
   pieces: Piece[];
   picture: Picture;
@@ -112,10 +156,12 @@ export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, set
     drawPictureIn(ctx, picture, homes, rect);
     ctx.restore();
   }
+  drawFrameBorder(ctx, pieces);
   // The selected piece's whole group is outlined in blue
   const selectedGroup = pieces.find(p => p.id === selectedId)?.group;
   for (const layer of drawLayers(pieces)) {
     drawLayer(ctx, layer, picture, rect);
     layer.forEach(p => drawOutline(ctx, p, !p.locked && p.group === selectedGroup, settings.showOutlines));
+    layer.forEach(p => drawBorder(ctx, p));
   }
 };

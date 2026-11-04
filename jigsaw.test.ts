@@ -5,6 +5,7 @@ import {
   FRAME_CENTER,
   LOCK_RADIUS,
   PIECE_COUNTS,
+  borderEdges,
   boundsOf,
   bringToFront,
   choosePieces,
@@ -15,6 +16,7 @@ import {
   dropPiece,
   drawLayers,
   generatePatch,
+  isEdgePiece,
   isSolved,
   moveGroup,
   neighbors,
@@ -36,6 +38,12 @@ import {
   transformPoint,
   type Piece
 } from './jigsaw';
+
+const dist = (p: { x: number; y: number }, q: { x: number; y: number }) => Math.hypot(p.x - q.x, p.y - q.y);
+const edgesOfTile = (t: Tile) => {
+  const v = getVertices(t);
+  return v.map((p, i) => [p, v[(i + 1) % 4]] as const);
+};
 
 const near = (actual: number, expected: number, msg?: string) =>
   assert.ok(Math.abs(actual - expected) < 1e-6, msg ?? `${actual} should be ${expected}`);
@@ -153,6 +161,44 @@ test('different seeds give different puzzles; the same seed the same one', () =>
   assert.deepEqual(solvedTiling(24, seededRandom(1)), a);
 });
 
+test('border edges are the edges of the solved puzzle no other piece shares', () => {
+  const homes = solvedTiling(24, seededRandom(9));
+  const borders = borderEdges(homes);
+  const all = homes.map(t => getVertices(t));
+  homes.forEach((t, i) => {
+    edgesOfTile(t).forEach(([a, b], k) => {
+      const shared = all.some((vs, j) => j !== i && vs.some((p, q) => {
+        const r = vs[(q + 1) % 4];
+        return (dist(p, a) < 1e-6 && dist(r, b) < 1e-6) || (dist(p, b) < 1e-6 && dist(r, a) < 1e-6);
+      }));
+      assert.equal(borders[i].includes(k), !shared, `tile ${i} edge ${k}`);
+    });
+  });
+});
+
+test('the border edges join up into closed loops around the puzzle', () => {
+  const homes = solvedTiling(40, seededRandom(2));
+  const ends = new Map<string, number>();
+  const key = (p: { x: number; y: number }) => `${Math.round(p.x)},${Math.round(p.y)}`;
+  borderEdges(homes).forEach((ks, i) => ks.forEach(k => {
+    const [a, b] = edgesOfTile(homes[i])[k];
+    for (const p of [a, b]) ends.set(key(p), (ends.get(key(p)) ?? 0) + 1);
+  }));
+  assert.ok(ends.size > 10);
+  for (const [p, n] of ends) assert.equal(n % 2, 0, `border corner ${p}`);
+});
+
+test('a puzzle has both edge pieces and interior pieces, and every piece knows which it is', () => {
+  for (const size of ['medium', 'large'] as const) {
+    const pieces = newPuzzle(size, 6);
+    const edge = pieces.filter(isEdgePiece);
+    assert.ok(edge.length > 0 && edge.length < pieces.length, size);
+    const borders = borderEdges(pieces.map(p => p.home));
+    pieces.forEach((p, i) => assert.deepEqual(p.border, borders[i]));
+  }
+  assert.deepEqual(borderEdges([{ type: 'kite', x: 0, y: 0, rotation: 0 }]), [[0, 1, 2, 3]], 'a lone tile is all border');
+});
+
 // ---------------------------------------------------------------------
 // Breaking it up
 // ---------------------------------------------------------------------
@@ -201,6 +247,7 @@ const kitePiece = (over: Partial<Piece> = {}): Piece => ({
   rotation: 0,
   locked: false,
   group: over.id ?? 0,
+  border: [],
   ...over
 });
 
