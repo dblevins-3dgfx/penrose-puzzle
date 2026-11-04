@@ -10,6 +10,8 @@ import {
   choosePieces,
   coverRect,
   DEFAULT_SETTINGS,
+  parseSettings,
+  serializeSettings,
   dropPiece,
   drawLayers,
   generatePatch,
@@ -449,4 +451,25 @@ test('each piece carries its part of the picture to wherever it is', () => {
 
 test('by default the picture is hidden and tile outlines are shown', () => {
   assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true });
+});
+
+test('saved settings are read back as they were saved', () => {
+  for (const settings of [DEFAULT_SETTINGS, { showPicture: true, showOutlines: false }]) {
+    assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
+  }
+});
+
+test('nothing saved, or something unreadable, gives the defaults', () => {
+  assert.deepEqual(parseSettings(null), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings(''), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{not json'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('"a string"'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('null'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('[true, false]'), DEFAULT_SETTINGS);
+});
+
+test('a missing or wrongly typed setting falls back to its default; unknown ones are dropped', () => {
+  assert.deepEqual(parseSettings('{"showPicture": true}'), { showPicture: true, showOutlines: true });
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false}'), { showPicture: false, showOutlines: false });
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "volume": 11}'), DEFAULT_SETTINGS);
 });

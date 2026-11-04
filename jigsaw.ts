@@ -451,6 +451,27 @@ export interface JigsawSettings {
 
 export const DEFAULT_SETTINGS: JigsawSettings = { showPicture: false, showOutlines: true };
 
+// Where the settings are kept in the browser's local storage.
+export const SETTINGS_KEY = 'penrose-puzzle.jigsaw-settings';
+
+export const serializeSettings = (settings: JigsawSettings): string => JSON.stringify(settings);
+
+// Settings read back from storage. Anything missing, unreadable or of the
+// wrong type falls back to its default, field by field, and unknown fields
+// are dropped, so an old or damaged saved value never breaks the page.
+export const parseSettings = (raw: string | null): JigsawSettings => {
+  let saved: unknown = null;
+  try {
+    saved = raw === null ? null : JSON.parse(raw);
+  } catch {
+    saved = null;
+  }
+  const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
+  const flag = (key: keyof JigsawSettings) =>
+    typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
+  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines') };
+};
+
 export const progress = (pieces: readonly Piece[]) => ({
   placed: pieces.filter(p => p.locked).length,
   total: pieces.length

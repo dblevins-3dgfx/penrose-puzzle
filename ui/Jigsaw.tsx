@@ -6,14 +6,16 @@ import { CircleHelp, Settings } from 'lucide-react';
 import { BOARD_H, BOARD_W, type Point } from '../rules';
 import {
   bringToFront,
-  DEFAULT_SETTINGS,
   isSolved,
   moveGroup,
   newPuzzle,
+  parseSettings,
   pieceAt,
   progress,
   rotateGroup,
   seedFromQuery,
+  serializeSettings,
+  SETTINGS_KEY,
   settleGroup,
   type JigsawSettings,
   type Piece,
@@ -47,7 +49,22 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     const image = makeDefaultPicture();
     return { image, width: image.width, height: image.height };
   });
-  const [settings, setSettings] = useState<JigsawSettings>(DEFAULT_SETTINGS);
+  // Settings are kept in the browser (spec 11). Storage can be unavailable
+  // (private browsing, blocked cookies); the game then just doesn't save.
+  const [settings, setSettings] = useState<JigsawSettings>(() => {
+    try {
+      return parseSettings(window.localStorage.getItem(SETTINGS_KEY));
+    } catch {
+      return parseSettings(null);
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, serializeSettings(settings));
+    } catch {
+      // Not saved; the settings still apply until the page is reloaded
+    }
+  }, [settings]);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);

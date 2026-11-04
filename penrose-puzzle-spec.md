@@ -21,7 +21,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Rendering | HTML5 Canvas 2D, 800 x 600 internal resolution, scaled to the largest 4:3 size that fits the window |
 | Styling | Tailwind CSS v4 utility classes |
 | Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`) |
-| Persistence | None (all state in memory; a picture the player chooses is read in the browser and never uploaded) |
+| Persistence | The jigsaw's settings in the browser's local storage (section 11); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
 
 ## 3. Tile Geometry
 
@@ -172,10 +172,16 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 - **Snapping together.** Otherwise, when a group is dropped or turned, each of its pieces is compared with every piece outside the group that borders it in the solved puzzle (shares a full edge) and is turned the same amount from its home angle. If the piece is within 20 units of where it would sit against that neighbor (the neighbor's position plus the difference of their homes, turned by the neighbor's turn), the group moves by that difference, so the two touch exactly as in the solved puzzle, and the two groups become one. The closest such match is used, and this repeats until no more pieces snap, since one snap can bring another neighbor into reach. Snapping against a locked piece is the same as locking in: a locked piece is at home, so a group within reach of it is within reach of its own home.
 - **Progress.** The header shows "*placed* / *total* placed", and "Solved! All *n* pieces in place" in green once every piece is locked.
 - **New puzzle** starts a new puzzle of the chosen size with a new seed; changing the size does too.
-- **Settings** (gear button in the header, next to How to Play) opens a dialog of switches, in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once. The settings last until the page is reloaded and carry over to new puzzles; they aren't saved.
+- **Settings** (gear button in the header, next to How to Play) opens a dialog of switches, in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once, carry over to new puzzles, and are saved in the browser (see Saved settings below).
   - **Show picture** (off by default): the whole picture shown faintly (30% opacity) inside the outline, like the picture on a puzzle box.
   - **Show tile outlines** (on by default): the edges of every piece and of every tile in the gray outline. Off, the outline is one plain gray shape and pieces have no edges, so placed pieces read as one seamless picture; the selected group's blue outline is still drawn.
 - **How to Play** shows the jigsaw's instructions in the same kind of overlay as the sandbox's (section 8).
+
+### Saved settings
+
+- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each branch preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing setting, or one that isn't true or false, takes its default; unknown fields are ignored.
+- If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 
 ### Drawing
 
