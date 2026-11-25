@@ -34,6 +34,7 @@ import { JigsawHelp } from './JigsawHelp';
 import { JigsawSettingsDialog } from './JigsawSettingsDialog';
 import { JigsawToolbar } from './JigsawToolbar';
 import { JigsawTray } from './JigsawTray';
+import { RotateControls } from './RotateControls';
 import { ZoomControls } from './ZoomControls';
 import { useBoardSize, useIsPortrait } from './useBoardSize';
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
@@ -154,14 +155,14 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
+  const [settings, setSettings] = useJigsawSettings();
   const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
-    makePuzzleState('medium', seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
+    makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
   const { size, pieces, layout } = puzzle;
   const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useBoardCamera(viewport);
   const initializedViewport = useRef(false);
 
-  const [settings, setSettings] = useJigsawSettings();
   const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(
     settings.picture,
     puzzle.baseHomes,
@@ -199,6 +200,11 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     setTrayFilter('all');
   };
 
+  const changeSize = (s: PuzzleSize) => {
+    setSettings(prev => ({ ...prev, size: s }));
+    if (s !== size) startPuzzle(s);
+  };
+
   const selectPicture = (style: PictureStyle) => {
     clearCustom();
     setSettings(s => ({ ...s, picture: style }));
@@ -212,7 +218,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     canvasRef, trayRef, layout, viewport, camera, isPortrait, updatePieces, setSelectedId
   );
   const boardHandlers = useBoardPointers(
-    trayRef, pieces, layout, viewport, camera, setCamera, updatePieces, setSelectedId, setDropHighlight
+    trayRef, pieces, selectedId, layout, viewport, camera, setCamera, updatePieces, setSelectedId, setDropHighlight
   );
 
   const rotate = useCallback(
@@ -244,15 +250,10 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col">
       <JigsawToolbar
         modeSwitch={modeSwitch}
-        isTouchDevice={isTouchDevice}
-        size={size}
-        onSize={startPuzzle}
         onNewPuzzle={() => startPuzzle(size)}
         picture={isCustom ? 'custom' : settings.picture}
         onPicture={selectPicture}
         onChoosePicture={chooseFile}
-        canRotate={canRotate}
-        onRotate={rotate}
         placed={placed}
         total={total}
         solved={solved}
@@ -273,6 +274,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
             className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
           />
           <ZoomControls camera={camera} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
+          {canRotate && <RotateControls onRotate={rotate} />}
         </div>
 
         <JigsawTray
@@ -289,7 +291,14 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
         />
       </div>
 
-      {showSettings && <JigsawSettingsDialog settings={settings} onChange={setSettings} onClose={closeSettings} />}
+      {showSettings && (
+        <JigsawSettingsDialog
+          settings={settings}
+          onChange={setSettings}
+          onChangeSize={changeSize}
+          onClose={closeSettings}
+        />
+      )}
 
       {showHelp && <JigsawHelp isTouchDevice={isTouchDevice} onClose={closeHelp} />}
     </div>

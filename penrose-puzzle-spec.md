@@ -128,7 +128,7 @@ Nothing is saved: reloading the page starts with an empty board.
 | Left click | Place the tile |
 | Scroll wheel over the board | Rotate 36 deg: up = clockwise, down = counter-clockwise. One step per wheel notch, or one per 50 px of trackpad scrolling (`TRACKPAD_STEP`), so longer swipes turn further; a partial step left over is dropped after a 150 ms pause. The page does not scroll while the pointer is over the board |
 | Right click | Rotate 36 deg clockwise (Shift + right click: counter-clockwise); the browser menu is suppressed on the board |
-| Left / Right arrow | Rotate 36 deg counter-clockwise / clockwise |
+| Left / Right arrow, `R` / `Shift+R` | Rotate 36 deg counter-clockwise / clockwise (`R` clockwise, `Shift+R` counter-clockwise; ignored while typing in a form field) |
 | Angle indicator | Compact badge showing the previewed tile's angle (with the rotation controls listed in its tooltip and in How to Play) |
 | Kite / Dart buttons | Choose tile type |
 | Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on. While on, the scroll wheel, right click and arrow keys step through the fits instead of turning the tile |
@@ -181,22 +181,26 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
   - Tapping a tray piece while zoomed in pops it near the center of the current visible view. Starting a new puzzle or changing size resets zoom and pan to Fit; resizing the window clamps the camera to the new viewport.
 - **Piece tray.** Dragging a piece out of the tray lifts it seamlessly onto the board under the pointer (dropping it directly onto its home locks it in one motion; dropping it back over the tray puts it away). Clicking or tapping a tray piece pops it onto the board near the center of the current view (staggered so repeated taps fan out) and selects it. Dropping a **single ungrouped** loose on-board piece back over the tray returns it to the top of the tray; multi-piece snapped groups stay on the board. Tray pieces cannot be hit-tested, rotated, or snapped against on the board while in the tray.
 - **Groups.** Every piece starts in a group of its own. Pieces that have snapped together (below) form one group, which moves, turns, snaps and locks as a whole.
-- **Picking up.** Pressing on a loose piece selects it and brings its whole group to the top of the stack (keeping the group's own stacking order); the topmost loose piece under the pointer is taken. Locked pieces can't be picked up.
-- **Dragging** moves the group. The move stops short where needed so that no piece's center leaves the board.
-- **Turning.** The selected piece's group turns in 36° steps about the selected piece's center: scroll wheel (as in section 8) or Left / Right arrows; right-click turns the group of the piece under the pointer (Shift + right-click the other way) and selects that piece. On touch devices, two rotate buttons turn the selected group; they are disabled when no loose piece is selected.
+- **Picking up and tapping.** Pressing on a loose piece selects it and brings its whole group to the top of the stack (keeping the group's own stacking order); the topmost loose piece under the pointer is taken. Locked pieces can't be picked up. A quick tap/click on empty board space (within 6 CSS px of travel) clears the selection.
+- **Dragging** moves the group once pointer travel exceeds 6 CSS px (`TAP_MAX_MOVE`). The move stops short where needed so that no piece's center leaves the board.
+- **Turning.** The selected piece's group turns in 36° steps about the selected piece's center:
+  - **Tap-to-rotate:** the first quick tap/click on an unselected loose piece selects it without rotating; subsequent quick taps/clicks (travel within 6 CSS px) on any piece in the already-selected group rotate the group 36° clockwise (`Shift+click` counter-clockwise).
+  - **Floating rotate buttons:** whenever a loose piece is selected, a compact CCW / CW pill appears in the bottom-right corner of the board (mirroring the bottom-left zoom pill), away from the top bar.
+  - **Keyboard & pointer:** `R` / `Shift+R`, Left / Right arrows, scroll wheel (as in section 8), or right-click on any loose piece (`Shift + right-click` the other way, also selecting that piece).
 - **Locking in.** When a group is dropped, or turned, at its home angle with a piece's center within 20 units of its home, every piece in the group snaps exactly into place and locks. A piece only locks into its own home, even where another piece of the same shape and angle would fit.
 - **Snapping together.** Otherwise, when a group is dropped or turned, each of its pieces is compared with every piece outside the group that borders it in the solved puzzle (shares a full edge) and is turned the same amount from its home angle. If the piece is within 20 units of where it would sit against that neighbor (the neighbor's position plus the difference of their homes, turned by the neighbor's turn), the group moves by that difference, so the two touch exactly as in the solved puzzle, and the two groups become one. The closest such match is used, and this repeats until no more pieces snap, since one snap can bring another neighbor into reach. Snapping against a locked piece is the same as locking in: a locked piece is at home, so a group within reach of it is within reach of its own home.
 - **Progress.** The header shows "*placed* / *total* placed", and "Solved! All *n* pieces in place" in green once every piece is locked.
-- **New puzzle** starts a new puzzle of the chosen size with a new seed; changing the size does too.
-- **Settings** (gear button in the header, next to How to Play) opens a dialog of switches, in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once, carry over to new puzzles, and are saved in the browser (see Saved settings below).
+- **New puzzle** starts a new puzzle of the chosen size with a new seed.
+- **Settings** (gear button in the header, next to How to Play) opens a dialog in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once, carry over to new puzzles, and are saved in the browser (see Saved settings below).
+  - **Puzzle size** (**Small** 12, **Medium** 24 default, **Large** 40): moved out of the top bar to avoid accidental resets while playing; choosing a different size starts a new puzzle of that size.
   - **Show picture** (off by default): the whole picture shown faintly (30% opacity) inside the outline, like the picture on a puzzle box.
   - **Show tile outlines** (on by default): the edges of every piece and of every tile in the gray outline. Off, the outline is one plain gray shape and pieces have no edges, so placed pieces read as one seamless picture; the selected group's blue outline is still drawn.
 - **How to Play** shows the jigsaw's instructions in the same kind of overlay as the sandbox's (section 8).
 
 ### Saved settings
 
-- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided"}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
-- Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing or invalid setting (non-boolean toggle, or unknown `picture` value) takes its default; unknown fields are ignored.
+- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided", "size": "medium"}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing or invalid setting (non-boolean toggle, unknown `picture`, or unknown `size`) takes its default; unknown fields are ignored.
 - If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 
 ### Drawing
