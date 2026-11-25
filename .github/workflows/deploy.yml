@@ -1,15 +1,13 @@
-# Builds the game and publishes it to GitHub Pages on every push (or when
-# run by hand from the Actions tab), and tests it first.
+# Builds the game and publishes it to GitHub Pages, running the unit tests first.
 #
 #   main          -> https://<user>.github.io/penrose-puzzle/
-#   other branch  -> https://<user>.github.io/penrose-puzzle/branch/<name>/
+#   pull request  -> https://<user>.github.io/penrose-puzzle/branch/pr-<number>/
 #
-# where <name> is the branch name with every character other than letters,
-# digits, ".", "_" and "-" replaced by "-" (feature/x -> feature-x). The
-# site is the gh-pages branch: main at its root, each other branch in its
-# own folder under branch/. A main deploy leaves branch/ alone, a branch
-# deploy only touches its own folder, and deleting a branch removes its
-# folder.
+# The site lives on the gh-pages branch: main at its root, each pull request in
+# its own folder under branch/pr-<number>/. A main deploy leaves branch/ alone,
+# a pull request deploy only touches its own folder and posts (or updates) a
+# sticky PR comment with the preview link, and closing the PR removes its
+# folder. Deleting a legacy branch also removes any branch/<name>/ folder.
 #
 # One-time setup, after the first run has created the gh-pages branch:
 # repository Settings -> Pages -> Build and deployment ->
@@ -18,23 +16,31 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches-ignore: [gh-pages]
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
   delete:
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
-# One deploy at a time per branch; a newer push replaces a queued one.
-# Deploys of different branches can run together: each pushes to gh-pages
-# without force, rebasing onto the others.
+# One deploy at a time per target (main or a PR); a newer push or PR close
+# replaces an in-flight run for that target. Deploys for different targets can
+# run together: each pushes to gh-pages without force, rebasing onto the others.
 concurrency:
-  group: pages-${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+  group: pages-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.event_name == 'delete' && format('delete-{0}', github.event.ref) || github.ref_name) }}
   cancel-in-progress: true
 
 jobs:
   deploy:
-    if: github.event_name != 'delete'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action != 'closed' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -42,19 +48,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Where this branch is served
+      - name: Where this build is served
         id: target
         env:
-          BRANCH: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.event.repository.name }}
         run: |
-          if [ "$BRANCH" = "main" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            echo "folder=branch/pr-$PR_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "base=/$REPO/branch/pr-$PR_NUMBER/" >> "$GITHUB_OUTPUT"
+          else
             echo "folder=" >> "$GITHUB_OUTPUT"
             echo "base=/$REPO/" >> "$GITHUB_OUTPUT"
-          else
-            name=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
-            echo "folder=branch/$name" >> "$GITHUB_OUTPUT"
-            echo "base=/$REPO/branch/$name/" >> "$GITHUB_OUTPUT"
           fi
       - run: npm ci
       # Don't publish if a rule test fails
@@ -69,35 +75,82 @@ jobs:
           folder: dist
           branch: gh-pages
           target-folder: ${{ steps.target.outputs.folder }}
-          # A main deploy replaces the root but keeps the branch previews
+          # A main deploy replaces the root but keeps the PR previews
           clean-exclude: branch
           force: false
       - name: Preview link
         run: echo "Deployed to https://${{ github.repository_owner }}.github.io${{ steps.target.outputs.base }}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment preview link on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_URL: https://${{ github.repository_owner }}.github.io${{ steps.target.outputs.base }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          marker="<!-- pr-preview -->"
+          short_sha="${HEAD_SHA:0:7}"
+          body=$(printf '%s\n**Preview:** %s\n\nBuilt from PR #%s merged with `main` (head `%s`).\nUpdates on each push and is removed when the PR is closed. *(GitHub Pages may take a few seconds to publish.)*\n' \
+            "$marker" "$PREVIEW_URL" "$PR_NUMBER" "$short_sha")
+          comment_id=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq ".[] | select((.body // \"\") | contains(\"${marker}\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${comment_id}" -f body="$body" >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -f body="$body" >/dev/null
+          fi
 
   remove-preview:
-    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'closed' &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'delete' && github.event.ref_type == 'branch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           ref: gh-pages
-      - name: Remove the deleted branch's folder
+      - name: Remove the preview folder
         env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           BRANCH: ${{ github.event.ref }}
         run: |
-          name=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
-          if [ ! -d "branch/$name" ]; then
-            echo "No preview for $BRANCH"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            folder="branch/pr-$PR_NUMBER"
+            label="PR #$PR_NUMBER"
+          else
+            name=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9._-' '-')
+            folder="branch/$name"
+            label="deleted branch $BRANCH"
+          fi
+          if [ ! -d "$folder" ]; then
+            echo "No preview for $label"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -rq "branch/$name"
-          git commit -qm "Remove the preview of deleted branch $BRANCH"
+          git rm -rq "$folder"
+          git commit -qm "Remove the preview of $label"
           for attempt in 1 2 3 4; do
             git push && exit 0
             sleep $((attempt * 5))
             git pull --rebase
           done
           exit 1
+      - name: Update PR preview comment
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          marker="<!-- pr-preview -->"
+          comment_id=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq ".[] | select((.body // \"\") | contains(\"${marker}\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            body=$(printf '%s\nPreview for PR #%s has been removed.\n' "$marker" "$PR_NUMBER")
+            gh api -X PATCH "repos/${REPO}/issues/comments/${comment_id}" -f body="$body" >/dev/null
+          fi
