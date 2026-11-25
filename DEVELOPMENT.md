@@ -21,7 +21,7 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 - `npm run build` then `npx vite preview` serves the production build at http://localhost:4173.
 - Chromium and Playwright scripts were used to check every change in a real browser. Tips:
-  - The board is a canvas with an 800 x 600 drawing area scaled to the window. Convert board coordinates with the canvas's `boundingBox()`: scale = box width / 800.
+  - Both boards fill the available viewport below the slim top bar (Sandbox is 1:1 with CSS pixels; Jigsaw scales world units to fit the viewport). Convert board coordinates with the canvas's `boundingBox()` (and in Jigsaw, `computeViewportLayout`).
   - To emulate touch, use a Playwright device such as `devices['iPhone 13']`. The app decides whether it is on a touch device once, from `navigator.maxTouchPoints`, when the page loads.
   - Playwright's `text=Dart` matches the header's "darts" count first. Use `button:text-is("Dart")`.
   - In Jigsaw mode, `?seed=<n>` gives a known puzzle. A script can import `newPuzzle(size, seed)` from `jigsaw.ts` with `npx tsx` to get every piece's home and solve the puzzle by dragging.

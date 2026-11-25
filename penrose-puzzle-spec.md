@@ -18,7 +18,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Framework | React 19 (functional component, hooks) |
 | Build | Vite, TypeScript (`rules.ts` is fully typed, the component only loosely; `npm run typecheck` runs separately from the build) |
 | Tests | Node's test runner through `tsx` (`npm test`) |
-| Rendering | HTML5 Canvas 2D, 800 x 600 internal resolution, scaled to the largest 4:3 size that fits the window |
+| Rendering | HTML5 Canvas 2D, sized to fill the available viewport below the slim top bar (scaled by `devicePixelRatio` for HiDPI crispness) |
 | Styling | Tailwind CSS v4 utility classes |
 | Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`) |
 | Persistence | The jigsaw's settings in the browser's local storage (section 9); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
@@ -67,7 +67,7 @@ A candidate placement is legal only if all of the following hold. Checks apply t
 2. **Vertex color agreement.** Wherever a candidate vertex coincides with an existing vertex, the two colors must match. This is Penrose's vertex-coloring matching rule: any point shared by several tiles must be the same color on each.
 3. **No overlap.** The candidate's triangles must not intersect any existing tile's triangles. Separating-axis test with a 1.5 px tolerance, so touching edges and vertices are allowed.
 
-4. **Inside the playfield.** Every vertex of the candidate must lie within the 800 x 600 board (0.5 px tolerance). This applies to the opening tile as well. While the previewed tile has a vertex outside the board, a red border is drawn around the playfield (the preview is also shown in the blocked red dashed style, and clicking does nothing).
+4. **Inside the playfield.** Every vertex of the candidate must lie within the playfield canvas (0.5 px tolerance; 1:1 with the canvas's CSS pixel dimensions, defaulting to 800 x 600). This applies to the opening tile as well. While the previewed tile has a vertex outside the board, a red border is drawn around the playfield (the preview is also shown in the blocked red dashed style, and clicking does nothing).
 
 Source for the coloring rule: arXiv 1104.3811 (kite: 144 deg vertex and its opposite black, other two white; dart: 216 deg vertex and its opposite white, other two black).
 
@@ -129,7 +129,7 @@ Nothing is saved: reloading the page starts with an empty board.
 | Scroll wheel over the board | Rotate 36 deg: up = clockwise, down = counter-clockwise. One step per wheel notch, or one per 50 px of trackpad scrolling (`TRACKPAD_STEP`), so longer swipes turn further; a partial step left over is dropped after a 150 ms pause. The page does not scroll while the pointer is over the board |
 | Right click | Rotate 36 deg clockwise (Shift + right click: counter-clockwise); the browser menu is suppressed on the board |
 | Left / Right arrow | Rotate 36 deg counter-clockwise / clockwise |
-| Rotation hint | Replaces the rotate buttons: lists the rotation controls and shows the previewed tile's angle. Reads "Next fit" instead of "Rotate" while auto-rotate is on |
+| Angle indicator | Compact badge showing the previewed tile's angle (with the rotation controls listed in its tooltip and in How to Play) |
 | Kite / Dart buttons | Choose tile type |
 | Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on. While on, the scroll wheel, right click and arrow keys step through the fits instead of turning the tile |
 | Ctrl+Z / Cmd+Z | Undo the last tile |
@@ -144,9 +144,9 @@ Nothing is saved: reloading the page starts with an empty board.
 | **Place** button | Confirm placement; disabled while the preview is illegal |
 | Undo / Clear buttons | See section 6 |
 | Auto-rotate button | As on desktop; while on, the rotate buttons step through the fits |
-| Rotate buttons | Large tap targets, clockwise button also shows the previewed tile's angle. Shown only on touch devices (`navigator.maxTouchPoints > 0`); desktop gets the rotation hint instead |
+| Rotate buttons | Compact tap targets, clockwise button also shows the previewed tile's angle. Shown only on touch devices (`navigator.maxTouchPoints > 0`); desktop gets the angle indicator instead |
 
-Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` on the canvas, and pointer coordinates scaled from CSS pixels to the 800 x 600 canvas space. The page fills exactly the visible window (`h-dvh`, which follows mobile browser toolbars) and never scrolls: header and controls take their natural height, and the board gets the rest, sized with CSS container units to the largest 4:3 rectangle that fits. The rules are on a separate **How to Play** screen (button in the header), a full-screen overlay closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
+Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` on the canvas, and a backing store scaled by `devicePixelRatio`. The page fills exactly the visible window (`h-dvh`, which follows mobile browser toolbars) and never scrolls: a single slim top bar holds the title, mode tabs, controls, status, and **How to Play** (and **Settings** in Jigsaw), and the board fills the entire remaining width and height. The rules are on a separate **How to Play** screen, a full-screen overlay closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
 
 ## 9. Jigsaw
 
@@ -154,10 +154,11 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 1. **The tiling.** A patch of the kite and dart tiling is generated by deflation: a sun of five kites is split into Robinson half-tiles, each subdivided six times (each half-kite into two half-kites and a half-dart, each half-dart into a half-kite and a half-dart, all shrinking by phi), and mirror halves are joined into whole tiles with long edges of 60 units. The result is a correct Penrose tiling by construction: no overlaps, matching vertex colors, every tile at one of the ten 36° angles.
 2. **The pieces.** A random point within 360 units of the patch center is chosen (so puzzles don't all show the sun at the center). Starting from the tile nearest it, the tile nearest it that shares a full edge with those already chosen is added until the puzzle has its size: **Small** 12, **Medium** 24 (the default) or **Large** 40 pieces. The pieces are always one edge-connected group, and could be built under the sandbox's rules (section 4).
-3. **Placement.** The whole group is turned to a random one of the ten orientations and moved so its bounding box is centered at (270, 300), on the left of the board.
-4. **Breaking it up.** Loose pieces go to spots on a 72-unit grid over the board (centers at least 42 units from the board edge), leaving out spots within 42 units of the solved puzzle's bounding box. Spots are shuffled and each piece takes one (if there are more pieces than spots, the extra pieces reuse spots, offset by 18 units). Each piece gets a random one of the ten angles, and the stacking order is shuffled.
-5. **Border.** A tile edge that no other tile of the puzzle shares lies on the puzzle's outer border (or the border of a hole in it). Each piece records which of its edges these are; a piece with any is an **edge piece**, the rest are **interior pieces**.
-6. **Seeds.** Every random choice comes from one seeded generator (mulberry32), so a seed always gives the same puzzle. A new puzzle uses a random seed; the first puzzle on the page uses `?seed=<n>` from the address if it is a whole number from 0 to 2^31 - 1.
+3. **Placement and auto-fit scale.** The whole group is turned to a random one of the ten orientations. On a viewport of `(vw, vh)` CSS pixels, a uniform world-to-screen scale (clamped to `[0.45, 2.5]`) is chosen so the solved puzzle fills up to 56% of the width and 90% of the height in landscape (`vw >= vh`, centered on the left side) or 90% of the width and 54% of the height in portrait (`vw < vh`, centered at the top), while keeping enough board area (`(box.w + 70) * (box.h + 70) + count * 4800` world units²) for the loose pieces. (When no viewport is given, the board defaults to 800 x 600 centered at `(270, 300)`.)
+4. **Breaking it up.** Loose pieces go to spots on a 72-unit grid over the board (centers at least 42 units from the board edge), leaving out spots within 42 units of the solved puzzle's bounding box (falling back to the full grid or board center if the board is too tight). Spots are shuffled and each piece takes one (if there are more pieces than spots, the extra pieces reuse spots, offset by 18 units and kept inside the board). Each piece gets a random one of the ten angles, and the stacking order is shuffled.
+5. **Resizing mid-puzzle.** If the window resizes while a puzzle is in progress, the layout recomputes for the new viewport, shifts the puzzle and all pieces together to the new frame center, and clamps every loose group rigidly so no loose piece's center falls outside the new board (leaving locked pieces in place).
+6. **Border.** A tile edge that no other tile of the puzzle shares lies on the puzzle's outer border (or the border of a hole in it). Each piece records which of its edges these are; a piece with any is an **edge piece**, the rest are **interior pieces**.
+7. **Seeds.** Every random choice comes from one seeded generator (mulberry32), so a seed always gives the same puzzle. A new puzzle uses a random seed; the first puzzle on the page uses `?seed=<n>` from the address if it is a whole number from 0 to 2^31 - 1.
 
 ### The picture
 
@@ -202,7 +203,7 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 | Locked pieces | Their part of the picture, with a faint outline when Show tile outlines is on, drawn under all loose pieces |
 | Border | The puzzle's outer border, so edge pieces can be told from interior ones: each piece's border edges are drawn as a thick dark line (5 units) with a gold stripe (2 units), with round ends, on the piece wherever it is, loose or locked. Shown whatever Show tile outlines is set to. Around the gray outline, the border is a 3-unit slate line, drawn under the pieces |
 | Layers | Locked pieces are drawn as one layer, then each loose group as one layer, in stacking order (by each group's topmost piece). A layer's picture is clipped to all its pieces at once, so no hairline seams show between pieces that fit together |
-| Board | White, 800 x 600, scaled to fit the window as in section 8 |
+| Board | White, fills the full viewport below the slim top bar, drawn at the auto-fit scale and `devicePixelRatio` |
 
 ## 10. Known Limitations and Not Yet Implemented
 

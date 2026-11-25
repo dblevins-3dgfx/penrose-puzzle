@@ -205,6 +205,15 @@ test('rule 4: half a pixel over the edge is tolerated, more is not', () => {
   assert.equal(isOutsidePlayfield([{ x: -0.6, y: 10 }]), true);
 });
 
+test('rule 4: custom board dimensions are respected', () => {
+  const wide = { width: 1400, height: 800 };
+  assert.equal(isOutsidePlayfield([{ x: 1200, y: 700 }], wide), false);
+  assert.equal(isOutsidePlayfield([{ x: 1401, y: 700 }], wide), true);
+  const farTile: Tile = { type: 'kite', x: 1200, y: 700, rotation: 0 };
+  assert.equal(isLegalPlacement([], farTile, false, wide), true);
+  assert.equal(isLegalPlacement([], farTile, false), false);
+});
+
 // ---------------------------------------------------------------------
 // Spec 5: Snapping
 // ---------------------------------------------------------------------

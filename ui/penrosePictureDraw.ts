@@ -79,7 +79,8 @@ const strokeArcs = (ctx: CanvasRenderingContext2D, arcs: CircularArc[], color: s
 export const makePenrosePicture = (
   style: PenrosePictureStyle,
   homes: readonly Tile[],
-  seed: number
+  seed: number,
+  pixelScale = RENDER_SCALE
 ): Picture => {
   const canvas = document.createElement('canvas');
   if (homes.length === 0) {
@@ -89,8 +90,9 @@ export const makePenrosePicture = (
   }
 
   const box = boundsOf(homes);
-  canvas.width = Math.max(1, Math.round(box.w * RENDER_SCALE));
-  canvas.height = Math.max(1, Math.round(box.h * RENDER_SCALE));
+  const scale = Math.max(RENDER_SCALE, Math.min(4, Math.ceil(pixelScale)));
+  canvas.width = Math.max(1, Math.round(box.w * scale));
+  canvas.height = Math.max(1, Math.round(box.h * scale));
   const ctx = canvas.getContext('2d');
   if (!ctx) return { image: canvas, width: canvas.width, height: canvas.height };
 
