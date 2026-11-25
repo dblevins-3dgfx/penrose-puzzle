@@ -10,7 +10,6 @@ export default defineConfig({
   // workflow passes that in. Local dev and preview stay at /.
   base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
-  // Listen on the network, and accept the Pi's mDNS name so other devices
-  // can open http://raspberrypi.local:5173
-  server: { host: true, allowedHosts: ['raspberrypi.local'] },
+  // Listen on the local network so phones or tablets can open the dev server
+  server: { host: true },
 });
