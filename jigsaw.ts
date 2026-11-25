@@ -183,10 +183,9 @@ const turnAndMove = (t: Tile, steps: number, dx: number, dy: number): Tile => {
   };
 };
 
-// Responsive viewport layout for the jigsaw: maps jigsaw world units (where
-// TILE_SIZE = 60) to the canvas's CSS pixel viewport so the solved puzzle
-// fills most of the available screen regardless of puzzle size or orientation,
-// while leaving enough world area to scatter the loose pieces.
+// Responsive viewport layout for the jigsaw: since unplaced pieces live in a
+// separate scrollable tray, the solved puzzle can expand to fill almost the
+// entire board canvas, centered in both landscape and portrait orientations.
 export interface ViewportLayout {
   board: BoardSize;
   // CSS pixels per world unit
@@ -194,32 +193,21 @@ export interface ViewportLayout {
   frameCenter: Point;
 }
 
-const FRAME_PAD = 22;
-const AREA_PER_LOOSE_PIECE = 4800;
+const FRAME_PAD = 20;
 const MIN_SCALE = 0.45;
-const MAX_SCALE = 2.5;
+const MAX_SCALE = 3.0;
 
 export const computeViewportLayout = (
   box: { w: number; h: number },
-  count: number,
+  _count: number,
   viewport: BoardSize
 ): ViewportLayout => {
   const vw = Math.max(1, viewport.width);
   const vh = Math.max(1, viewport.height);
-  const landscape = vw >= vh;
-
-  const fitScale = landscape
-    ? Math.min((vw * 0.56) / (box.w + FRAME_PAD * 2), (vh * 0.9) / (box.h + FRAME_PAD * 2))
-    : Math.min((vw * 0.9) / (box.w + FRAME_PAD * 2), (vh * 0.54) / (box.h + FRAME_PAD * 2));
-  const minWorldArea = (box.w + 70) * (box.h + 70) + count * AREA_PER_LOOSE_PIECE;
-  const areaScale = Math.sqrt((vw * vh) / minWorldArea);
-  const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, fitScale, areaScale));
-
+  const fitScale = Math.min((vw * 0.88) / (box.w + FRAME_PAD * 2), (vh * 0.88) / (box.h + FRAME_PAD * 2));
+  const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, fitScale));
   const board: BoardSize = { width: vw / scale, height: vh / scale };
-  const frameCenter: Point = landscape
-    ? { x: Math.max(box.w / 2 + 12, Math.min(board.width / 2, box.w / 2 + FRAME_PAD)), y: board.height / 2 }
-    : { x: board.width / 2, y: Math.max(box.h / 2 + 12, Math.min(board.height / 2, box.h / 2 + FRAME_PAD)) };
-
+  const frameCenter: Point = { x: board.width / 2, y: board.height / 2 };
   return { board, scale, frameCenter };
 };
 
@@ -253,6 +241,8 @@ export interface Piece {
   y: number;
   rotation: number;
   locked: boolean;
+  // True while the piece sits in the scrollable piece tray instead of on the board.
+  inTray: boolean;
   // Pieces snapped together share a group and move as one. A piece on its
   // own is a group of one, numbered with its id.
   group: number;
@@ -328,6 +318,7 @@ export const scatterPieces = (
       y: Math.min(board.height - SCATTER_MARGIN / 2, spot.y + nudge),
       rotation: Math.floor(random() * 10) * ROTATION_STEP,
       locked: false,
+      inTray: false,
       group: id,
       border: borders[id]
     };
@@ -350,13 +341,14 @@ export const seedFromQuery = (search: string): number | null => {
   return n < 2 ** 31 ? n : null;
 };
 
-// A new puzzle of the given size on the default 800 x 600 board.
+// A new puzzle of the given size on the default 800 x 600 board (pieces loose on board).
 export const newPuzzle = (size: PuzzleSize, seed: number): Piece[] => {
   const random = seededRandom(seed);
   return scatterPieces(solvedTiling(PIECE_COUNTS[size], random), random);
 };
 
-// A new puzzle sized and laid out for the given CSS pixel viewport.
+// A new puzzle sized and centered for the given CSS pixel viewport, with all
+// pieces starting in the scrollable piece tray in shuffled order at random angles.
 export const newPuzzleForViewport = (
   size: PuzzleSize,
   seed: number,
@@ -369,7 +361,23 @@ export const newPuzzleForViewport = (
   const dx = layout.frameCenter.x - (box.x + box.w / 2);
   const dy = layout.frameCenter.y - (box.y + box.h / 2);
   const homes = rawHomes.map(t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-  return { pieces: scatterPieces(homes, random, layout.board), layout };
+  const borders = borderEdges(homes);
+  const pieces: Piece[] = homes.map((home, id) => ({
+    id,
+    home,
+    x: layout.frameCenter.x,
+    y: layout.frameCenter.y,
+    rotation: Math.floor(random() * 10) * ROTATION_STEP,
+    locked: false,
+    inTray: true,
+    group: id,
+    border: borders[id]
+  }));
+  for (let i = pieces.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+  }
+  return { pieces, layout };
 };
 
 // ---------------------------------------------------------------------
@@ -385,12 +393,12 @@ const inTriangle = (p: Point, [a, b, c]: Point[]): boolean => {
 
 export const pointInTile = (p: Point, t: Tile): boolean => toTriangles(getVertices(t)).some(tri => inTriangle(p, tri));
 
-// Index of the loose piece under p that is drawn on top (pieces later in
-// the list are drawn over earlier ones), or -1. Locked pieces can't be
-// picked up.
+// Index of the loose on-board piece under p that is drawn on top (pieces later
+// in the list are drawn over earlier ones), or -1. Locked and tray pieces can't
+// be picked up on the board.
 export const pieceAt = (pieces: readonly Piece[], p: Point): number => {
   for (let i = pieces.length - 1; i >= 0; i--) {
-    if (!pieces[i].locked && pointInTile(p, pieceTile(pieces[i]))) return i;
+    if (!pieces[i].locked && !pieces[i].inTray && pointInTile(p, pieceTile(pieces[i]))) return i;
   }
   return -1;
 };
@@ -438,7 +446,7 @@ const groupOf = (pieces: readonly Piece[], id: number) => {
 };
 
 // The group of piece `id` dragged by (dx, dy). The move is cut short so
-// every piece's center stays on the board. Locked pieces don't move.
+// every piece's center stays on the board. Locked and tray pieces don't move.
 export const moveGroup = (
   pieces: readonly Piece[],
   id: number,
@@ -447,20 +455,21 @@ export const moveGroup = (
   board: BoardSize = DEFAULT_BOARD
 ): Piece[] => {
   const group = groupOf(pieces, id);
-  const members = pieces.filter(p => p.group === group && !p.locked);
+  const members = pieces.filter(p => p.group === group && !p.locked && !p.inTray);
   if (members.length === 0) return [...pieces];
   const cdx = Math.min(Math.max(dx, ...members.map(p => -p.x)), ...members.map(p => board.width - p.x));
   const cdy = Math.min(Math.max(dy, ...members.map(p => -p.y)), ...members.map(p => board.height - p.y));
-  return pieces.map(p => (p.group === group && !p.locked ? { ...p, x: p.x + cdx, y: p.y + cdy } : p));
+  return pieces.map(p => (p.group === group && !p.locked && !p.inTray ? { ...p, x: p.x + cdx, y: p.y + cdy } : p));
 };
 
-// Clamps each loose group so every member's center stays inside `board` (with
-// a grab margin), moving snapped groups rigidly. Locked pieces are untouched.
+// Clamps each loose on-board group so every member's center stays inside
+// `board` (with a grab margin), moving snapped groups rigidly. Locked and tray
+// pieces are untouched.
 export const clampLoosePieces = (pieces: readonly Piece[], board: BoardSize): Piece[] => {
   const mx = Math.min(24, board.width / 4);
   const my = Math.min(24, board.height / 4);
   const shifts = new Map<number, Point>();
-  const looseGroups = new Set(pieces.filter(p => !p.locked).map(p => p.group));
+  const looseGroups = new Set(pieces.filter(p => !p.locked && !p.inTray).map(p => p.group));
 
   const clampAxis = (min: number, max: number, lo: number, hi: number): number => {
     if (max - min > hi - lo) return (lo + hi) / 2 - (min + max) / 2;
@@ -470,7 +479,7 @@ export const clampLoosePieces = (pieces: readonly Piece[], board: BoardSize): Pi
   };
 
   for (const g of looseGroups) {
-    const members = pieces.filter(p => !p.locked && p.group === g);
+    const members = pieces.filter(p => !p.locked && !p.inTray && p.group === g);
     const xs = members.map(p => p.x), ys = members.map(p => p.y);
     const dx = clampAxis(Math.min(...xs), Math.max(...xs), mx, board.width - mx);
     const dy = clampAxis(Math.min(...ys), Math.max(...ys), my, board.height - my);
@@ -478,14 +487,15 @@ export const clampLoosePieces = (pieces: readonly Piece[], board: BoardSize): Pi
   }
   if (shifts.size === 0) return [...pieces];
   return pieces.map(p => {
-    if (p.locked) return p;
+    if (p.locked || p.inTray) return p;
     const s = shifts.get(p.group);
     return s ? { ...p, x: p.x + s.x, y: p.y + s.y } : p;
   });
 };
 
 // Reflows an in-progress puzzle when the viewport resizes: re-fits the frame,
-// shifts homes and pieces together, and clamps loose pieces inside the new board.
+// shifts homes and on-board pieces together, and clamps loose pieces inside
+// the new board.
 export const repositionForViewport = (
   pieces: readonly Piece[],
   viewport: BoardSize
@@ -500,10 +510,64 @@ export const repositionForViewport = (
   const shifted = pieces.map(p => ({
     ...p,
     home: { ...p.home, x: p.home.x + dx, y: p.home.y + dy },
-    x: p.x + dx,
-    y: p.y + dy
+    x: p.inTray ? p.x : p.x + dx,
+    y: p.inTray ? p.y : p.y + dy
   }));
   return { pieces: clampLoosePieces(shifted, layout.board), layout };
+};
+
+// ---------------------------------------------------------------------
+// Piece tray
+// ---------------------------------------------------------------------
+
+export type TrayFilter = 'all' | 'edges';
+
+export const trayPieces = (pieces: readonly Piece[], filter: TrayFilter = 'all'): Piece[] =>
+  pieces.filter(p => p.inTray && !p.locked && (filter === 'all' || isEdgePiece(p)));
+
+// Moves a piece out of the tray onto the board at `at` (clamped inside `board`),
+// placing it at the top of the board stacking order.
+export const takeFromTray = (
+  pieces: readonly Piece[],
+  id: number,
+  at: Point,
+  board: BoardSize = DEFAULT_BOARD
+): Piece[] => {
+  const i = pieces.findIndex(p => p.id === id);
+  if (i < 0 || pieces[i].locked || !pieces[i].inTray) return [...pieces];
+  const x = Math.max(0, Math.min(board.width, at.x));
+  const y = Math.max(0, Math.min(board.height, at.y));
+  const taken: Piece = { ...pieces[i], inTray: false, x, y };
+  return [...pieces.filter((_, idx) => idx !== i), taken];
+};
+
+// Where a tapped tray piece lands on the board: staggered around the board
+// center so tapping several pieces in a row fans them out cleanly.
+export const popSpotOnBoard = (pieces: readonly Piece[], board: BoardSize): Point => {
+  const onBoardLoose = pieces.filter(p => !p.locked && !p.inTray).length;
+  const angle = (onBoardLoose * 137.5 * Math.PI) / 180;
+  const radius = onBoardLoose === 0 ? 0 : Math.min(48, 18 + (onBoardLoose % 5) * 8);
+  const mx = Math.min(36, board.width / 4);
+  const my = Math.min(36, board.height / 4);
+  return {
+    x: Math.max(mx, Math.min(board.width - mx, board.width / 2 + radius * Math.cos(angle))),
+    y: Math.max(my, Math.min(board.height - my, board.height / 2 + radius * Math.sin(angle)))
+  };
+};
+
+// Only a single ungrouped loose on-board piece can be returned to the tray
+// (multi-piece groups stay on the board so they aren't accidentally broken up).
+export const canReturnToTray = (pieces: readonly Piece[], id: number): boolean => {
+  const piece = pieces.find(p => p.id === id);
+  if (!piece || piece.locked || piece.inTray) return false;
+  return pieces.filter(p => p.group === piece.group).length === 1;
+};
+
+// Returns a single ungrouped loose piece to the top of the tray.
+export const returnToTray = (pieces: readonly Piece[], id: number): Piece[] => {
+  if (!canReturnToTray(pieces, id)) return [...pieces];
+  const piece = pieces.find(p => p.id === id)!;
+  return [{ ...piece, inTray: true }, ...pieces.filter(p => p.id !== id)];
 };
 
 // The best neighbor for the group to join: a piece outside the group,
@@ -512,9 +576,9 @@ export const repositionForViewport = (
 // Returns the move that puts it there, or null.
 const nearestJoin = (pieces: readonly Piece[], group: number) => {
   let best: { dx: number; dy: number; dist: number; other: Piece } | null = null;
-  for (const m of pieces.filter(p => p.group === group)) {
+  for (const m of pieces.filter(p => p.group === group && !p.inTray)) {
     for (const n of pieces) {
-      if (n.group === group || turnOf(n) !== turnOf(m) || !neighbors(m, n)) continue;
+      if (n.inTray || n.group === group || turnOf(n) !== turnOf(m) || !neighbors(m, n)) continue;
       const at = placeBeside(n, m);
       const dist = Math.hypot(at.x - m.x, at.y - m.y);
       if (dist <= LOCK_RADIUS && (!best || dist < best.dist)) best = { dx: at.x - m.x, dy: at.y - m.y, dist, other: n };
@@ -524,7 +588,7 @@ const nearestJoin = (pieces: readonly Piece[], group: number) => {
 };
 
 const lockGroup = (pieces: readonly Piece[], group: number): Piece[] =>
-  pieces.map(p => (p.group === group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true } : p));
+  pieces.map(p => (p.group === group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false } : p));
 
 // A group just dropped or turned: locks into place if it is at its home
 // angle near its home (the whole group locks), and otherwise snaps against
@@ -537,7 +601,7 @@ export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
   let current = [...pieces];
   for (let round = 0; round < current.length; round++) {
     const group = groupOf(current, id);
-    const members = current.filter(p => p.group === group);
+    const members = current.filter(p => p.group === group && !p.inTray);
     if (members.length === 0 || members.some(p => p.locked)) return current;
     if (dropPiece(members[0]).locked) return lockGroup(current, group);
 
@@ -557,7 +621,7 @@ export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
 // about that piece's center, then settled as if dropped.
 export const rotateGroup = (pieces: readonly Piece[], id: number, steps: number): Piece[] => {
   const pivot = pieces.find(p => p.id === id);
-  if (!pivot || pivot.locked) return [...pieces];
+  if (!pivot || pivot.locked || pivot.inTray) return [...pieces];
   const turned = pieces.map(p => {
     if (p.group !== pivot.group) return p;
     const at = turnAbout(p, pivot, steps * ROTATION_STEP);
@@ -567,12 +631,11 @@ export const rotateGroup = (pieces: readonly Piece[], id: number, steps: number)
 };
 
 // The pieces in the layers they are drawn in, bottom first: all locked
-// pieces together, then each loose group, ordered by where its topmost
-// piece is in the stacking order. Each layer is drawn as one shape, so no
-// seams show between pieces that fit together.
+// pieces together, then each loose on-board group, ordered by where its topmost
+// piece is in the stacking order. Pieces still in the tray are omitted.
 export const drawLayers = (pieces: readonly Piece[]): Piece[][] => {
   const locked = pieces.filter(p => p.locked);
-  const loose = pieces.filter(p => !p.locked);
+  const loose = pieces.filter(p => !p.locked && !p.inTray);
   const top = new Map<number, number>();
   loose.forEach((p, i) => top.set(p.group, i));
   const groups = [...top.keys()].sort((g, h) => (top.get(g) ?? 0) - (top.get(h) ?? 0));
