@@ -4,26 +4,17 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 ## How changes are made
 
-- The owner merges every pull request; nothing else merges. Pull requests #1 to #3 were all merged as merge commits ("Merge pull request #N"), not squashed.
-- Work on `main` goes on a short-lived branch. The AI assistant used one branch name for all of them, `claude/nifty-ptolemy-7mqxwl`, and restarted it from `main` after each merge. Any name works: every pushed branch gets a preview.
+- The owner merges every pull request; nothing else merges. Pull requests have been merged as merge commits ("Merge pull request #N"), not squashed.
+- Every change goes on a short-lived branch from `main` and merges by pull request. Any branch name works: every pushed branch gets a preview.
 - A pull request description lists the spec sections that changed (or says why none did) and the checks run locally, including what was checked in a browser.
 - Commit messages have a short summary line and a body saying what changed and why, ending with the spec sections touched.
 - The owner asks for new ideas to be logged as GitHub issues before work starts (#4).
 - There are no releases or versions: merging into `main` deploys the live site.
-- The commits before #1 went straight to `main`. That stopped with #1, which added the branch-and-PR rule to `CLAUDE.md`.
-
-### The `jigsaw` feature branch
-
-- `jigsaw` is a long-lived feature branch for an experimental jigsaw mode. The owner asked for it, and said alternate branches may later be made from it or from `main`.
-- Unlike `main`, work so far was committed and pushed straight to `jigsaw`, without pull requests, so its preview updates right away: https://dblevins-3dgfx.github.io/penrose-puzzle/branch/jigsaw/
-- Keep `jigsaw` current by merging `main` into it, not by rebasing.
-- It reaches `main` through a pull request when the owner decides; that hasn't happened yet.
-- Its spec, README and `untested-requirements.md` describe the jigsaw, so they differ from `main`'s.
-- On `jigsaw`, the jigsaw logic is in `jigsaw.ts`, tested in `jigsaw.test.ts`.
+- History: commits before #1 went straight to `main`, and the jigsaw mode was originally developed by pushing directly to a long-lived `jigsaw` feature branch before being merged into `main`. Going forward, all work uses branches and pull requests to `main`.
 
 ## Checks
 
-- CI only runs the full checks (typecheck, lint, tests, build) on pull requests (`.github/workflows/test.yml`). A plain push, including every push to `jigsaw`, only runs `npm test` and the build inside the deploy. So run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` yourself before pushing a branch without a pull request.
+- CI only runs the full checks (typecheck, lint, tests, build) on pull requests (`.github/workflows/test.yml`). A plain push only runs `npm test` and the build inside the deploy. So run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` yourself before pushing.
 - The tests are hand-written and there is no mutation testing. The habit so far is to break each new rule by hand (delete a condition, change a constant) and check that a test fails, then add a test for any break that passes unnoticed.
 
 ## Running and testing locally
@@ -33,11 +24,11 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
   - The board is a canvas with an 800 x 600 drawing area scaled to the window. Convert board coordinates with the canvas's `boundingBox()`: scale = box width / 800.
   - To emulate touch, use a Playwright device such as `devices['iPhone 13']`. The app decides whether it is on a touch device once, from `navigator.maxTouchPoints`, when the page loads.
   - Playwright's `text=Dart` matches the header's "darts" count first. Use `button:text-is("Dart")`.
-  - On `jigsaw`, `?seed=<n>` gives a known puzzle. A script can import `newPuzzle(size, seed)` from `jigsaw.ts` with `npx tsx` to get every piece's home and solve the puzzle by dragging.
+  - In Jigsaw mode, `?seed=<n>` gives a known puzzle. A script can import `newPuzzle(size, seed)` from `jigsaw.ts` with `npx tsx` to get every piece's home and solve the puzzle by dragging.
   - To test blocked storage, add an init script that makes `window.localStorage` throw.
 - `pkill -f "vite preview"` can match and kill the shell that runs it. Use a pattern that can't match itself, such as `pkill -f "vite preview --port 417[3]"`.
 - `vite.config.ts` lets the dev server be opened as `raspberrypi.local`. That came over from Penrogo, where the owner ran it on a Raspberry Pi; whether that's still used here is unverified.
-- There are no accounts, passwords or backends. The only stored data is the `jigsaw` branch's settings, under the local-storage key `penrose-puzzle.jigsaw-settings`; delete that key to reset them.
+- There are no accounts, passwords or backends. The only stored data is the jigsaw's settings, under the local-storage key `penrose-puzzle.jigsaw-settings`; delete that key to reset them.
 
 ## Gotchas
 
@@ -51,15 +42,15 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
   - If a build is identical to what's already published, the deploy action adds no commit to `gh-pages`, and the job log says `deployment_status: skipped`. Don't wait for a `gh-pages` commit that will never come.
 - The live site and every branch preview share one origin, `dblevins-3dgfx.github.io`, so they share local storage. A setting saved in one preview applies in all of them.
 - The sandbox's matching rules usually let a free edge take a given tile only one way. That's why auto-rotate's rotate controls step through fits on nearby edges rather than on one edge (#2).
-- On `jigsaw`, the solved tiling is generated by deflation, ported from Penrogo's `penrose-board.ts`, so every puzzle is a legal Penrose tiling by construction.
+- In Jigsaw mode, the solved tiling is generated by deflation, ported from Penrogo's `penrose-board.ts`, so every puzzle is a legal Penrose tiling by construction.
 
 ## Decisions
 
-- The owner hasn't decided what the game is. `main` is a single-player sandbox with everything two-player and Go-like taken out of Penrogo's original game. The jigsaw is one experiment, kept on a branch.
+- The owner hasn't decided what the final game is. The app started as a single-player sandbox with everything two-player and Go-like taken out of Penrogo's original game; the jigsaw is one experiment alongside it.
 - The owner asked for Penrogo's conventions here (https://github.com/dblevins-3dgfx/penrogo): `CLAUDE.md`'s spec-and-tests rules and `.oxlintrc.json` are copied from it, and the deploy workflow is modelled on its own. The owner's sudoku4david repository has the same spec-and-tests rules.
 - Kites are amber and darts indigo, chosen when the two-player colors were removed.
 - Auto-rotate stays a mode you switch on; turning the tile while it's on steps through the fits instead of switching it off (#2). It isn't saved.
-- Jigsaw choices, on `jigsaw`:
+- Jigsaw choices:
   - The default picture is drawn in code (`ui/defaultPicture.ts`), so the repository needs no image files or licences.
   - A picture the player chooses stays on their device and is never uploaded.
   - A piece only locks into its own home, and only snaps to pieces it borders in the solved puzzle.
@@ -76,11 +67,9 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 ## Things to watch for
 
 - Stale previews: a branch's preview stays on `gh-pages` until the branch is deleted. `branch/claude-nifty-ptolemy-7mqxwl/` is still there.
-- The header is cramped on phones. On `jigsaw`, "How to Play" and "Settings" shrink to icons on narrow screens; on `main` they don't yet.
-- `jigsaw` and `main` drift apart: changes to shared files on `main` (`ui/`, the spec, `README.md`) have to be merged into `jigsaw` by hand.
+- The header is cramped on phones ("How to Play" and "Settings" shrink to icons on narrow screens).
 
 ## Open work
 
-- [#4](https://github.com/dblevins-3dgfx/penrose-puzzle/issues/4), a jigsaw timer and move counter, is for the `jigsaw` branch. The issue lists open questions for the owner, for example whether turning a piece counts as a move and whether the timer pauses while the tab is hidden.
-- Whether, and when, `jigsaw` merges into `main` is the owner's decision.
+- [#4](https://github.com/dblevins-3dgfx/penrose-puzzle/issues/4), a jigsaw timer and move counter. The issue lists open questions for the owner, for example whether turning a piece counts as a move and whether the timer pauses while the tab is hidden.
 - What the actual puzzle game is remains open (spec section 10).
