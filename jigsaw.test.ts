@@ -496,12 +496,18 @@ test('each piece carries its part of the picture to wherever it is', () => {
 // Settings
 // ---------------------------------------------------------------------
 
-test('by default the picture is hidden and tile outlines are shown', () => {
-  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true });
+test('by default the picture is hidden, tile outlines are shown, and the picture is subdivided', () => {
+  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true, picture: 'subdivided' });
 });
 
 test('saved settings are read back as they were saved', () => {
-  for (const settings of [DEFAULT_SETTINGS, { showPicture: true, showOutlines: false }]) {
+  const cases = [
+    DEFAULT_SETTINGS,
+    { showPicture: true, showOutlines: false, picture: 'matching' as const },
+    { showPicture: false, showOutlines: true, picture: 'independent' as const },
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const }
+  ];
+  for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
   }
 });
@@ -516,7 +522,11 @@ test('nothing saved, or something unreadable, gives the defaults', () => {
 });
 
 test('a missing or wrongly typed setting falls back to its default; unknown ones are dropped', () => {
-  assert.deepEqual(parseSettings('{"showPicture": true}'), { showPicture: true, showOutlines: true });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false}'), { showPicture: false, showOutlines: false });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"showPicture": true}'), { showPicture: true, showOutlines: true, picture: 'subdivided' });
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset"}'), {
+    showPicture: false,
+    showOutlines: false,
+    picture: 'sunset'
+  });
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "volume": 11}'), DEFAULT_SETTINGS);
 });
