@@ -10,10 +10,14 @@ import {
   bringToFront,
   canReturnToTray,
   choosePieces,
+  clampCamera,
   clampLoosePieces,
   computeViewportLayout,
   coverRect,
+  DEFAULT_CAMERA,
   DEFAULT_SETTINGS,
+  MAX_ZOOM,
+  MIN_ZOOM,
   parseSettings,
   serializeSettings,
   dropPiece,
@@ -25,15 +29,19 @@ import {
   neighbors,
   newPuzzle,
   newPuzzleForViewport,
+  panCamera,
   placeBeside,
   popSpotOnBoard,
   repositionForViewport,
   returnToTray,
   rotateGroup,
+  screenToWorld,
   settleGroup,
   takeFromTray,
   trayPieces,
   turnOf,
+  worldToScreen,
+  zoomCameraAt,
   pieceAt,
   pieceTile,
   pointInTile,
@@ -698,4 +706,61 @@ test('moveGroup respects custom board bounds', () => {
   const p = moved.find(q => q.id === pieces[0].id)!;
   near(p.x, custom.width);
   near(p.y, custom.height);
+});
+
+// ---------------------------------------------------------------------
+// Camera (zoom and pan)
+// ---------------------------------------------------------------------
+
+test('screenToWorld and worldToScreen are inverses at any zoom and pan', () => {
+  const cam = { zoom: 2.25, panX: -140, panY: 35 };
+  const world = { x: 185, y: 112 };
+  const screen = worldToScreen(world, 1.5, cam);
+  const back = screenToWorld(screen, 1.5, cam);
+  near(back.x, world.x);
+  near(back.y, world.y);
+});
+
+test('clampCamera bounds zoom, centers at zoom <= 1, and prevents panning off-screen when zoomed in', () => {
+  const vp = { width: 1000, height: 600 };
+  assert.deepEqual(clampCamera({ zoom: 1, panX: 250, panY: -200 }, vp), DEFAULT_CAMERA);
+
+  const zoomedOut = clampCamera({ zoom: 0.2, panX: 999, panY: -999 }, vp);
+  near(zoomedOut.zoom, MIN_ZOOM);
+  near(zoomedOut.panX, (vp.width - vp.width * MIN_ZOOM) / 2);
+  near(zoomedOut.panY, (vp.height - vp.height * MIN_ZOOM) / 2);
+
+  const zoomedIn = clampCamera({ zoom: 10, panX: 5000, panY: -5000 }, vp);
+  near(zoomedIn.zoom, MAX_ZOOM);
+  assert.ok(zoomedIn.panX <= 80 && zoomedIn.panX >= vp.width - vp.width * MAX_ZOOM - 80);
+  assert.ok(zoomedIn.panY <= 80 && zoomedIn.panY >= vp.height - vp.height * MAX_ZOOM - 80);
+});
+
+test('zoomCameraAt keeps the world point under the focus stationary and panCamera moves smoothly', () => {
+  const vp = { width: 1000, height: 600 };
+  const focus = { x: 300, y: 200 };
+  const scale = 1.6;
+  const worldBefore = screenToWorld(focus, scale, DEFAULT_CAMERA);
+
+  const zoomed = zoomCameraAt(DEFAULT_CAMERA, 2, focus, vp);
+  near(zoomed.zoom, 2);
+  const worldAfter = screenToWorld(focus, scale, zoomed);
+  near(worldAfter.x, worldBefore.x);
+  near(worldAfter.y, worldBefore.y);
+
+  const panned = panCamera(zoomed, 50, -30, vp);
+  near(panned.panX, zoomed.panX + 50);
+  near(panned.panY, zoomed.panY - 30);
+
+  // Zooming back to 1 snaps back to default centered fit
+  const fit = zoomCameraAt(panned, 0.5, focus, vp);
+  assert.deepEqual(fit, DEFAULT_CAMERA);
+});
+
+test('popSpotOnBoard places a tapped piece near a custom zoomed-view anchor inside the board', () => {
+  const { pieces, layout } = newPuzzleForViewport('small', 4, { width: 1000, height: 700 });
+  const anchor = { x: 120, y: 90 };
+  const spot = popSpotOnBoard(pieces, layout.board, anchor);
+  near(spot.x, anchor.x);
+  near(spot.y, anchor.y);
 });

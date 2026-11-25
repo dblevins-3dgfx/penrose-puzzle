@@ -20,7 +20,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Tests | Node's test runner through `tsx` (`npm test`) |
 | Rendering | HTML5 Canvas 2D, sized to fill the available viewport below the slim top bar (scaled by `devicePixelRatio` for HiDPI crispness) |
 | Styling | Tailwind CSS v4 utility classes |
-| Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`) |
+| Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`, `ZoomIn`, `ZoomOut`) |
 | Persistence | The jigsaw's settings in the browser's local storage (section 9); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
 
 ## 3. Tile Geometry
@@ -175,7 +175,11 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### Play
 
-- **Piece tray.** Dragging a piece out of the tray lifts it seamlessly onto the board under the pointer (dropping it directly onto its home locks it in one motion; dropping it back over the tray puts it away). Clicking or tapping a tray piece pops it onto the board near the center (staggered so repeated taps fan out) and selects it. Dropping a **single ungrouped** loose on-board piece back over the tray returns it to the top of the tray; multi-piece snapped groups stay on the board. Tray pieces cannot be hit-tested, rotated, or snapped against on the board while in the tray.
+- **Pan and zoom.** The jigsaw board supports zooming (`0.75x` to `4x`) and panning:
+  - Floating bottom-left zoom controls (`-`, `Fit` / percentage reset, `+`), keyboard shortcuts (`+`/`=`, `-`, `0` to fit), trackpad pinch (`Ctrl/Cmd + wheel`), and two-finger pinch-to-zoom on touch devices. Zooming keeps the world point under the focal point stationary.
+  - Dragging empty board space (or over locked pieces) pans when zoomed in; two-finger drag pans on touch devices. At `zoom <= 1` the board stays centered; when zoomed in, panning is clamped with an edge margin so the board can't be lost off-screen.
+  - Tapping a tray piece while zoomed in pops it near the center of the current visible view. Starting a new puzzle or changing size resets zoom and pan to Fit; resizing the window clamps the camera to the new viewport.
+- **Piece tray.** Dragging a piece out of the tray lifts it seamlessly onto the board under the pointer (dropping it directly onto its home locks it in one motion; dropping it back over the tray puts it away). Clicking or tapping a tray piece pops it onto the board near the center of the current view (staggered so repeated taps fan out) and selects it. Dropping a **single ungrouped** loose on-board piece back over the tray returns it to the top of the tray; multi-piece snapped groups stay on the board. Tray pieces cannot be hit-tested, rotated, or snapped against on the board while in the tray.
 - **Groups.** Every piece starts in a group of its own. Pieces that have snapped together (below) form one group, which moves, turns, snaps and locks as a whole.
 - **Picking up.** Pressing on a loose piece selects it and brings its whole group to the top of the stack (keeping the group's own stacking order); the topmost loose piece under the pointer is taken. Locked pieces can't be picked up.
 - **Dragging** moves the group. The move stops short where needed so that no piece's center leaves the board.

@@ -15,6 +15,11 @@ export const JigsawHelp = ({ isTouchDevice, onClose }: { isTouchDevice: boolean;
           ? 'Tap a piece to select it, then turn it with the rotate buttons (36° steps)'
           : 'Turn the selected piece with the scroll wheel or Left/Right arrow keys, or right-click a piece to turn it (Shift + right-click for the other way)'}
       </li>
+      <li>
+        {isTouchDevice
+          ? 'Pinch with two fingers to zoom (or use the bottom-left zoom buttons); drag empty board space to pan'
+          : 'Zoom with the bottom-left buttons, +/-/0 keys, or pinch on a trackpad; drag empty board space to pan'}
+      </li>
       <li>Settings: Show picture faintly shows the whole picture in the outline; Show tile outlines draws the edges of the pieces</li>
       <li>Your picture swaps in a photo from your device (it stays on your device)</li>
       <li>New puzzle starts over with a different part of the tiling</li>
