@@ -180,7 +180,7 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### Saved settings
 
-- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each branch preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
 - Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing setting, or one that isn't true or false, takes its default; unknown fields are ignored.
 - If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 

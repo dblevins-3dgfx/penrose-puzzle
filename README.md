@@ -21,16 +21,16 @@ Then open http://localhost:5173. The dev server also listens on your local netwo
 
 ## Deployment
 
-Every push builds the game, runs the tests and publishes it to GitHub Pages (see `.github/workflows/deploy.yml`):
+GitHub Actions builds the game, runs the unit tests and publishes it to GitHub Pages (see `.github/workflows/deploy.yml`):
 
 - `main` is the live site: https://dblevins-3dgfx.github.io/penrose-puzzle/
-- Any other branch gets a preview at `https://dblevins-3dgfx.github.io/penrose-puzzle/branch/<name>/`, where `<name>` is the branch name with `/` and other unusual characters turned into `-` (for example `feature/x` becomes `feature-x`). Deleting the branch removes its preview.
+- Every pull request gets a preview at `https://dblevins-3dgfx.github.io/penrose-puzzle/branch/pr-<number>/`, built from the PR's merge commit, with a sticky comment on the pull request linking to it. Closing or merging the pull request removes its preview.
 
 The workflow pushes the builds to the `gh-pages` branch: `main` at its root, previews under `branch/`. To serve it, set the repository's Settings → Pages → Source to "Deploy from a branch", branch `gh-pages`, folder `/ (root)`.
 
 ## Checks
 
-Every pull request runs the type checker, the linter, the unit tests and the production build (`.github/workflows/test.yml`). Deploys from `main` also run the tests first, and don't publish if they fail.
+Every pull request runs the type checker, the linter, the unit tests and the production build (`.github/workflows/test.yml`). Deploys (`main` and pull-request previews) also run the unit tests first, and don't publish if they fail.
 
 ## Scripts
 
