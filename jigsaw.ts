@@ -517,6 +517,69 @@ export const repositionForViewport = (
 };
 
 // ---------------------------------------------------------------------
+// Camera (board zoom and pan)
+// ---------------------------------------------------------------------
+
+export interface Camera {
+  // Zoom multiplier on top of layout.scale (1 = fitted to screen)
+  zoom: number;
+  // Pan offset in CSS pixels: where world (0, 0) lands on the canvas
+  panX: number;
+  panY: number;
+}
+
+export const DEFAULT_CAMERA: Camera = { zoom: 1, panX: 0, panY: 0 };
+export const MIN_ZOOM = 0.75;
+export const MAX_ZOOM = 4;
+export const ZOOM_STEP = 1.25;
+
+export const screenToWorld = (screen: Point, layoutScale: number, camera: Camera): Point => {
+  const s = layoutScale * camera.zoom;
+  return { x: (screen.x - camera.panX) / s, y: (screen.y - camera.panY) / s };
+};
+
+export const worldToScreen = (world: Point, layoutScale: number, camera: Camera): Point => {
+  const s = layoutScale * camera.zoom;
+  return { x: world.x * s + camera.panX, y: world.y * s + camera.panY };
+};
+
+const clampPanAxis = (pan: number, vp: number, zoom: number): number => {
+  const rendered = vp * zoom;
+  if (rendered <= vp) return (vp - rendered) / 2;
+  const pad = Math.min(80, vp * 0.15);
+  return Math.max(vp - rendered - pad, Math.min(pad, pan));
+};
+
+// Keeps zoom within [MIN_ZOOM, MAX_ZOOM] and prevents panning the board
+// completely off-screen. At zoom <= 1 the board stays centered cleanly.
+export const clampCamera = (camera: Camera, viewport: BoardSize): Camera => {
+  const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom));
+  return {
+    zoom,
+    panX: clampPanAxis(camera.panX, Math.max(1, viewport.width), zoom),
+    panY: clampPanAxis(camera.panY, Math.max(1, viewport.height), zoom)
+  };
+};
+
+export const panCamera = (camera: Camera, dx: number, dy: number, viewport: BoardSize): Camera =>
+  clampCamera({ zoom: camera.zoom, panX: camera.panX + dx, panY: camera.panY + dy }, viewport);
+
+// Zooms by `factor` while keeping the world point under `focus` (CSS pixels)
+// stationary, then clamps the resulting camera to the viewport.
+export const zoomCameraAt = (camera: Camera, factor: number, focus: Point, viewport: BoardSize): Camera => {
+  const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * factor));
+  const ratio = nextZoom / camera.zoom;
+  return clampCamera(
+    {
+      zoom: nextZoom,
+      panX: focus.x - (focus.x - camera.panX) * ratio,
+      panY: focus.y - (focus.y - camera.panY) * ratio
+    },
+    viewport
+  );
+};
+
+// ---------------------------------------------------------------------
 // Piece tray
 // ---------------------------------------------------------------------
 
@@ -541,17 +604,22 @@ export const takeFromTray = (
   return [...pieces.filter((_, idx) => idx !== i), taken];
 };
 
-// Where a tapped tray piece lands on the board: staggered around the board
-// center so tapping several pieces in a row fans them out cleanly.
-export const popSpotOnBoard = (pieces: readonly Piece[], board: BoardSize): Point => {
+// Where a tapped tray piece lands on the board: staggered around `anchor`
+// (default: board center, or the visible center of the zoomed camera) so
+// tapping several pieces in a row fans them out cleanly inside the board.
+export const popSpotOnBoard = (
+  pieces: readonly Piece[],
+  board: BoardSize,
+  anchor: Point = { x: board.width / 2, y: board.height / 2 }
+): Point => {
   const onBoardLoose = pieces.filter(p => !p.locked && !p.inTray).length;
   const angle = (onBoardLoose * 137.5 * Math.PI) / 180;
   const radius = onBoardLoose === 0 ? 0 : Math.min(48, 18 + (onBoardLoose % 5) * 8);
   const mx = Math.min(36, board.width / 4);
   const my = Math.min(36, board.height / 4);
   return {
-    x: Math.max(mx, Math.min(board.width - mx, board.width / 2 + radius * Math.cos(angle))),
-    y: Math.max(my, Math.min(board.height - my, board.height / 2 + radius * Math.sin(angle)))
+    x: Math.max(mx, Math.min(board.width - mx, anchor.x + radius * Math.cos(angle))),
+    y: Math.max(my, Math.min(board.height - my, anchor.y + radius * Math.sin(angle)))
   };
 };
 
