@@ -24,6 +24,7 @@ import {
   drawLayers,
   generatePatch,
   isEdgePiece,
+  isGroupSelected,
   isSolved,
   moveGroup,
   neighbors,
@@ -37,7 +38,9 @@ import {
   rotateGroup,
   screenToWorld,
   settleGroup,
+  shouldTapRotate,
   takeFromTray,
+  TAP_MAX_MOVE,
   trayPieces,
   turnOf,
   worldToScreen,
@@ -514,16 +517,16 @@ test('each piece carries its part of the picture to wherever it is', () => {
 // Settings
 // ---------------------------------------------------------------------
 
-test('by default the picture is hidden, tile outlines are shown, and the picture is subdivided', () => {
-  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true, picture: 'subdivided' });
+test('by default the picture is hidden, tile outlines are shown, picture is subdivided, and size is medium', () => {
+  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true, picture: 'subdivided', size: 'medium' });
 });
 
 test('saved settings are read back as they were saved', () => {
   const cases = [
     DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const }
+    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const },
+    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const },
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -540,13 +543,42 @@ test('nothing saved, or something unreadable, gives the defaults', () => {
 });
 
 test('a missing or wrongly typed setting falls back to its default; unknown ones are dropped', () => {
-  assert.deepEqual(parseSettings('{"showPicture": true}'), { showPicture: true, showOutlines: true, picture: 'subdivided' });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset"}'), {
+  assert.deepEqual(parseSettings('{"showPicture": true}'), {
+    showPicture: true,
+    showOutlines: true,
+    picture: 'subdivided',
+    size: 'medium'
+  });
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large"}'), {
     showPicture: false,
     showOutlines: false,
-    picture: 'sunset'
+    picture: 'sunset',
+    size: 'large'
   });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "volume": 11}'), DEFAULT_SETTINGS);
+});
+
+test('tap-to-rotate selects on first tap and rotates on subsequent taps within TAP_MAX_MOVE', () => {
+  assert.equal(shouldTapRotate(false, 0), false, 'first tap only selects');
+  assert.equal(shouldTapRotate(false, TAP_MAX_MOVE), false);
+  assert.equal(shouldTapRotate(true, 0), true, 'second tap rotates');
+  assert.equal(shouldTapRotate(true, TAP_MAX_MOVE), true);
+  assert.equal(shouldTapRotate(true, TAP_MAX_MOVE + 0.1), false, 'dragging does not trigger tap-rotate');
+
+  const pieces = newPuzzle('small', 5);
+  const gA = { ...pieces[0], group: 50 };
+  const gB = { ...pieces[1], group: 50 };
+  const other = { ...pieces[2], group: 51 };
+  const locked = { ...pieces[3], group: 50, locked: true };
+  const inTray = { ...pieces[4], group: 50, inTray: true };
+  const list = [gA, gB, other, locked, inTray];
+
+  assert.equal(isGroupSelected(list, null, gA.id), false);
+  assert.equal(isGroupSelected(list, gA.id, gA.id), true, 'same piece is selected');
+  assert.equal(isGroupSelected(list, gA.id, gB.id), true, 'piece in same snapped group counts as selected');
+  assert.equal(isGroupSelected(list, gA.id, other.id), false, 'different group is not selected');
+  assert.equal(isGroupSelected(list, gA.id, locked.id), false, 'locked piece is not selectable');
+  assert.equal(isGroupSelected(list, gA.id, inTray.id), false, 'tray piece is not selectable on board');
 });
 
 // ---------------------------------------------------------------------

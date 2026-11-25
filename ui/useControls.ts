@@ -7,16 +7,21 @@ import { WHEEL_NOTCH, wheelDeltaPixels, wheelSteps, type Point } from '../rules'
 type Rotate = (steps: number) => void;
 type ZoomAt = (factor: number, focus: Point) => void;
 
-// Left / Right arrows rotate; Ctrl/Cmd+Z undoes the last tile.
+// Left / Right arrows or R / Shift+R rotate; Ctrl/Cmd+Z undoes the last tile.
 export const useKeyboardControls = (rotate: Rotate, undo: () => void) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         rotate(-1);
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         rotate(1);
+      } else if (!inField && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        rotate(e.shiftKey ? -1 : 1);
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();

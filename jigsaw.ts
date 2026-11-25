@@ -685,6 +685,29 @@ export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
   return current;
 };
 
+// Maximum CSS-pixel pointer travel for a press-and-release on a loose piece
+// to count as a tap rather than a drag.
+export const TAP_MAX_MOVE = 6;
+
+// True if `pieceId` is a loose on-board piece belonging to the same group as
+// `selectedId` (so tapping any piece in an already-selected group rotates it).
+export const isGroupSelected = (
+  pieces: readonly Piece[],
+  selectedId: number | null,
+  pieceId: number
+): boolean => {
+  if (selectedId === null) return false;
+  const sel = pieces.find(p => p.id === selectedId);
+  const target = pieces.find(p => p.id === pieceId);
+  if (!sel || !target || sel.locked || sel.inTray || target.locked || target.inTray) return false;
+  return sel.group === target.group;
+};
+
+// First tap on a loose piece selects it; subsequent taps on an already-selected
+// group (with pointer travel within TAP_MAX_MOVE) rotate it 36°.
+export const shouldTapRotate = (wasSelected: boolean, moveDistPx: number): boolean =>
+  wasSelected && moveDistPx <= TAP_MAX_MOVE;
+
 // The group of piece `id` turned `steps` 36° steps (positive = clockwise)
 // about that piece's center, then settled as if dropped.
 export const rotateGroup = (pieces: readonly Piece[], id: number, steps: number): Piece[] => {
@@ -725,12 +748,15 @@ export interface JigsawSettings {
   showOutlines: boolean;
   // Which built-in picture is drawn on the puzzle
   picture: PictureStyle;
+  // Piece count preset for new puzzles
+  size: PuzzleSize;
 }
 
 export const DEFAULT_SETTINGS: JigsawSettings = {
   showPicture: false,
   showOutlines: true,
-  picture: 'subdivided'
+  picture: 'subdivided',
+  size: 'medium'
 };
 
 // Where the settings are kept in the browser's local storage.
@@ -740,6 +766,9 @@ export const serializeSettings = (settings: JigsawSettings): string => JSON.stri
 
 const isPictureStyle = (value: unknown): value is PictureStyle =>
   typeof value === 'string' && (PICTURE_STYLES as readonly string[]).includes(value);
+
+const isPuzzleSize = (value: unknown): value is PuzzleSize =>
+  typeof value === 'string' && Object.prototype.hasOwnProperty.call(PIECE_COUNTS, value);
 
 // Settings read back from storage. Anything missing, unreadable or of the
 // wrong type falls back to its default, field by field, and unknown fields
@@ -755,7 +784,8 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
   const flag = (key: 'showPicture' | 'showOutlines') =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
   const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
-  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture };
+  const size = isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size;
+  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture, size };
 };
 
 export const progress = (pieces: readonly Piece[]) => ({

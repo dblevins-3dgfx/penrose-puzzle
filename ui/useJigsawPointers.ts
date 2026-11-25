@@ -6,6 +6,7 @@ import type { BoardSize, Point } from '../rules';
 import {
   bringToFront,
   canReturnToTray,
+  isGroupSelected,
   moveGroup,
   panCamera,
   pieceAt,
@@ -14,7 +15,9 @@ import {
   rotateGroup,
   screenToWorld,
   settleGroup,
+  shouldTapRotate,
   takeFromTray,
+  TAP_MAX_MOVE,
   zoomCameraAt,
   type Camera,
   type Piece,
@@ -119,11 +122,13 @@ export const useTrayInteraction = (
     [canvasRef, trayRef, layout.scale, layout.board, viewport.width, viewport.height, camera, isPortrait, updatePieces, onSelect]
   );
 
-// Handles board canvas pointer events: loose piece drag, empty-board pan,
-// two-finger touch pinch-to-zoom/pan, and right-click rotation.
+// Handles board canvas pointer events: loose piece drag, tap-to-rotate (first
+// tap selects, subsequent tap rotates 36°), empty-board pan (or deselect on
+// quick tap), two-finger touch pinch-to-zoom/pan, and right-click rotation.
 export const useBoardPointers = (
   trayRef: RefObject<HTMLDivElement | null>,
   pieces: Piece[],
+  selectedId: number | null,
   layout: ViewportLayout,
   viewport: BoardSize,
   camera: Camera,
@@ -132,8 +137,16 @@ export const useBoardPointers = (
   onSelect: (id: number | null) => void,
   onDropHighlight: (active: boolean) => void
 ) => {
-  const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
-  const pan = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const drag = useRef<{
+    id: number;
+    dx: number;
+    dy: number;
+    startX: number;
+    startY: number;
+    maxMove: number;
+    wasSelected: boolean;
+  } | null>(null);
+  const pan = useRef<{ pointerId: number; startX: number; startY: number; x: number; y: number; maxMove: number } | null>(null);
   const touches = useRef<Map<number, Point>>(new Map());
   const pinch = useRef<{ dist: number; mid: Point } | null>(null);
 
@@ -145,10 +158,10 @@ export const useBoardPointers = (
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2) {
         if (drag.current) {
-          const id = drag.current.id;
+          const { id, maxMove } = drag.current;
           drag.current = null;
           onDropHighlight(false);
-          updatePieces(ps => settleGroup(ps, id));
+          if (maxMove > TAP_MAX_MOVE) updatePieces(ps => settleGroup(ps, id));
         }
         pan.current = null;
         pinch.current = pairMetrics([...touches.current.values()] as [Point, Point]);
@@ -160,11 +173,19 @@ export const useBoardPointers = (
     const p = clientToBoard(e.currentTarget, e.clientX, e.clientY, layout.scale, camera);
     const i = pieceAt(pieces, p);
     if (i < 0) {
-      pan.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      pan.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, maxMove: 0 };
       return;
     }
     const piece = pieces[i];
-    drag.current = { id: piece.id, dx: p.x - piece.x, dy: p.y - piece.y };
+    drag.current = {
+      id: piece.id,
+      dx: p.x - piece.x,
+      dy: p.y - piece.y,
+      startX: e.clientX,
+      startY: e.clientY,
+      maxMove: 0,
+      wasSelected: isGroupSelected(pieces, selectedId, piece.id)
+    };
     onSelect(piece.id);
     updatePieces(ps => bringToFront(ps, i));
   };
@@ -187,13 +208,16 @@ export const useBoardPointers = (
 
     if (pan.current && pan.current.pointerId === e.pointerId) {
       const dx = e.clientX - pan.current.x, dy = e.clientY - pan.current.y;
-      pan.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+      const moved = Math.hypot(e.clientX - pan.current.startX, e.clientY - pan.current.startY);
+      pan.current = { ...pan.current, x: e.clientX, y: e.clientY, maxMove: Math.max(pan.current.maxMove, moved) };
       setCamera(c => panCamera(c, dx, dy, viewport));
       return;
     }
 
     const d = drag.current;
     if (!d) return;
+    d.maxMove = Math.max(d.maxMove, Math.hypot(e.clientX - d.startX, e.clientY - d.startY));
+    if (d.maxMove <= TAP_MAX_MOVE) return;
     onDropHighlight(isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, d.id));
     const p = clientToBoard(e.currentTarget, e.clientX, e.clientY, layout.scale, camera);
     updatePieces(ps => {
@@ -208,12 +232,19 @@ export const useBoardPointers = (
       if (touches.current.size < 2) pinch.current = null;
     }
     if (pan.current && pan.current.pointerId === e.pointerId) {
+      const tappedEmpty = pan.current.maxMove <= TAP_MAX_MOVE;
       pan.current = null;
+      if (tappedEmpty) onSelect(null);
     }
     const d = drag.current;
     if (!d) return;
     drag.current = null;
     onDropHighlight(false);
+    if (shouldTapRotate(d.wasSelected, d.maxMove)) {
+      updatePieces(ps => rotateGroup(ps, d.id, e.shiftKey ? -1 : 1));
+      return;
+    }
+    if (d.maxMove <= TAP_MAX_MOVE) return;
     if (isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, d.id)) {
       onSelect(null);
       updatePieces(ps => returnToTray(ps, d.id));

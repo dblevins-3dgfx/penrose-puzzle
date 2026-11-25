@@ -12,15 +12,15 @@ export const JigsawHelp = ({ isTouchDevice, onClose }: { isTouchDevice: boolean;
       <li>Drop a piece next to one it borders in the picture, at the same angle, and they snap together and move as one</li>
       <li>
         {isTouchDevice
-          ? 'Tap a piece to select it, then turn it with the rotate buttons (36° steps)'
-          : 'Turn the selected piece with the scroll wheel or Left/Right arrow keys, or right-click a piece to turn it (Shift + right-click for the other way)'}
+          ? 'Tap a piece to select it, then tap it again to rotate 36°—or use the bottom-right rotate buttons'
+          : 'Click a piece to select it and click it again to rotate 36° (Shift+click the other way), use the bottom-right rotate buttons, press R/Shift+R or Left/Right arrows, or right-click / scroll wheel'}
       </li>
       <li>
         {isTouchDevice
           ? 'Pinch with two fingers to zoom (or use the bottom-left zoom buttons); drag empty board space to pan'
           : 'Zoom with the bottom-left buttons, +/-/0 keys, or pinch on a trackpad; drag empty board space to pan'}
       </li>
-      <li>Settings: Show picture faintly shows the whole picture in the outline; Show tile outlines draws the edges of the pieces</li>
+      <li>Settings: change Puzzle size (12, 24, or 40 pieces), toggle Show picture (faint guide in the outline), or toggle Show tile outlines</li>
       <li>Your picture swaps in a photo from your device (it stays on your device)</li>
       <li>New puzzle starts over with a different part of the tiling</li>
     </ul>

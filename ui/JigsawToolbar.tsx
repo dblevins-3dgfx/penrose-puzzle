@@ -1,20 +1,15 @@
-// The jigsaw's single slim top bar: brand, mode switch, puzzle controls,
-// progress, Settings and How to Play (spec 9).
+// The jigsaw's single slim top bar: brand, mode switch, New puzzle, Picture,
+// Your picture, progress, Settings (which holds Puzzle size) and How to Play (spec 9).
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
-import { CircleHelp, ImagePlus, RotateCw, Settings, Shuffle } from 'lucide-react';
-import { PIECE_COUNTS, PICTURE_STYLES, type PictureStyle, type PuzzleSize } from '../jigsaw';
+import { CircleHelp, ImagePlus, Settings, Shuffle } from 'lucide-react';
+import { PICTURE_STYLES, type PictureStyle } from '../jigsaw';
 
 interface Props {
   modeSwitch: ReactNode;
-  isTouchDevice: boolean;
-  size: PuzzleSize;
-  onSize: (size: PuzzleSize) => void;
   onNewPuzzle: () => void;
   picture: PictureStyle | 'custom';
   onPicture: (style: PictureStyle) => void;
   onChoosePicture: (file: File) => void;
-  canRotate: boolean;
-  onRotate: (steps: number) => void;
   placed: number;
   total: number;
   solved: boolean;
@@ -22,7 +17,6 @@ interface Props {
   onOpenHelp: () => void;
 }
 
-const SIZE_LABELS: Record<PuzzleSize, string> = { small: 'Small', medium: 'Medium', large: 'Large' };
 const PICTURE_LABELS: Record<PictureStyle, string> = {
   subdivided: 'Penrose (Subdivided)',
   matching: 'Penrose (Matching)',
@@ -52,17 +46,6 @@ export const JigsawToolbar = (props: Props) => {
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-        <select
-          value={props.size}
-          onChange={e => props.onSize(e.target.value as PuzzleSize)}
-          aria-label="Puzzle size"
-          className={selectClass}
-        >
-          {(Object.keys(PIECE_COUNTS) as PuzzleSize[]).map(s => (
-            <option key={s} value={s}>{SIZE_LABELS[s]} ({PIECE_COUNTS[s]})</option>
-          ))}
-        </select>
-
         <button onClick={props.onNewPuzzle} className={control} title="Start a new puzzle">
           <Shuffle size={16} />
           <span className="hidden sm:inline">New puzzle</span>
@@ -88,27 +71,6 @@ export const JigsawToolbar = (props: Props) => {
           <span className="hidden md:inline">Your picture</span>
         </button>
         <input ref={fileInput} type="file" accept="image/*" onChange={choose} className="hidden" />
-
-        {props.isTouchDevice && (
-          <>
-            <button
-              onClick={() => props.onRotate(-1)}
-              disabled={!props.canRotate}
-              aria-label="Rotate piece counter-clockwise"
-              className={`${control} px-3.5 py-2 ${props.canRotate ? '' : 'opacity-50'}`}
-            >
-              <RotateCw size={18} style={{ transform: 'scaleX(-1)' }} />
-            </button>
-            <button
-              onClick={() => props.onRotate(1)}
-              disabled={!props.canRotate}
-              aria-label="Rotate piece clockwise"
-              className={`${control} px-3.5 py-2 ${props.canRotate ? '' : 'opacity-50'}`}
-            >
-              <RotateCw size={18} />
-            </button>
-          </>
-        )}
       </div>
 
       <div className="flex items-center gap-2.5 sm:gap-3">
