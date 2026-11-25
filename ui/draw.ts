@@ -1,12 +1,12 @@
 // Canvas drawing for the board (spec 7). No rules are decided here: what
 // to draw comes from rules.ts.
 import {
-  BOARD_H,
-  BOARD_W,
+  DEFAULT_BOARD,
   findConnectedEdges,
   getVertexColors,
   getVertices,
   isOutsidePlayfield,
+  type BoardSize,
   type Point,
   type Tile
 } from '../rules';
@@ -26,19 +26,19 @@ const tracePolygon = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
   ctx.closePath();
 };
 
-const drawGrid = (ctx: CanvasRenderingContext2D) => {
+const drawGrid = (ctx: CanvasRenderingContext2D, board: BoardSize) => {
   ctx.strokeStyle = '#e5e7eb';
   ctx.lineWidth = 0.5;
-  for (let i = 0; i < BOARD_W; i += GRID_SPACING) {
+  for (let i = 0; i < board.width; i += GRID_SPACING) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
-    ctx.lineTo(i, BOARD_H);
+    ctx.lineTo(i, board.height);
     ctx.stroke();
   }
-  for (let i = 0; i < BOARD_H; i += GRID_SPACING) {
+  for (let i = 0; i < board.height; i += GRID_SPACING) {
     ctx.beginPath();
     ctx.moveTo(0, i);
-    ctx.lineTo(BOARD_W, i);
+    ctx.lineTo(board.width, i);
     ctx.stroke();
   }
 };
@@ -110,7 +110,7 @@ const drawConnectedEdges = (ctx: CanvasRenderingContext2D, tiles: Tile[]) => {
 // The tile about to be placed: translucent, outlined solid green if it can
 // go there or dashed red if not, with a red border around the board while
 // any of its corners is off the board.
-const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean) => {
+const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean, board: BoardSize) => {
   ctx.save();
   ctx.globalAlpha = 0.55;
   drawTile(ctx, tile);
@@ -125,11 +125,11 @@ const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean) 
   ctx.stroke();
   ctx.restore();
 
-  if (isOutsidePlayfield(vertices)) {
+  if (isOutsidePlayfield(vertices, board)) {
     ctx.save();
     ctx.strokeStyle = '#dc2626';
     ctx.lineWidth = 8;
-    ctx.strokeRect(4, 4, BOARD_W - 8, BOARD_H - 8);
+    ctx.strokeRect(4, 4, board.width - 8, board.height - 8);
     ctx.restore();
   }
 };
@@ -139,10 +139,15 @@ export interface Preview {
   valid: boolean;
 }
 
-export const drawBoard = (ctx: CanvasRenderingContext2D, tiles: Tile[], preview: Preview | null) => {
-  ctx.clearRect(0, 0, BOARD_W, BOARD_H);
-  drawGrid(ctx);
+export const drawBoard = (
+  ctx: CanvasRenderingContext2D,
+  tiles: Tile[],
+  preview: Preview | null,
+  board: BoardSize = DEFAULT_BOARD
+) => {
+  ctx.clearRect(0, 0, board.width, board.height);
+  drawGrid(ctx, board);
   tiles.forEach(tile => drawTile(ctx, tile));
   drawConnectedEdges(ctx, tiles);
-  if (preview) drawPreview(ctx, preview.tile, preview.valid);
+  if (preview) drawPreview(ctx, preview.tile, preview.valid, board);
 };

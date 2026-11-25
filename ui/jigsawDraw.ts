@@ -1,6 +1,6 @@
 // Canvas drawing for the jigsaw (spec 9). Where everything goes comes
 // from jigsaw.ts; this only paints it.
-import { BOARD_H, BOARD_W, getVertices, type Point, type Tile } from '../rules';
+import { DEFAULT_BOARD, getVertices, type BoardSize, type Point, type Tile } from '../rules';
 import { boundsOf, coverRect, drawLayers, pieceTile, pieceTransform, type JigsawSettings, type Piece } from '../jigsaw';
 
 export interface Picture {
@@ -140,10 +140,11 @@ export interface JigsawView {
   picture: Picture;
   settings: JigsawSettings;
   selectedId: number | null;
+  board?: BoardSize;
 }
 
-export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, settings, selectedId }: JigsawView) => {
-  ctx.clearRect(0, 0, BOARD_W, BOARD_H);
+export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, settings, selectedId, board = DEFAULT_BOARD }: JigsawView) => {
+  ctx.clearRect(0, 0, board.width, board.height);
   if (pieces.length === 0) return;
   const homes = pieces.map(p => p.home);
   const box = boundsOf(homes);

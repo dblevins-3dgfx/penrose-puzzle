@@ -116,16 +116,23 @@ export const sameEdge = (e: Pick<Edge, 'a' | 'b'>, f: Pick<Edge, 'a' | 'b'>): bo
 // Section 4: Matching rules
 // ---------------------------------------------------------------------
 
-// Playfield size (matches the canvas). Every tile vertex must stay inside it.
+// Default playfield size (used when no viewport size is given).
 export const BOARD_W = 800;
 export const BOARD_H = 600;
 
+export interface BoardSize {
+  width: number;
+  height: number;
+}
+
+export const DEFAULT_BOARD: BoardSize = { width: BOARD_W, height: BOARD_H };
+
 // Rule 4: true if any vertex lies outside the playfield (0.5 px tolerance).
-export const isOutsidePlayfield = (verts: readonly Point[]): boolean => {
+export const isOutsidePlayfield = (verts: readonly Point[], board: BoardSize = DEFAULT_BOARD): boolean => {
   const EDGE_TOL = 0.5;
   return verts.some(v =>
-    v.x < -EDGE_TOL || v.x > BOARD_W + EDGE_TOL ||
-    v.y < -EDGE_TOL || v.y > BOARD_H + EDGE_TOL
+    v.x < -EDGE_TOL || v.x > board.width + EDGE_TOL ||
+    v.y < -EDGE_TOL || v.y > board.height + EDGE_TOL
   );
 };
 
@@ -226,10 +233,15 @@ export const tilesOverlap = (vertsA: readonly Point[], vertsB: readonly Point[])
 // All four rules. The first tile only has to be inside the playfield.
 // `ignoreBounds` skips only the playfield test; it lets the preview show a
 // snapped position that is blocked solely for being out of bounds.
-export const isLegalPlacement = (allTiles: readonly Tile[], candidate: Tile, ignoreBounds = false): boolean => {
+export const isLegalPlacement = (
+  allTiles: readonly Tile[],
+  candidate: Tile,
+  ignoreBounds = false,
+  board: BoardSize = DEFAULT_BOARD
+): boolean => {
   const candVerts = getVertices(candidate);
 
-  if (!ignoreBounds && isOutsidePlayfield(candVerts)) return false;
+  if (!ignoreBounds && isOutsidePlayfield(candVerts, board)) return false;
 
   if (allTiles.length === 0) return true;
 
@@ -258,7 +270,11 @@ export const SNAP_RADIUS = 45;
 // within SNAP_RADIUS. A snap that fails only the playfield test is used
 // when there is no in-bounds one (so the red border can show). With no
 // snap, the tile stays where it is.
-export const snapPosition = (allTiles: readonly Tile[], candidate: Tile): { x: number; y: number; snapped: boolean } => {
+export const snapPosition = (
+  allTiles: readonly Tile[],
+  candidate: Tile,
+  board: BoardSize = DEFAULT_BOARD
+): { x: number; y: number; snapped: boolean } => {
   const { x, y } = candidate;
   if (allTiles.length === 0) return { x, y, snapped: false };
 
@@ -291,8 +307,8 @@ export const snapPosition = (allTiles: readonly Tile[], candidate: Tile): { x: n
     if (sideExisting * sideCandidate >= 0) return null;
 
     const moved = { ...candidate, x: x + tx, y: y + ty };
-    const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })));
-    if (!isLegalPlacement(allTiles, moved, oob)) return null;
+    const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })), board);
+    if (!isLegalPlacement(allTiles, moved, oob, board)) return null;
 
     return { x: moved.x, y: moved.y, rank: dist + (oob ? 1000 : 0) };
   };
@@ -337,7 +353,12 @@ export const distanceToSegment = (p: Point, a: Point, b: Point): number => {
 
 // Every legal placement of a `type` tile with one of its edges laid exactly
 // on `edge` (at any of the 10 rotations, either way round).
-export const fitsOnEdge = (allTiles: readonly Tile[], type: TileType, edge: Pick<Edge, 'a' | 'b' | 'label'>): Tile[] => {
+export const fitsOnEdge = (
+  allTiles: readonly Tile[],
+  type: TileType,
+  edge: Pick<Edge, 'a' | 'b' | 'label'>,
+  board: BoardSize = DEFAULT_BOARD
+): Tile[] => {
   const fits: Tile[] = [];
   for (let rotation = 0; rotation < 360; rotation += ROTATION_STEP) {
     for (const ce of edgesOf({ type, x: 0, y: 0, rotation })) {
@@ -347,7 +368,7 @@ export const fitsOnEdge = (allTiles: readonly Tile[], type: TileType, edge: Pick
         if (!samePoint({ x: ce.b.x + tx, y: ce.b.y + ty }, t2)) continue;
         const tile = { type, x: tx, y: ty, rotation };
         const duplicate = fits.some(f => f.rotation === rotation && samePoint(f, tile));
-        if (!duplicate && isLegalPlacement(allTiles, tile)) fits.push(tile);
+        if (!duplicate && isLegalPlacement(allTiles, tile, false, board)) fits.push(tile);
       }
     }
   }
@@ -361,12 +382,18 @@ export const fitsOnEdge = (allTiles: readonly Tile[], type: TileType, edge: Pick
 // edge the tile fits and rotating steps through the others. Null when no
 // free edge near p takes the tile; the board is then played as without
 // auto-rotate.
-export const autoRotatePlacement = (allTiles: readonly Tile[], type: TileType, p: Point, choice = 0): { tile: Tile; fits: Tile[] } | null => {
+export const autoRotatePlacement = (
+  allTiles: readonly Tile[],
+  type: TileType,
+  p: Point,
+  choice = 0,
+  board: BoardSize = DEFAULT_BOARD
+): { tile: Tile; fits: Tile[] } | null => {
   const tileDist = (t: Tile) => Math.hypot(t.x - p.x, t.y - p.y);
   const fits = findOpenEdges(allTiles)
     .map(edge => ({ edge, dist: distanceToSegment(p, edge.a, edge.b) }))
     .filter(e => e.dist <= AUTO_ROTATE_RADIUS)
-    .flatMap(({ edge, dist }) => fitsOnEdge(allTiles, type, edge).map(tile => ({ tile, dist })))
+    .flatMap(({ edge, dist }) => fitsOnEdge(allTiles, type, edge, board).map(tile => ({ tile, dist })))
     .sort((s, t) => s.dist - t.dist || tileDist(s.tile) - tileDist(t.tile) || s.tile.rotation - t.tile.rotation)
     .map(f => f.tile)
     // The same placement can fit two neighboring free edges at once
