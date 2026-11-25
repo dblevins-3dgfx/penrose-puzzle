@@ -27,7 +27,6 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
   - In Jigsaw mode, `?seed=<n>` gives a known puzzle. A script can import `newPuzzle(size, seed)` from `jigsaw.ts` with `npx tsx` to get every piece's home and solve the puzzle by dragging.
   - To test blocked storage, add an init script that makes `window.localStorage` throw.
 - `pkill -f "vite preview"` can match and kill the shell that runs it. Use a pattern that can't match itself, such as `pkill -f "vite preview --port 417[3]"`.
-- `vite.config.ts` lets the dev server be opened as `raspberrypi.local`. That came over from Penrogo, where the owner ran it on a Raspberry Pi; whether that's still used here is unverified.
 - There are no accounts, passwords or backends. The only stored data is the jigsaw's settings, under the local-storage key `penrose-puzzle.jigsaw-settings`; delete that key to reset them.
 
 ## Gotchas
@@ -61,12 +60,11 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 - **GitHub Pages:** Settings → Pages → Source is "Deploy from a branch", branch `gh-pages`, folder `/ (root)`. The owner set this by hand after the first deploy. There is no custom domain (no `CNAME` on `gh-pages`).
 - **Analytics, search console, scheduled jobs:** none.
-- **Branch protection for `main`:** it was suggested (require the `test` check), but whether it was ever set up is unverified.
+- **Branch protection for `main`:** enabled in GitHub repository settings.
 - **AI assistant access:** the owner created the repository on GitHub, empty, and the Claude GitHub App then had access to it (exactly how access was granted is unverified). Another assistant will need its own access.
 
 ## Things to watch for
 
-- Stale previews: PR previews (`branch/pr-<number>/`) are removed automatically when a PR closes. Legacy branch previews stay on `gh-pages` until their branch is deleted (`branch/claude-nifty-ptolemy-7mqxwl/` and `branch/jigsaw/` are still there).
 - The header is cramped on phones ("How to Play" and "Settings" shrink to icons on narrow screens).
 
 ## Open work
