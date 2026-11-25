@@ -1,6 +1,6 @@
 # Development notes
 
-What a newcomer can't learn from the other files. Read [README.md](README.md) (running, scripts, deployment, layout), [CLAUDE.md](CLAUDE.md) (spec, tests, branch-and-PR rules), [penrose-puzzle-spec.md](penrose-puzzle-spec.md) and [untested-requirements.md](untested-requirements.md) first; this file doesn't repeat them.
+What a newcomer can't learn from the other files. Read [README.md](README.md) (running, scripts, deployment, layout), [AGENTS.md](AGENTS.md) (spec, tests, branch-and-PR rules), [penrose-puzzle-spec.md](penrose-puzzle-spec.md) and [untested-requirements.md](untested-requirements.md) first; this file doesn't repeat them.
 
 ## How changes are made
 
@@ -46,7 +46,7 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 ## Decisions
 
 - The owner hasn't decided what the final game is. The app started as a single-player sandbox with everything two-player and Go-like taken out of Penrogo's original game; the jigsaw is one experiment alongside it.
-- The owner asked for Penrogo's conventions here (https://github.com/dblevins-3dgfx/penrogo): `CLAUDE.md`'s spec-and-tests rules and `.oxlintrc.json` are copied from it, and the deploy workflow is modelled on its own. The owner's sudoku4david repository has the same spec-and-tests rules.
+- The owner asked for Penrogo's conventions here (https://github.com/dblevins-3dgfx/penrogo): `AGENTS.md`'s spec-and-tests rules (originally copied from Penrogo's `CLAUDE.md`) and `.oxlintrc.json` come from it, and the deploy workflow is modelled on its own. The owner's sudoku4david repository has the same spec-and-tests rules.
 - Kites are amber and darts indigo, chosen when the two-player colors were removed.
 - Auto-rotate stays a mode you switch on; turning the tile while it's on steps through the fits instead of switching it off (#2). It isn't saved.
 - Jigsaw choices:

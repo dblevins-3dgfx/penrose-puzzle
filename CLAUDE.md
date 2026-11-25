@@ -1,14 +1,1 @@
-See [DEVELOPMENT.md](DEVELOPMENT.md) for the workflow, checks, gotchas and decisions that these rules and the README leave out.
-
-# Keep the spec in step with the code
-
-`penrose-puzzle-spec.md` describes the game as it is implemented. Any change the player can see, or that changes what is stored (play, rules, the puzzle, the screen, controls, settings kept in the browser), updates the spec in the same pull request. The PR description names the spec sections that changed, or says why none needed to.
-
-# Test every spec rule
-
-A pull request that adds or changes a rule in `penrose-puzzle-spec.md` adds or updates the unit tests for it (`*.test.ts` beside the module, such as `rules.test.ts`; run them with `npm test`) in the same pull request. Put the rule's logic in a plain function in a module without React (like `rules.ts` or `geometry.ts`) so it can be tested; the React code (`penrose-puzzle.tsx` and the hooks, components and drawing in `ui/`) should only call it. A rule that can't be unit-tested (timers, page events, storage, drawing, layout) gets a row in `untested-requirements.md` saying where it lives and why. Remove a row from that file when its rule gains a test.
-
-
-# Work on a branch, merge by pull request
-
-Never commit or push to `main` directly: every push to `main` deploys the live site. Make each change on a branch, push the branch, and open a pull request for it; the owner merges. The Test workflow checks every pull request (typecheck, lint, tests, build), so run the same checks locally (`npm run typecheck`, `npm run lint`, `npm test`, `npm run build`) before pushing. Once a pull request is merged, start the next change from the latest `main`.
+Follow the project rules in [AGENTS.md](AGENTS.md), and read [DEVELOPMENT.md](DEVELOPMENT.md) for the workflow, checks, gotchas and decisions that the other files leave out.
