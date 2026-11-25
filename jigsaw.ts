@@ -1,4 +1,4 @@
-// The jigsaw puzzle (spec section 11) as plain functions, with no React, so
+// The jigsaw puzzle (spec section 9) as plain functions, with no React, so
 // it can be unit-tested (jigsaw.test.ts). ui/Jigsaw.tsx only calls them.
 //
 // A puzzle is a patch of a real Penrose kite and dart tiling with a picture

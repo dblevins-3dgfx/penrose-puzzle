@@ -1,4 +1,4 @@
-// The jigsaw puzzle screen (spec 11). Every decision is made by jigsaw.ts;
+// The jigsaw puzzle screen (spec 9). Every decision is made by jigsaw.ts;
 // this keeps the state, turns pointer events into calls, and lays out the
 // page.
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
@@ -49,7 +49,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     const image = makeDefaultPicture();
     return { image, width: image.width, height: image.height };
   });
-  // Settings are kept in the browser (spec 11). Storage can be unavailable
+  // Settings are kept in the browser (spec 9). Storage can be unavailable
   // (private browsing, blocked cookies); the game then just doesn't save.
   const [settings, setSettings] = useState<JigsawSettings>(() => {
     try {

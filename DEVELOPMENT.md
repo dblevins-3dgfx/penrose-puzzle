@@ -72,4 +72,4 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 ## Open work
 
 - [#4](https://github.com/dblevins-3dgfx/penrose-puzzle/issues/4), a jigsaw timer and move counter. The issue lists open questions for the owner, for example whether turning a piece counts as a move and whether the timer pauses while the tab is hidden.
-- What the actual puzzle game is remains open (spec section 10).
+- What the actual puzzle game is remains open (spec section 11).

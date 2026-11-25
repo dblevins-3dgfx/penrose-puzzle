@@ -1,4 +1,4 @@
-// The app: the jigsaw (spec 11) or the free-building sandbox, switched in
+// The app: the jigsaw (spec 9) or the free-building sandbox, switched in
 // the header.
 import { useState } from 'react';
 import { Jigsaw } from './ui/Jigsaw';

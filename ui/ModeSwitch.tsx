@@ -1,4 +1,4 @@
-// Switches between the jigsaw and the free-building sandbox (spec 11).
+// Switches between the jigsaw and the free-building sandbox (spec 9).
 export type Mode = 'jigsaw' | 'sandbox';
 
 const LABELS: Record<Mode, string> = { jigsaw: 'Jigsaw', sandbox: 'Sandbox' };
