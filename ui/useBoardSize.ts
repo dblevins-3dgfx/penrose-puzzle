@@ -9,6 +9,17 @@ export interface MeasuredBoard extends BoardSize {
 }
 
 const readDpr = () => (typeof window !== 'undefined' ? Math.max(1, window.devicePixelRatio || 1) : 1);
+const readPortrait = () => (typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false);
+
+export const useIsPortrait = (): boolean => {
+  const [portrait, setPortrait] = useState<boolean>(readPortrait);
+  useEffect(() => {
+    const update = () => setPortrait(readPortrait());
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return portrait;
+};
 
 export const useBoardSize = (ref: RefObject<HTMLDivElement | null>): MeasuredBoard => {
   const [size, setSize] = useState<MeasuredBoard>(() => ({

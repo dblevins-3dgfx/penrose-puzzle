@@ -5,9 +5,10 @@ export const JigsawHelp = ({ isTouchDevice, onClose }: { isTouchDevice: boolean;
   <Overlay onClose={onClose}>
     <p className="mb-3">Put the picture back together. Every piece is a kite or dart from a Penrose tiling.</p>
     <ul className="list-disc list-inside space-y-2">
-      <li>The gray outline on the left shows where the pieces go</li>
+      <li>The gray outline in the center shows where the pieces go; unplaced pieces start in the scrollable tray</li>
+      <li>Drag a piece out of the tray onto the board (or tap it to place it on the board); use All / Edges to filter border pieces</li>
       <li>Pieces with a dark-and-gold edge are edge pieces: that edge is part of the puzzle's outer border</li>
-      <li>Drag a piece to move it; it locks in when you drop it in its own place at the right angle</li>
+      <li>Drag a piece to move it; it locks in when you drop it in its own place at the right angle, or drop a single loose piece back on the tray to put it away</li>
       <li>Drop a piece next to one it borders in the picture, at the same angle, and they snap together and move as one</li>
       <li>
         {isTouchDevice

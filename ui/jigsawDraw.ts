@@ -166,3 +166,43 @@ export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, set
     layer.forEach(p => drawBorder(ctx, p));
   }
 };
+
+// Draws a single tray piece thumbnail centered inside a square `size x size`
+// canvas, showing its picture crop at its current rotation and any gold outer
+// border edges.
+export const drawPieceThumb = (
+  ctx: CanvasRenderingContext2D,
+  piece: Piece,
+  picture: Picture,
+  pictureRect: ReturnType<typeof coverRect>,
+  size: number,
+  showOutlines: boolean
+) => {
+  ctx.clearRect(0, 0, size, size);
+  const scale = size / 108;
+  const centered: Piece = { ...piece, x: 0, y: 0, locked: false };
+  const { angle, from } = pieceTransform(centered);
+
+  ctx.save();
+  ctx.translate(size / 2, size / 2);
+  ctx.scale(scale, scale);
+
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.translate(-from.x, -from.y);
+  ctx.beginPath();
+  tracePolygon(ctx, getVertices(piece.home));
+  ctx.clip();
+  ctx.drawImage(picture.image, pictureRect.x, pictureRect.y, pictureRect.w, pictureRect.h);
+  ctx.restore();
+
+  if (showOutlines) {
+    ctx.beginPath();
+    tracePolygon(ctx, getVertices(pieceTile(centered)));
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+  drawBorder(ctx, centered);
+  ctx.restore();
+};

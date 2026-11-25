@@ -8,6 +8,7 @@ import {
   borderEdges,
   boundsOf,
   bringToFront,
+  canReturnToTray,
   choosePieces,
   clampLoosePieces,
   computeViewportLayout,
@@ -25,9 +26,13 @@ import {
   newPuzzle,
   newPuzzleForViewport,
   placeBeside,
+  popSpotOnBoard,
   repositionForViewport,
+  returnToTray,
   rotateGroup,
   settleGroup,
+  takeFromTray,
+  trayPieces,
   turnOf,
   pieceAt,
   pieceTile,
@@ -250,6 +255,7 @@ const kitePiece = (over: Partial<Piece> = {}): Piece => ({
   y: 100,
   rotation: 0,
   locked: false,
+  inTray: false,
   group: over.id ?? 0,
   border: [],
   ...over
@@ -539,51 +545,124 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
 // Responsive viewport layout and clamping
 // ---------------------------------------------------------------------
 
-test('viewport layout places the puzzle left in landscape, top in portrait, and scales smaller puzzles larger', () => {
-  const desktop = { width: 1440, height: 840 };
-  const phone = { width: 390, height: 700 };
+test('viewport layout centers the puzzle in both orientations and scales smaller puzzles larger', () => {
+  const desktop = { width: 1264, height: 840 };
+  const phone = { width: 390, height: 590 };
 
   const small = computeViewportLayout({ w: 220, h: 210 }, 12, desktop);
   const large = computeViewportLayout({ w: 380, h: 370 }, 40, desktop);
   assert.ok(small.scale > large.scale, 'smaller puzzles zoom larger on the same screen');
-  assert.ok(small.frameCenter.x < small.board.width / 2, 'landscape puts the frame on the left');
+  near(small.frameCenter.x, small.board.width / 2);
   near(small.frameCenter.y, small.board.height / 2);
 
   const portrait = computeViewportLayout({ w: 300, h: 290 }, 24, phone);
   near(portrait.frameCenter.x, portrait.board.width / 2);
-  assert.ok(portrait.frameCenter.y < portrait.board.height / 2, 'portrait puts the frame near the top');
+  near(portrait.frameCenter.y, portrait.board.height / 2);
 });
 
-test('newPuzzleForViewport fits solved homes and loose pieces inside landscape and portrait viewports', () => {
+test('newPuzzleForViewport centers solved homes inside the board and starts every piece in the tray', () => {
   const viewports = [
-    { width: 1440, height: 840 },
-    { width: 390, height: 700 }
+    { width: 1264, height: 840 },
+    { width: 390, height: 590 }
   ];
   for (const vp of viewports) {
     for (const size of ['small', 'medium', 'large'] as const) {
       const { pieces, layout } = newPuzzleForViewport(size, 17, vp);
       assert.equal(pieces.length, PIECE_COUNTS[size]);
       const box = boundsOf(pieces.map(p => p.home));
-      assert.ok(box.x >= -1 && box.x + box.w <= layout.board.width + 1, `${size} homes fit horizontally`);
-      assert.ok(box.y >= -1 && box.y + box.h <= layout.board.height + 1, `${size} homes fit vertically`);
+      assert.ok(box.x >= 0 && box.x + box.w <= layout.board.width, `${size} homes fit horizontally`);
+      assert.ok(box.y >= 0 && box.y + box.h <= layout.board.height, `${size} homes fit vertically`);
+      assert.equal(trayPieces(pieces, 'all').length, PIECE_COUNTS[size]);
+      assert.equal(drawLayers(pieces).length, 0, 'nothing drawn on board while all pieces are in the tray');
       for (const p of pieces) {
-        assert.ok(p.x >= 0 && p.x <= layout.board.width, 'loose piece x inside board');
-        assert.ok(p.y >= 0 && p.y <= layout.board.height, 'loose piece y inside board');
+        assert.equal(p.inTray, true);
+        assert.equal(p.locked, false);
+        assert.equal(p.rotation % 36, 0);
       }
     }
   }
 });
 
-test('clampLoosePieces brings off-board groups inside rigidly and leaves locked pieces alone', () => {
+test('trayPieces filters all vs edge pieces and takeFromTray moves a piece onto the board on top', () => {
+  const { pieces, layout } = newPuzzleForViewport('medium', 9, { width: 1200, height: 800 });
+  const edges = trayPieces(pieces, 'edges');
+  assert.ok(edges.length > 0 && edges.length < pieces.length);
+  assert.ok(edges.every(isEdgePiece));
+
+  const target = edges[0];
+  const taken = takeFromTray(pieces, target.id, { x: -50, y: 9999 }, layout.board);
+  const moved = taken.find(p => p.id === target.id)!;
+  assert.equal(moved.inTray, false);
+  near(moved.x, 0, 'clamped to board left edge');
+  near(moved.y, layout.board.height, 'clamped to board bottom edge');
+  assert.equal(taken[taken.length - 1].id, target.id, 'taken piece is on top of the stack');
+  assert.equal(trayPieces(taken, 'all').length, pieces.length - 1);
+  assert.equal(trayPieces(taken, 'edges').length, edges.length - 1);
+});
+
+test('popSpotOnBoard stays inside the board and fans out multiple tapped pieces', () => {
+  const { pieces, layout } = newPuzzleForViewport('small', 4, { width: 1000, height: 700 });
+  const spots: { x: number; y: number }[] = [];
+  let cur = pieces;
+  for (let i = 0; i < 4; i++) {
+    const spot = popSpotOnBoard(cur, layout.board);
+    assert.ok(spot.x > 0 && spot.x < layout.board.width);
+    assert.ok(spot.y > 0 && spot.y < layout.board.height);
+    spots.push(spot);
+    cur = takeFromTray(cur, cur[0].id, spot, layout.board);
+  }
+  assert.ok(Math.hypot(spots[1].x - spots[0].x, spots[1].y - spots[0].y) > 5, 'subsequent pops fan out');
+});
+
+test('only a single ungrouped loose on-board piece can be returned to the tray', () => {
+  const pieces = newPuzzle('small', 5);
+  const single = pieces[0];
+  const locked = { ...pieces[1], x: pieces[1].home.x, y: pieces[1].home.y, rotation: pieces[1].home.rotation, locked: true };
+  const inTray = { ...pieces[2], inTray: true };
+  const grpA = { ...pieces[3], group: 99 };
+  const grpB = { ...pieces[4], group: 99 };
+  const state = [single, locked, inTray, grpA, grpB];
+
+  assert.equal(canReturnToTray(state, single.id), true);
+  assert.equal(canReturnToTray(state, locked.id), false);
+  assert.equal(canReturnToTray(state, inTray.id), false);
+  assert.equal(canReturnToTray(state, grpA.id), false, 'multi-piece groups stay on the board');
+
+  const returned = returnToTray(state, single.id);
+  assert.equal(returned[0].id, single.id, 'returned piece goes to top of tray');
+  assert.equal(returned[0].inTray, true);
+  assert.deepEqual(returnToTray(state, grpA.id), state, 'returning a multi-piece group is a no-op');
+});
+
+test('board hit-testing, moving, rotating, and snapping ignore pieces still in the tray', () => {
+  const { pieces, layout } = newPuzzleForViewport('small', 6, { width: 1000, height: 700 });
+  const a = pieces[0];
+  const b = pieces.find(p => p.id !== a.id && neighbors(a, p))!;
+  // Put `a` on the board at its home offset by 5 (wrong angle so it doesn't lock),
+  // while neighbor `b` stays in the tray right at the matching neighbor spot.
+  const onBoardA: Piece = { ...a, inTray: false, x: a.home.x, y: a.home.y, rotation: (a.home.rotation + 36) % 360 };
+  const trayB: Piece = { ...b, inTray: true, x: placeBeside(onBoardA, b).x, y: placeBeside(onBoardA, b).y, rotation: (b.home.rotation + 36) % 360 };
+  const list = [onBoardA, trayB];
+
+  assert.equal(pieceAt(list, { x: trayB.x, y: trayB.y }), -1, 'tray piece cannot be picked up on the board');
+  assert.deepEqual(moveGroup(list, trayB.id, 10, 10, layout.board), list, 'tray piece cannot be moved on the board');
+  assert.deepEqual(rotateGroup(list, trayB.id, 1), list, 'tray piece cannot be rotated on the board');
+  const settled = settleGroup(list, onBoardA.id);
+  assert.notEqual(settled[0].group, settled[1].group, 'on-board piece does not snap to a piece still in the tray');
+});
+
+test('clampLoosePieces brings off-board groups inside rigidly and leaves locked and tray pieces alone', () => {
   const pieces = newPuzzle('small', 5);
   const locked = { ...pieces[0], x: pieces[0].home.x, y: pieces[0].home.y, rotation: pieces[0].home.rotation, locked: true };
   // Two pieces snapped into one group, pushed past the right and bottom edges
   const gA = { ...pieces[1], x: 650, y: 420, group: 99, locked: false };
   const gB = { ...pieces[2], x: 690, y: 450, group: 99, locked: false };
+  const trayP = { ...pieces[3], x: 999, y: 999, inTray: true };
   const smallBoard = { width: 500, height: 350 };
 
-  const clamped = clampLoosePieces([locked, gA, gB], smallBoard);
+  const clamped = clampLoosePieces([locked, gA, gB, trayP], smallBoard);
   assert.deepEqual(clamped[0], locked, 'locked piece is untouched');
+  assert.deepEqual(clamped[3], trayP, 'tray piece is untouched');
   const [, cA, cB] = clamped;
   assert.ok(cA.x >= 0 && cA.x <= smallBoard.width && cA.y >= 0 && cA.y <= smallBoard.height);
   assert.ok(cB.x >= 0 && cB.x <= smallBoard.width && cB.y >= 0 && cB.y <= smallBoard.height);
@@ -591,24 +670,25 @@ test('clampLoosePieces brings off-board groups inside rigidly and leaves locked 
   near(cB.y - cA.y, gB.y - gA.y, 'snapped group keeps its relative y offset');
 });
 
-test('repositionForViewport keeps locked pieces at home and clamps loose pieces after resizing or rotating', () => {
-  const { pieces } = newPuzzleForViewport('small', 8, { width: 1440, height: 840 });
-  // Lock piece 0 at its home, put piece 1 far to the right edge of the wide board
+test('repositionForViewport keeps locked pieces at home, keeps tray pieces in tray, and clamps on-board loose pieces', () => {
+  const { pieces } = newPuzzleForViewport('small', 8, { width: 1264, height: 840 });
+  // Lock piece 0 at its home, take piece 1 onto the board far to the right, leave the rest in tray
   const inProgress = pieces.map((p, i) =>
-    i === 0 ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true }
-      : i === 1 ? { ...p, x: 950, y: 40 }
+    i === 0 ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false }
+      : i === 1 ? { ...p, x: 950, y: 40, inTray: false }
         : p
   );
 
-  const { pieces: resized, layout } = repositionForViewport(inProgress, { width: 390, height: 700 });
+  const { pieces: resized, layout } = repositionForViewport(inProgress, { width: 390, height: 590 });
   const locked = resized[0];
   assert.equal(locked.locked, true);
   near(locked.x, locked.home.x);
   near(locked.y, locked.home.y);
-  for (const p of resized.filter(q => !q.locked)) {
-    assert.ok(p.x >= 0 && p.x <= layout.board.width, 'clamped loose x inside portrait board');
-    assert.ok(p.y >= 0 && p.y <= layout.board.height, 'clamped loose y inside portrait board');
-  }
+  const looseOnBoard = resized[1];
+  assert.equal(looseOnBoard.inTray, false);
+  assert.ok(looseOnBoard.x >= 0 && looseOnBoard.x <= layout.board.width, 'clamped loose x inside portrait board');
+  assert.ok(looseOnBoard.y >= 0 && looseOnBoard.y <= layout.board.height, 'clamped loose y inside portrait board');
+  assert.ok(resized.slice(2).every(p => p.inTray), 'remaining pieces stay in tray');
 });
 
 test('moveGroup respects custom board bounds', () => {
