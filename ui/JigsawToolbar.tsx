@@ -2,19 +2,27 @@
 // rotating the selected piece (spec 9).
 import { useRef, type ChangeEvent } from 'react';
 import { ImagePlus, RotateCw, Shuffle } from 'lucide-react';
-import { PIECE_COUNTS, type PuzzleSize } from '../jigsaw';
+import { PIECE_COUNTS, PICTURE_STYLES, type PictureStyle, type PuzzleSize } from '../jigsaw';
 
 interface Props {
   isTouchDevice: boolean;
   size: PuzzleSize;
   onSize: (size: PuzzleSize) => void;
   onNewPuzzle: () => void;
+  picture: PictureStyle | 'custom';
+  onPicture: (style: PictureStyle) => void;
   onChoosePicture: (file: File) => void;
   canRotate: boolean;
   onRotate: (steps: number) => void;
 }
 
 const SIZE_LABELS: Record<PuzzleSize, string> = { small: 'Small', medium: 'Medium', large: 'Large' };
+const PICTURE_LABELS: Record<PictureStyle, string> = {
+  subdivided: 'Penrose (Subdivided)',
+  matching: 'Penrose (Matching)',
+  independent: 'Penrose (Independent)',
+  sunset: 'Sunset'
+};
 
 const button = 'bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-lg flex items-center gap-2';
 
@@ -43,6 +51,21 @@ export const JigsawToolbar = (props: Props) => {
         <Shuffle size={18} />
         New puzzle
       </button>
+
+      <select
+        value={props.picture}
+        onChange={e => {
+          const val = e.target.value;
+          if (val !== 'custom') props.onPicture(val as PictureStyle);
+        }}
+        aria-label="Puzzle picture"
+        className="bg-slate-700 text-white px-3 py-2 rounded-lg"
+      >
+        {PICTURE_STYLES.map(p => (
+          <option key={p} value={p}>{PICTURE_LABELS[p]}</option>
+        ))}
+        {props.picture === 'custom' && <option value="custom">Custom picture</option>}
+      </select>
 
       <button onClick={() => fileInput.current?.click()} className={button}>
         <ImagePlus size={18} />

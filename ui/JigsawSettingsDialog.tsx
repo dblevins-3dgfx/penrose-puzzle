@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void;
 }
 
-const SWITCHES: { key: keyof JigsawSettings; label: string; detail: string }[] = [
+const SWITCHES: { key: 'showPicture' | 'showOutlines'; label: string; detail: string }[] = [
   { key: 'showPicture', label: 'Show picture', detail: 'Show the whole picture faintly inside the outline, like the picture on the box' },
   { key: 'showOutlines', label: 'Show tile outlines', detail: 'Draw the edges of every piece and of the tiles in the outline' }
 ];

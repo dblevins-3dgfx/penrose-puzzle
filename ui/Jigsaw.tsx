@@ -18,11 +18,13 @@ import {
   SETTINGS_KEY,
   settleGroup,
   type JigsawSettings,
+  type PictureStyle,
   type Piece,
   type PuzzleSize
 } from '../jigsaw';
 import { makeDefaultPicture } from './defaultPicture';
 import { drawJigsaw, type Picture } from './jigsawDraw';
+import { makePenrosePicture } from './penrosePictureDraw';
 import { JigsawHelp } from './JigsawHelp';
 import { JigsawSettingsDialog } from './JigsawSettingsDialog';
 import { JigsawToolbar } from './JigsawToolbar';
@@ -40,15 +42,7 @@ const canvasCoords = (canvas: HTMLCanvasElement, e: MouseEvent): Point => {
   };
 };
 
-export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState<PuzzleSize>('medium');
-  // The first puzzle can be chosen with ?seed= in the address
-  const [pieces, setPieces] = useState<Piece[]>(() => newPuzzle('medium', seedFromQuery(window.location.search) ?? newSeed()));
-  const [picture, setPicture] = useState<Picture>(() => {
-    const image = makeDefaultPicture();
-    return { image, width: image.width, height: image.height };
-  });
+const useJigsawSettings = () => {
   // Settings are kept in the browser (spec 9). Storage can be unavailable
   // (private browsing, blocked cookies); the game then just doesn't save.
   const [settings, setSettings] = useState<JigsawSettings>(() => {
@@ -65,6 +59,48 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
       // Not saved; the settings still apply until the page is reloaded
     }
   }, [settings]);
+  return [settings, setSettings] as const;
+};
+
+const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: number) => {
+  const sunset = useMemo<Picture>(() => {
+    const image = makeDefaultPicture();
+    return { image, width: image.width, height: image.height };
+  }, []);
+  const [custom, setCustom] = useState<Picture | null>(null);
+  const picture = useMemo<Picture>(() => {
+    if (custom) return custom;
+    if (style === 'sunset') return sunset;
+    return makePenrosePicture(style, homes, seed);
+  }, [custom, style, sunset, homes, seed]);
+
+  const chooseFile = (file: File) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      setCustom({ image: img, width: img.naturalWidth, height: img.naturalHeight });
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  return { picture, isCustom: custom !== null, clearCustom: () => setCustom(null), chooseFile };
+};
+
+export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useState<PuzzleSize>('medium');
+  // The first puzzle can be chosen with ?seed= in the address. Keep seed and
+  // solved homes separate from moving pieces so dragging doesn't redraw the
+  // offscreen Penrose tiling picture.
+  const [puzzle, setPuzzle] = useState(() => {
+    const seed = seedFromQuery(window.location.search) ?? newSeed();
+    const initial = newPuzzle('medium', seed);
+    return { seed, homes: initial.map(p => p.home), initial };
+  });
+  const [pieces, setPieces] = useState<Piece[]>(() => puzzle.initial);
+  const [settings, setSettings] = useJigsawSettings();
+  const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(settings.picture, puzzle.homes, puzzle.seed);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
@@ -75,19 +111,17 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const solved = isSolved(pieces);
 
   const startPuzzle = (s: PuzzleSize) => {
+    const seed = newSeed();
+    const next = newPuzzle(s, seed);
     setSize(s);
-    setPieces(newPuzzle(s, newSeed()));
+    setPuzzle({ seed, homes: next.map(p => p.home), initial: next });
+    setPieces(next);
     setSelectedId(null);
   };
 
-  const choosePicture = (file: File) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      setPicture({ image: img, width: img.naturalWidth, height: img.naturalHeight });
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+  const selectPicture = (style: PictureStyle) => {
+    clearCustom();
+    setSettings(s => ({ ...s, picture: style }));
   };
 
   const rotate = useCallback(
@@ -182,7 +216,9 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
           size={size}
           onSize={startPuzzle}
           onNewPuzzle={() => startPuzzle(size)}
-          onChoosePicture={choosePicture}
+          picture={isCustom ? 'custom' : settings.picture}
+          onPicture={selectPicture}
+          onChoosePicture={chooseFile}
           canRotate={selectedId !== null && !pieces.find(p => p.id === selectedId)?.locked}
           onRotate={rotate}
         />

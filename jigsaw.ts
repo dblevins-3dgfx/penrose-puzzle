@@ -459,19 +459,31 @@ export const drawLayers = (pieces: readonly Piece[]): Piece[][] => {
 // Settings
 // ---------------------------------------------------------------------
 
+export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'sunset';
+export const PICTURE_STYLES: readonly PictureStyle[] = ['subdivided', 'matching', 'independent', 'sunset'];
+
 export interface JigsawSettings {
   // The whole picture shown faintly inside the outline, like a puzzle box
   showPicture: boolean;
   // Edges drawn around each piece and each tile of the outline
   showOutlines: boolean;
+  // Which built-in picture is drawn on the puzzle
+  picture: PictureStyle;
 }
 
-export const DEFAULT_SETTINGS: JigsawSettings = { showPicture: false, showOutlines: true };
+export const DEFAULT_SETTINGS: JigsawSettings = {
+  showPicture: false,
+  showOutlines: true,
+  picture: 'subdivided'
+};
 
 // Where the settings are kept in the browser's local storage.
 export const SETTINGS_KEY = 'penrose-puzzle.jigsaw-settings';
 
 export const serializeSettings = (settings: JigsawSettings): string => JSON.stringify(settings);
+
+const isPictureStyle = (value: unknown): value is PictureStyle =>
+  typeof value === 'string' && (PICTURE_STYLES as readonly string[]).includes(value);
 
 // Settings read back from storage. Anything missing, unreadable or of the
 // wrong type falls back to its default, field by field, and unknown fields
@@ -484,9 +496,10 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     saved = null;
   }
   const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: keyof JigsawSettings) =>
+  const flag = (key: 'showPicture' | 'showOutlines') =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
-  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines') };
+  const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
+  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture };
 };
 
 export const progress = (pieces: readonly Piece[]) => ({

@@ -1,6 +1,6 @@
 # Penrose Puzzle: Specification
 
-Status: reflects the app as currently implemented. The rules (sections 3 to 6, including auto-rotate in 5b, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the jigsaw's (section 9) are in `jigsaw.ts`, tested in `jigsaw.test.ts`. The React root `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
+Status: reflects the app as currently implemented. The rules (sections 3 to 6, including auto-rotate in 5b, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the jigsaw's (section 9) are in `jigsaw.ts` and `penrosePicture.ts`, tested in `jigsaw.test.ts` and `penrosePicture.test.ts`. The React root `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
 
 ## 1. Overview
 
@@ -161,7 +161,15 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### The picture
 
-- The default picture is a landscape at sunset drawn by the app (`ui/defaultPicture.ts`, 600 x 600). **Your picture** opens the device's file picker for an image; it replaces the picture for the current and later puzzles until the page is reloaded. It is read in the browser and never uploaded.
+- The toolbar's **Picture** selector chooses among four built-in pictures drawn by the app (saved in the browser; see Saved settings below):
+  - **Penrose (Subdivided)** (default): the puzzle's own Penrose tiling deflated 2 levels (sub-tile long edge `60 / phi^2`), with boundary half-tiles reflected across their axes so tiles straddling the puzzle border are whole.
+  - **Penrose (Matching)**: aligns 1:1 with the puzzle's own tiles (long edge 60).
+  - **Penrose (Independent)**: a separate Penrose tiling generated from a derived seed (changing on **New puzzle**, deterministic for `?seed=`), at long edge 38 and an independent rotation and offset, covering the puzzle's bounding box.
+  - **Sunset**: a landscape at sunset (`ui/defaultPicture.ts`, 600 x 600).
+- All three Penrose tiling pictures are painted in a stained-glass gradient across the solved puzzle's bounding box (kites slightly brighter/warmer, darts deeper/cooler, subtle dark lead lines) so pieces from different regions stay distinguishable, overlaid with Conway's two-family circular matching arcs:
+  - **Primary** (warm gold): centered at kite `O` (radius `L / phi`) and dart `M` (radius `L / phi^2`), joining smoothly across every long edge.
+  - **Secondary** (aqua cyan): centered at kite `C` (radius `L / phi^2`) and dart `A'` (radius `L / phi^3`), joining smoothly across every short edge.
+- **Your picture** opens the device's file picker for an image; it replaces the picture for the current and later puzzles until a built-in picture is chosen from the **Picture** selector or the page is reloaded. It is read in the browser and never uploaded.
 - The picture is scaled to cover the solved puzzle's bounding box, keeping its proportions and centered, with any overhang cut off evenly. Each piece shows the part of the picture over its home, moved and turned with the piece.
 
 ### Play
@@ -181,8 +189,8 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### Saved settings
 
-- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
-- Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing setting, or one that isn't true or false, takes its default; unknown fields are ignored.
+- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided"}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing or invalid setting (non-boolean toggle, or unknown `picture` value) takes its default; unknown fields are ignored.
 - If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 
 ### Drawing
