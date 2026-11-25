@@ -1,5 +1,5 @@
 // The jigsaw's controls: puzzle size, New puzzle, Your picture, and
-// rotating the selected piece (spec 11).
+// rotating the selected piece (spec 9).
 import { useRef, type ChangeEvent } from 'react';
 import { ImagePlus, RotateCw, Shuffle } from 'lucide-react';
 import { PIECE_COUNTS, type PuzzleSize } from '../jigsaw';

@@ -1,4 +1,4 @@
-// The jigsaw's Settings dialog (spec 11): switches for how the board is
+// The jigsaw's Settings dialog (spec 9): switches for how the board is
 // drawn. Opened from the header; closed like How to Play.
 import type { JigsawSettings } from '../jigsaw';
 import { Overlay } from './HelpOverlay';

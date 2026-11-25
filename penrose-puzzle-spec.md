@@ -1,12 +1,12 @@
 # Penrose Puzzle: Specification
 
-Status: reflects the app as currently implemented. The rules (sections 3 to 6, including auto-rotate in 5b, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the jigsaw's (section 11) are in `jigsaw.ts`, tested in `jigsaw.test.ts`. The React root `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
+Status: reflects the app as currently implemented. The rules (sections 3 to 6, including auto-rotate in 5b, the connected edges in section 7 and the rotation steps in section 8) are plain functions in `rules.ts`, unit-tested in `rules.test.ts`; the jigsaw's (section 9) are in `jigsaw.ts`, tested in `jigsaw.test.ts`. The React root `PenrosePuzzle` in `penrose-puzzle.tsx` and the files in `ui/` draw the board and handle input. Rules without tests are listed in `untested-requirements.md`.
 
 ## 1. Overview
 
 A single-player puzzle app played with Penrose kite and dart tiles. It has two modes, switched with the **Jigsaw / Sandbox** tabs in the header (the page opens on Jigsaw; the choice isn't saved, and each mode keeps its state only while it is shown):
 
-- **Jigsaw** (section 11): a picture is laid over a patch of a real Penrose tiling and broken up into its kites and darts; the player puts it back together.
+- **Jigsaw** (section 9): a picture is laid over a patch of a real Penrose tiling and broken up into its kites and darts; the player puts it back together.
 - **Sandbox** (sections 4 to 8): the player builds a structure one tile at a time. Every placement must obey Penrose's matching rules, so the structure stays a valid (locally) Penrose arrangement. There is no goal, score or end.
 
 The project began as a copy of the original version of Penrogo, a two-player territory game; capture, territory, scoring, turns and the computer opponent were removed.
@@ -21,7 +21,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Rendering | HTML5 Canvas 2D, 800 x 600 internal resolution, scaled to the largest 4:3 size that fits the window |
 | Styling | Tailwind CSS v4 utility classes |
 | Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`) |
-| Persistence | The jigsaw's settings in the browser's local storage (section 11); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
+| Persistence | The jigsaw's settings in the browser's local storage (section 9); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
 
 ## 3. Tile Geometry
 
@@ -148,7 +148,7 @@ Nothing is saved: reloading the page starts with an empty board.
 
 Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` on the canvas, and pointer coordinates scaled from CSS pixels to the 800 x 600 canvas space. The page fills exactly the visible window (`h-dvh`, which follows mobile browser toolbars) and never scrolls: header and controls take their natural height, and the board gets the rest, sized with CSS container units to the largest 4:3 rectangle that fits. The rules are on a separate **How to Play** screen (button in the header), a full-screen overlay closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
 
-## 11. Jigsaw
+## 9. Jigsaw
 
 ### Building the puzzle
 
@@ -196,16 +196,16 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 | Layers | Locked pieces are drawn as one layer, then each loose group as one layer, in stacking order (by each group's topmost piece). A layer's picture is clipped to all its pieces at once, so no hairline seams show between pieces that fit together |
 | Board | White, 800 x 600, scaled to fit the window as in section 8 |
 
-## 9. Known Limitations and Not Yet Implemented
+## 10. Known Limitations and Not Yet Implemented
 
-- **No goal in the sandbox.** The sandbox has no score, win condition or end; the jigsaw (section 11) is the only goal so far.
+- **No goal in the sandbox.** The sandbox has no score, win condition or end; the jigsaw (section 9) is the only goal so far.
 - **Jigsaw.** No timer, move count or saved progress; reloading starts a new puzzle (or the `?seed=` one). Pieces only lock into their own home, not into a spot where an identical piece would fit, and a piece only snaps to its own neighbors from the solved puzzle.
 - **Rule completeness.** The rules combine vertex coloring with an edge-direction/length check. They have not been proven to prevent every dead-end configuration, and vertex-only contacts are not snapped (only edge-to-edge snapping exists).
 - **Performance.** Connected-edge detection and placement checks are O(n^2) over placed tiles per render; fine for dozens of tiles, not for hundreds.
 - **No save/load.** The board is lost on reload.
 - **Mobile.** Touch support has not been tested on a physical device; the 60-unit finger offset may need tuning.
 
-## 10. Possible Next Steps
+## 11. Possible Next Steps
 
 1. Decide which puzzle to keep: the jigsaw, or others (for example, fill a target outline, or reach a shape with a limited set of tiles).
 2. "Show valid placements" hint mode.

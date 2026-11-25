@@ -1,4 +1,4 @@
-// The jigsaw's How to Play text (spec 11).
+// The jigsaw's How to Play text (spec 9).
 import { Overlay } from './HelpOverlay';
 
 export const JigsawHelp = ({ isTouchDevice, onClose }: { isTouchDevice: boolean; onClose: () => void }) => (

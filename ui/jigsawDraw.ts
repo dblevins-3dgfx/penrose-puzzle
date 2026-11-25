@@ -1,4 +1,4 @@
-// Canvas drawing for the jigsaw (spec 11). Where everything goes comes
+// Canvas drawing for the jigsaw (spec 9). Where everything goes comes
 // from jigsaw.ts; this only paints it.
 import { BOARD_H, BOARD_W, getVertices, type Point, type Tile } from '../rules';
 import { boundsOf, coverRect, drawLayers, pieceTile, pieceTransform, type JigsawSettings, type Piece } from '../jigsaw';

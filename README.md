@@ -48,6 +48,6 @@ Every pull request runs the type checker, the linter, the unit tests and the pro
 - `rules.ts`: the game rules as plain functions (geometry, matching rules, snapping, rotation), tested in `rules.test.ts`
 - `jigsaw.ts`: the jigsaw's logic as plain functions (generating the tiling, choosing and scattering pieces, moving and locking them), tested in `jigsaw.test.ts`
 - `penrose-puzzle.tsx`: the React root, switching between the jigsaw and the sandbox
-- `ui/`: the React side. Sandbox: `Sandbox.tsx`, `draw.ts`, `Toolbar.tsx`. Jigsaw: `Jigsaw.tsx`, `jigsawDraw.ts`, `JigsawToolbar.tsx`, `defaultPicture.ts`. Shared: `ModeSwitch.tsx`, `useControls.ts` (keyboard and wheel), `HelpOverlay.tsx`. All of it calls `rules.ts` and `jigsaw.ts` for decisions
+- `ui/`: the React side. Sandbox: `Sandbox.tsx`, `draw.ts`, `Toolbar.tsx`. Jigsaw: `Jigsaw.tsx`, `jigsawDraw.ts`, `JigsawToolbar.tsx`, `JigsawSettingsDialog.tsx`, `JigsawHelp.tsx`, `defaultPicture.ts`. Shared: `ModeSwitch.tsx`, `useControls.ts` (keyboard and wheel), `HelpOverlay.tsx`. All of it calls `rules.ts` and `jigsaw.ts` for decisions
 - `untested-requirements.md`: spec rules that have no unit test, and why
 - `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup
