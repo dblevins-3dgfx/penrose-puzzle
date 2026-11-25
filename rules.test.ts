@@ -253,6 +253,31 @@ test('a snap blocked only by the board edge is still shown', () => {
   assert.equal(isLegalPlacement([edgeKite], { ...target, x: s.x, y: s.y }), false, 'and is not placeable');
 });
 
+test('an in-bounds snap wins over a closer snap blocked by the board edge', () => {
+  // A kite near the top edge takes a 180° dart on either of its long edges:
+  // the upper snap sticks off the top of the board, the lower stays inside,
+  // and their centers are ~70.5 px apart (both within SNAP_RADIUS of a point
+  // between them that is closer to the upper, out-of-bounds snap).
+  const topOrigin = { x: 400, y: 40 };
+  const topKite = tileWithVertexAt('kite', 0, 0, topOrigin);
+  const upperOob = tileWithVertexAt('dart', 180, 3, topOrigin);
+  const lowerIn = tileWithVertexAt('dart', 180, 1, topOrigin);
+  assert.equal(isLegalPlacement([], topKite), true);
+  assert.equal(isLegalPlacement([topKite], upperOob), false);
+  assert.equal(isLegalPlacement([topKite], upperOob, true), true);
+  assert.equal(isLegalPlacement([topKite], lowerIn), true);
+
+  const cand: Tile = { type: 'dart', x: upperOob.x, y: upperOob.y + 30, rotation: 180 };
+  assert.ok(dist(cand, upperOob) < dist(cand, lowerIn), 'pointer is closer to the out-of-bounds snap');
+  assert.ok(dist(cand, lowerIn) < SNAP_RADIUS, 'in-bounds snap is still within SNAP_RADIUS');
+
+  const s = snapPosition([topKite], cand);
+  assert.equal(s.snapped, true);
+  near(s.x, lowerIn.x, `x ${s.x}`);
+  near(s.y, lowerIn.y, `y ${s.y}`);
+  assert.equal(isLegalPlacement([topKite], { ...cand, x: s.x, y: s.y }), true);
+});
+
 // ---------------------------------------------------------------------
 // Spec 5b: Auto-rotate
 // ---------------------------------------------------------------------

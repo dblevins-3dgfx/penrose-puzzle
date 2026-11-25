@@ -8,7 +8,6 @@ The tests only reach plain modules without React: `rules.ts` and `jigsaw.ts`. Th
 
 | Spec section | Rule | Where it lives | Why it isn't tested |
 | --- | --- | --- | --- |
-| 5. Snapping | An in-bounds snap wins over a closer one that is blocked only by the board edge | `snapPosition` in `rules.ts` | Testable, but no small arrangement found yet puts both kinds of snap within reach of one pointer position. Showing an out-of-bounds snap when it is the only one is tested. |
 | 5. Snapping | Reject a snap on the same side of the shared edge as the existing tile | `snapPosition` in `rules.ts` | Every such position also overlaps the existing tile, so the overlap rule (tested) already rejects it; removing the side test changes no result a test can see. It saves work. |
 | 6. Play | Clear removes every tile and resets the rotation to 0; Undo and Clear are disabled on an empty board | `clearBoard` in `ui/Sandbox.tsx`, buttons in `ui/Toolbar.tsx` | React state and buttons. |
 | 6. Play | Nothing is saved; reloading starts empty | `ui/Sandbox.tsx` | Page behavior, nothing to call. |
