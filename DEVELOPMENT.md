@@ -65,7 +65,6 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 ## Things to watch for
 
-- Previews: PR previews (`branch/pr-<number>/`) are removed automatically when a PR closes.
 - The header is cramped on phones ("How to Play" and "Settings" shrink to icons on narrow screens).
 
 ## Open work
