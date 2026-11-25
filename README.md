@@ -4,7 +4,7 @@
 
 A tile placement puzzle played with Penrose kite and dart tiles.
 
-For now it is a single-player sandbox: place kites and darts edge to edge under Penrose's matching rules. The puzzle itself is still to be designed. See [penrose-puzzle-spec.md](penrose-puzzle-spec.md) for the rules and design.
+It has two modes: a **jigsaw**, where a picture laid over a patch of a real Penrose tiling is broken into its kites and darts for you to put back together, and a **sandbox** for placing kites and darts edge to edge under Penrose's matching rules. See [penrose-puzzle-spec.md](penrose-puzzle-spec.md) for the rules and design.
 
 The project was seeded from the `original-game` branch of [Penrogo](https://github.com/dblevins-3dgfx/penrogo), a two-player territory game, with the two-player and Go-like parts removed.
 
@@ -46,7 +46,8 @@ Every pull request runs the type checker, the linter, the unit tests and the pro
 ## Layout
 
 - `rules.ts`: the game rules as plain functions (geometry, matching rules, snapping, rotation), tested in `rules.test.ts`
-- `penrose-puzzle.tsx`: the main React component: game state, pointer input and page layout
-- `ui/`: the rest of the React side: `draw.ts` (canvas drawing), `useControls.ts` (keyboard and wheel), `Toolbar.tsx` and `HelpOverlay.tsx`. All of it calls `rules.ts` for decisions
+- `jigsaw.ts`: the jigsaw's logic as plain functions (generating the tiling, choosing and scattering pieces, moving and locking them), tested in `jigsaw.test.ts`
+- `penrose-puzzle.tsx`: the React root, switching between the jigsaw and the sandbox
+- `ui/`: the React side. Sandbox: `Sandbox.tsx`, `draw.ts`, `Toolbar.tsx`. Jigsaw: `Jigsaw.tsx`, `jigsawDraw.ts`, `JigsawToolbar.tsx`, `defaultPicture.ts`. Shared: `ModeSwitch.tsx`, `useControls.ts` (keyboard and wheel), `HelpOverlay.tsx`. All of it calls `rules.ts` and `jigsaw.ts` for decisions
 - `untested-requirements.md`: spec rules that have no unit test, and why
 - `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup
