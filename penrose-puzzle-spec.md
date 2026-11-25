@@ -79,8 +79,9 @@ While placing, the tile snaps so one of its edges lies exactly on an existing ed
 - A pairing is a candidate snap if translating the tile puts both endpoints on the target edge (tolerance 2 px).
 - Reject if the translation exceeds the snap radius (45 px).
 - Reject if the candidate would sit on the same side of the shared edge as the existing tile (centroid side test).
-- Reject if the snapped position fails any rule in section 4.
-- Choose the remaining candidate with the smallest translation.
+- Reject if the snapped position fails any of rules 1 to 3 in section 4 (edge contact, vertex colors, no overlap).
+- Among remaining candidates that are inside the playfield (section 4, rule 4), choose the one with the smallest translation.
+- If none are inside the playfield, choose the smallest translation among candidates blocked only by the board edge (so the preview snaps to that edge and shows the blocked style and red playfield border, while remaining unplaceable).
 - If none remain, the tile follows the cursor unsnapped and is (almost always) illegal.
 
 ## 5b. Auto-rotate
