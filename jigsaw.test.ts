@@ -11,6 +11,7 @@ import {
   bringToFront,
   canReturnToTray,
   choosePieces,
+  chooseSymmetricPieces,
   clampCamera,
   clampLoosePieces,
   computeViewportLayout,
@@ -530,12 +531,13 @@ test('each piece carries its part of the picture to wherever it is', () => {
 // Settings
 // ---------------------------------------------------------------------
 
-test('by default the picture is hidden, tile outlines and effects are on, picture is subdivided, size is medium, and sound is off', () => {
+test('by default the picture is hidden, tile outlines and effects are on, picture is subdivided, size is medium, and symmetric and sound are off', () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
     showPicture: false,
     showOutlines: true,
     picture: 'subdivided',
     size: 'medium',
+    symmetric: false,
     effects: true,
     sound: false
   });
@@ -544,10 +546,10 @@ test('by default the picture is hidden, tile outlines and effects are on, pictur
 test('saved settings are read back as they were saved', () => {
   const cases = [
     DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, effects: false, sound: true },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, effects: true, sound: false },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'xl' as const, effects: false, sound: false },
-    { showPicture: false, showOutlines: false, picture: 'subdivided' as const, size: 'giant' as const, effects: true, sound: true }
+    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, symmetric: true, effects: false, sound: true },
+    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, symmetric: false, effects: true, sound: false },
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'xl' as const, symmetric: true, effects: false, sound: false },
+    { showPicture: false, showOutlines: false, picture: 'subdivided' as const, size: 'giant' as const, symmetric: true, effects: true, sound: true }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -580,18 +582,20 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
     showOutlines: true,
     picture: 'subdivided',
     size: 'medium',
+    symmetric: false,
     effects: true,
     sound: false
   });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "effects": false, "sound": true}'), {
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": true, "effects": false, "sound": true}'), {
     showPicture: false,
     showOutlines: false,
     picture: 'sunset',
     size: 'large',
+    symmetric: true,
     effects: false,
     sound: true
   });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "effects": "none", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
 });
 
 test('tap-to-rotate selects on first tap and rotates on subsequent taps within TAP_MAX_MOVE', () => {
@@ -1097,4 +1101,71 @@ test('orderedBorderLoops chains every puzzle border segment into closed edge loo
       }
     }
   }
+});
+
+// ---------------------------------------------------------------------
+// Symmetric puzzle layouts (D5 5-fold mandalas and D1 bilateral mirror)
+// ---------------------------------------------------------------------
+
+const isRotationSymmetric72 = (tiles: readonly Tile[]): boolean => {
+  const cx = tiles.reduce((s, t) => s + t.x, 0) / tiles.length;
+  const cy = tiles.reduce((s, t) => s + t.y, 0) / tiles.length;
+  const a = (72 * Math.PI) / 180;
+  return tiles.every(t => {
+    const dx = t.x - cx, dy = t.y - cy;
+    const rx = cx + dx * Math.cos(a) - dy * Math.sin(a);
+    const ry = cy + dx * Math.sin(a) + dy * Math.cos(a);
+    return tiles.some(u => u.type === t.type && Math.hypot(u.x - rx, u.y - ry) < 1.5);
+  });
+};
+
+const hasMirrorSymmetry = (tiles: readonly Tile[]): boolean => {
+  const cx = tiles.reduce((s, t) => s + t.x, 0) / tiles.length;
+  const cy = tiles.reduce((s, t) => s + t.y, 0) / tiles.length;
+  // Check all 10 Penrose mirror axes (multiples of 18°) passing through the centroid
+  for (let k = 0; k < 10; k++) {
+    const a = (k * 18 * Math.PI) / 180;
+    const ux = Math.cos(a), uy = Math.sin(a);
+    const ok = tiles.every(t => {
+      const dx = t.x - cx, dy = t.y - cy;
+      const dot = dx * ux + dy * uy;
+      const mx = cx + 2 * dot * ux - dx;
+      const my = cy + 2 * dot * uy - dy;
+      return tiles.some(u => u.type === t.type && Math.hypot(u.x - mx, u.y - my) < 1.5);
+    });
+    if (ok) return true;
+  }
+  return false;
+};
+
+test('symmetric layouts produce exact connected legal Penrose tilings with D5 (40/60/100) and D1 (12/24) symmetry', () => {
+  const starPatch = generatePatch(6, 'star');
+  assert.ok(starPatch.length > 500, 'star seed generates a full patch');
+
+  for (const size of PUZZLE_SIZES) {
+    const count = PIECE_COUNTS[size];
+    for (const seed of [1, 7, 19]) {
+      const { pieces, layout } = newPuzzleForViewport(size, seed, { width: 390, height: 590 }, true);
+      const homes = pieces.map(p => p.home);
+      assert.equal(pieces.length, count, `${size} symmetric puzzle has exact count`);
+      assert.ok(buildableUnderTheRules(homes), `${size} seed ${seed} symmetric puzzle is legal and connected`);
+      const box = boundsOf(homes);
+      assert.ok(box.x >= 0 && box.x + box.w <= layout.board.width);
+      assert.ok(box.y >= 0 && box.y + box.h <= layout.board.height);
+
+      if (count % 5 === 0) {
+        assert.ok(isRotationSymmetric72(homes), `${size} (${count}) seed ${seed} has exact 5-fold rotational symmetry`);
+      }
+      assert.ok(hasMirrorSymmetry(homes), `${size} (${count}) seed ${seed} has exact mirror symmetry`);
+    }
+  }
+
+  // Deterministic per seed, varied across seeds
+  const a = newPuzzle('large', 11, true).map(p => p.home);
+  const b = newPuzzle('large', 11, true).map(p => p.home);
+  assert.deepEqual(a, b, 'same seed produces identical symmetric puzzle');
+
+  const direct = chooseSymmetricPieces(starPatch, 40, seededRandom(5));
+  assert.equal(direct.length, 40);
+  assert.ok(isRotationSymmetric72(direct));
 });

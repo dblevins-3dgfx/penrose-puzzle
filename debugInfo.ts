@@ -75,7 +75,7 @@ export const formatDebugInfo = (snapshot: DebugSnapshot): string => {
       `camera: zoom=${round(camera.zoom)}, pan=(${round(camera.panX, 1)}, ${round(camera.panY, 1)}), layoutScale=${round(snapshot.layoutScale, 3)}`,
       `puzzle: size=${snapshot.size}, seed=${snapshot.seed}, picture=${snapshot.picture}`,
       `progress: ${snapshot.placed}/${snapshot.total} (solved=${snapshot.solved}), tray=${snapshot.trayAll} all / ${snapshot.trayEdges} edges (filter=${snapshot.trayFilter})`,
-      `settings: showPicture=${settings.showPicture}, showOutlines=${settings.showOutlines}, effects=${settings.effects}, sound=${settings.sound}`
+      `settings: showPicture=${settings.showPicture}, showOutlines=${settings.showOutlines}, symmetric=${settings.symmetric}, effects=${settings.effects}, sound=${settings.sound}`
     );
   } else {
     lines.push(
