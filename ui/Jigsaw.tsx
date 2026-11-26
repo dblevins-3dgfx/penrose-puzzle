@@ -15,6 +15,7 @@ import {
   nextCameraOnResize,
   progress,
   repositionForViewport,
+  resolveTrayFilter,
   rotateGroup,
   seedFromQuery,
   trayPieces,
@@ -79,11 +80,12 @@ interface PuzzleState {
   baseHomes: Piece['home'][];
   pieces: Piece[];
   layout: ViewportLayout;
+  trayFilter: TrayFilter;
 }
 
 const makePuzzleState = (size: PuzzleSize, seed: number, width: number, height: number): PuzzleState => {
   const { pieces, layout } = newPuzzleForViewport(size, seed, { width, height });
-  return { size, seed, baseHomes: pieces.map(p => p.home), pieces, layout };
+  return { size, seed, baseHomes: pieces.map(p => p.home), pieces, layout, trayFilter: 'all' };
 };
 
 const FIT_TRANSITION_MS = 650;
@@ -216,7 +218,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
-  const { size, pieces, layout } = puzzle;
+  const { size, pieces, layout, trayFilter } = puzzle;
   const { camera, setCamera, clampToViewport, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
     viewport,
     settings.effects
@@ -229,7 +231,6 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
     puzzle.seed,
     Math.max(2, Math.min(4, Math.ceil(layout.scale * camera.zoom * dpr)))
   );
-  const [trayFilter, setTrayFilter] = useState<TrayFilter>('all');
   const [dropHighlight, setDropHighlight] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -254,8 +255,11 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
     setPuzzle(makePuzzleState(s, newSeed(), vpWidth, vpHeight));
     resetZoom();
     setSelectedId(null);
-    setTrayFilter('all');
   };
+
+  const setTrayFilter = useCallback((filter: TrayFilter) => {
+    setPuzzle(prev => ({ ...prev, trayFilter: resolveTrayFilter(prev.pieces, filter) }));
+  }, []);
 
   const changeSize = (s: PuzzleSize) => {
     setSettings(prev => ({ ...prev, size: s }));
@@ -268,7 +272,10 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   };
 
   const updatePieces = useCallback((fn: (ps: Piece[]) => Piece[]) => {
-    setPuzzle(prev => ({ ...prev, pieces: fn(prev.pieces) }));
+    setPuzzle(prev => {
+      const nextPieces = fn(prev.pieces);
+      return { ...prev, pieces: nextPieces, trayFilter: resolveTrayFilter(nextPieces, prev.trayFilter) };
+    });
   }, []);
 
   const handleStartFromTray = useTrayInteraction(

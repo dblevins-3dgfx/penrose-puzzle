@@ -80,8 +80,9 @@ const FilterPills = ({
         key={key}
         type="button"
         aria-pressed={filter === key}
+        disabled={key === 'edges' && edgeCount === 0}
         onClick={() => onFilter(key)}
-        className={`px-2.5 py-1 sm:px-2 sm:py-0.5 rounded font-semibold whitespace-nowrap ${
+        className={`px-2.5 py-1 sm:px-2 sm:py-0.5 rounded font-semibold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
           filter === key ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
         }`}
       >

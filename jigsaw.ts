@@ -621,6 +621,11 @@ export type TrayFilter = 'all' | 'edges';
 export const trayPieces = (pieces: readonly Piece[], filter: TrayFilter = 'all'): Piece[] =>
   pieces.filter(p => p.inTray && !p.locked && (filter === 'all' || isEdgePiece(p)));
 
+// Automatically switches the tray filter from 'edges' back to 'all' once no
+// edge pieces remain in the tray.
+export const resolveTrayFilter = (pieces: readonly Piece[], filter: TrayFilter): TrayFilter =>
+  filter === 'edges' && trayPieces(pieces, 'edges').length === 0 ? 'all' : filter;
+
 // Moves a piece out of the tray onto the board at `at` (clamped inside `board`),
 // placing it at the top of the board stacking order.
 export const takeFromTray = (
