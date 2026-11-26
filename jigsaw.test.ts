@@ -41,6 +41,7 @@ import {
   placeBeside,
   popSpotOnBoard,
   repositionForViewport,
+  resolveTrayFilter,
   returnToTray,
   rotateGroup,
   screenToWorld,
@@ -659,6 +660,18 @@ test('trayPieces filters all vs edge pieces and takeFromTray moves a piece onto 
   assert.equal(taken[taken.length - 1].id, target.id, 'taken piece is on top of the stack');
   assert.equal(trayPieces(taken, 'all').length, pieces.length - 1);
   assert.equal(trayPieces(taken, 'edges').length, edges.length - 1);
+  assert.equal(resolveTrayFilter(taken, 'edges'), 'edges', 'stays on edges while edge pieces remain');
+  assert.equal(resolveTrayFilter(taken, 'all'), 'all');
+
+  // Remove every remaining edge piece from the tray -> filter switches back to 'all'
+  let noEdges = taken;
+  for (const e of trayPieces(taken, 'edges')) {
+    noEdges = takeFromTray(noEdges, e.id, { x: 200, y: 200 }, layout.board);
+  }
+  assert.equal(trayPieces(noEdges, 'edges').length, 0);
+  assert.ok(trayPieces(noEdges, 'all').length > 0);
+  assert.equal(resolveTrayFilter(noEdges, 'edges'), 'all', 'switches to all once edges reach 0');
+  assert.equal(resolveTrayFilter(noEdges, 'all'), 'all');
 });
 
 test('popSpotOnBoard stays inside the board and fans out multiple tapped pieces', () => {
