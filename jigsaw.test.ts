@@ -31,6 +31,7 @@ import {
   isEdgePiece,
   isGroupSelected,
   isSolved,
+  isTrayTap,
   moveGroup,
   neighbors,
   newPuzzle,
@@ -46,6 +47,8 @@ import {
   shouldTapRotate,
   takeFromTray,
   TAP_MAX_MOVE,
+  TRAY_TAP_MAX_MOVE,
+  trayDragAction,
   trayPieces,
   turnOf,
   worldToScreen,
@@ -812,6 +815,33 @@ test('popSpotOnBoard places a tapped piece near a custom zoomed-view anchor insi
   const spot = popSpotOnBoard(pieces, layout.board, anchor);
   near(spot.x, anchor.x);
   near(spot.y, anchor.y);
+});
+
+test('trayDragAction distinguishes touch scroll vs drag-out in portrait and landscape, and isTrayTap ignores cancelled pointers', () => {
+  // Mouse lifts once movement exceeds 6 px in any direction
+  assert.equal(trayDragAction(false, true, 3, 4), 'wait');
+  assert.equal(trayDragAction(false, true, 7, 0), 'lift');
+
+  // Touch portrait (bottom strip): horizontal swipes scroll; dragging up lifts onto the board
+  assert.equal(trayDragAction(true, true, 14, 2), 'scroll');
+  assert.equal(trayDragAction(true, true, -14, -4), 'scroll');
+  assert.equal(trayDragAction(true, true, 2, -15), 'lift');
+  assert.equal(trayDragAction(true, true, 2, 15), 'wait', 'dragging downward does not lift');
+  assert.equal(trayDragAction(true, true, 5, -8), 'wait');
+
+  // Touch landscape (right sidebar): vertical swipes scroll; dragging left lifts onto the board
+  assert.equal(trayDragAction(true, false, 2, 14), 'scroll');
+  assert.equal(trayDragAction(true, false, -3, -15), 'scroll');
+  assert.equal(trayDragAction(true, false, -15, 3), 'lift');
+  assert.equal(trayDragAction(true, false, 15, 0), 'wait', 'dragging rightward does not lift');
+
+  // Tap-to-pop fires only on clean un-cancelled, un-scrolled, un-lifted taps within TRAY_TAP_MAX_MOVE
+  assert.equal(isTrayTap(false, false, false, 0), true);
+  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE), true);
+  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE + 0.5), false);
+  assert.equal(isTrayTap(false, false, true, 2), false, 'pointercancel (e.g. Safari scroll handoff) never pops a piece');
+  assert.equal(isTrayTap(false, true, false, 2), false);
+  assert.equal(isTrayTap(true, false, false, 2), false);
 });
 
 test('isCameraAtFit detects Fit vs zoomed or panned cameras, and easeCamera moves screen points smoothly', () => {

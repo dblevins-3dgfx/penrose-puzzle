@@ -11,7 +11,7 @@ export const ModeSwitch = ({ mode, onChange }: { mode: Mode; onChange: (mode: Mo
         role="tab"
         aria-selected={mode === m}
         onClick={() => onChange(m)}
-        className={`px-3 py-1 rounded-md font-semibold ${mode === m ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
+        className={`px-3 py-1.5 sm:py-1 rounded-md font-semibold ${mode === m ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'}`}
       >
         {LABELS[m]}
       </button>

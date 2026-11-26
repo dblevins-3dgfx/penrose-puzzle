@@ -29,11 +29,23 @@ const SELECTED_STYLE: Record<TileType, string> = {
   dart: 'bg-indigo-500 text-white'
 };
 
-const ActionButton = ({ onClick, disabled, children }: { onClick: () => void; disabled: boolean; children: ReactNode }) => (
+const ActionButton = ({
+  onClick,
+  disabled,
+  label,
+  children
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+  children: ReactNode;
+}) => (
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`bg-slate-700 hover:bg-slate-600 text-white px-2.5 py-1.5 rounded-md text-sm flex items-center gap-1.5 ${
+    aria-label={label}
+    title={label}
+    className={`bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-white px-2.5 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm flex items-center justify-center gap-1.5 ${
       disabled ? 'opacity-50' : ''
     }`}
   >
@@ -74,9 +86,16 @@ export const Toolbar = (props: Props) => {
   const { isTouchDevice, selectedTileType, onSelectTileType, rotation, boardEmpty } = props;
 
   return (
-    <div className="bg-slate-800/95 border-b border-slate-700/70 px-2 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+    <div
+      style={{
+        paddingTop: 'max(0.375rem, env(safe-area-inset-top))',
+        paddingLeft: 'max(0.5rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.5rem, env(safe-area-inset-right))'
+      }}
+      className="bg-slate-800/95 border-b border-slate-700/70 pb-1.5 flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap"
+    >
       <div className="flex items-center gap-2">
-        <h1 className="text-base sm:text-lg font-bold text-white whitespace-nowrap">
+        <h1 className="hidden sm:block text-base sm:text-lg font-bold text-white whitespace-nowrap">
           <span className="hidden xl:inline">Penrose Puzzle</span>
           <span className="xl:hidden">Penrose</span>
         </h1>
@@ -89,7 +108,7 @@ export const Toolbar = (props: Props) => {
             <button
               key={type}
               onClick={() => onSelectTileType(type)}
-              className={`px-3 py-1.5 rounded-md text-sm font-semibold ${
+              className={`px-3 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm font-semibold ${
                 selectedTileType === type ? SELECTED_STYLE[type] : 'bg-slate-700 text-slate-300'
               }`}
             >
@@ -113,8 +132,9 @@ export const Toolbar = (props: Props) => {
         <button
           onClick={props.onToggleAutoRotate}
           aria-pressed={props.autoRotate}
+          aria-label="Auto-rotate"
           title="Turn the tile to fit the nearest free edge"
-          className={`px-2.5 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5 ${
+          className={`px-2.5 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm font-semibold flex items-center gap-1.5 ${
             props.autoRotate ? 'bg-emerald-500 text-slate-900' : 'bg-slate-700 text-slate-300'
           }`}
         >
@@ -122,18 +142,18 @@ export const Toolbar = (props: Props) => {
           <span className="hidden sm:inline">Auto-rotate</span>
         </button>
 
-        <ActionButton onClick={props.onUndo} disabled={boardEmpty}>
+        <ActionButton onClick={props.onUndo} disabled={boardEmpty} label="Undo">
           <Undo2 size={16} />
           <span className="hidden sm:inline">Undo</span>
         </ActionButton>
 
-        <ActionButton onClick={props.onClear} disabled={boardEmpty}>
+        <ActionButton onClick={props.onClear} disabled={boardEmpty} label="Clear">
           <Trash2 size={16} />
           <span className="hidden sm:inline">Clear</span>
         </ActionButton>
       </div>
 
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         <div className="text-slate-300 text-xs sm:text-sm whitespace-nowrap">
           <span className="text-amber-400 font-semibold">{props.kiteCount}</span> kites ·{' '}
           <span className="text-indigo-400 font-semibold">{props.dartCount}</span> darts
@@ -142,7 +162,7 @@ export const Toolbar = (props: Props) => {
           onClick={props.onOpenHelp}
           aria-label="How to Play"
           title="How to Play"
-          className="text-slate-300 hover:text-white p-1"
+          className="text-slate-300 hover:text-white active:text-white p-2 sm:p-1 rounded-md"
         >
           <CircleHelp size={18} />
         </button>

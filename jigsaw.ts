@@ -659,6 +659,35 @@ export const returnToTray = (pieces: readonly Piece[], id: number): Piece[] => {
   return [{ ...piece, inTray: true }, ...pieces.filter(p => p.id !== id)];
 };
 
+// Maximum CSS-pixel pointer travel for a press-and-release on a tray thumbnail
+// to count as a tap-to-pop onto the board.
+export const TRAY_TAP_MAX_MOVE = 8;
+
+export type TrayDragAction = 'wait' | 'scroll' | 'lift';
+
+// Decides whether pointer movement starting on a tray thumbnail should keep
+// waiting, yield to native tray scrolling (along the tray's scroll axis on
+// touch), or lift the piece out onto the board.
+export const trayDragAction = (isTouch: boolean, isPortrait: boolean, dx: number, dy: number): TrayDragAction => {
+  if (!isTouch) return Math.hypot(dx, dy) > 6 ? 'lift' : 'wait';
+  const scrollMoved = isPortrait
+    ? Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)
+    : Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx);
+  if (scrollMoved) return 'scroll';
+  const pullOut = isPortrait ? dy < -12 : dx < -12;
+  return pullOut ? 'lift' : 'wait';
+};
+
+// True when releasing a tray thumbnail should pop the piece onto the board.
+// Cancelled pointers (e.g. iOS Safari taking over for native tray scrolling)
+// never pop a piece accidentally.
+export const isTrayTap = (
+  lifted: boolean,
+  scrolled: boolean,
+  cancelled: boolean,
+  moveDistPx: number
+): boolean => !lifted && !scrolled && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
+
 // The best neighbor for the group to join: a piece outside the group,
 // bordering one of its pieces in the solved puzzle, turned the same way,
 // with that piece within LOCK_RADIUS of where it would sit against it.

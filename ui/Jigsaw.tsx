@@ -39,7 +39,7 @@ import { JigsawToolbar } from './JigsawToolbar';
 import { JigsawTray } from './JigsawTray';
 import { RotateControls } from './RotateControls';
 import { ZoomControls } from './ZoomControls';
-import { useBoardSize, useIsPortrait } from './useBoardSize';
+import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoardSize';
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
 import { useJigsawRenderAndEffects } from './useJigsawEffects';
 import { useBoardPointers, useTrayInteraction } from './useJigsawPointers';
@@ -270,6 +270,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   useKeyboardControls(rotate, noUndo);
   useZoomKeys(zoomIn, zoomOut, resetZoom);
   useWheelRotation(canvasRef, rotate, zoomAt);
+  usePreventSafariGesture(canvasRef);
   const closeHelp = useCallback(() => setShowHelp(false), []);
   const closeSettings = useCallback(() => setShowSettings(false), []);
 
@@ -290,7 +291,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const canRotate = !!selectedPiece && !selectedPiece.locked && !selectedPiece.inTray;
 
   return (
-    <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col">
+    <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col game-shell">
       <JigsawToolbar
         modeSwitch={modeSwitch}
         onNewPuzzle={() => startPuzzle(size)}
@@ -316,8 +317,8 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
             style={{ touchAction: 'none' }}
             className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
           />
-          <ZoomControls camera={camera} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
-          {canRotate && <RotateControls onRotate={rotate} />}
+          <ZoomControls camera={camera} isPortrait={isPortrait} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
+          {canRotate && <RotateControls isPortrait={isPortrait} onRotate={rotate} />}
           {borderToast && <BorderCompleteToast />}
         </div>
 
