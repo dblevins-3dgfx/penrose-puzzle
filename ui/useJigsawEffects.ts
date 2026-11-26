@@ -5,10 +5,12 @@ import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   detectCelebrations,
   orderedBorderLoops,
+  soundCueFor,
   type Camera,
   type Piece
 } from '../jigsaw';
 import { drawJigsaw, type JigsawView } from './jigsawDraw';
+import { playSound } from './jigsawSound';
 import {
   BORDER_DURATION_MS,
   BORDER_TOAST_MS,
@@ -99,7 +101,12 @@ export const useJigsawRenderAndEffects = (
       onSolve?.();
     }
     effectsRef.current = next;
-  }, [puzzleKey, view.pieces, vpWidth, vpHeight, onSolve]);
+
+    if (view.settings.sound) {
+      const cue = soundCueFor(events);
+      if (cue) playSound(cue);
+    }
+  }, [puzzleKey, view.pieces, view.settings.sound, vpWidth, vpHeight, onSolve]);
 
   // Cleanup toast timer on unmount.
   useEffect(() => () => {
