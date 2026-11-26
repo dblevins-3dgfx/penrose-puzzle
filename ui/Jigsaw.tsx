@@ -17,15 +17,19 @@ import {
   repositionForViewport,
   rotateGroup,
   seedFromQuery,
+  trayPieces,
   ZOOM_STEP,
   zoomCameraAt,
   type Camera,
+  type JigsawSettings,
   type PictureStyle,
   type Piece,
   type PuzzleSize,
   type TrayFilter,
   type ViewportLayout
 } from '../jigsaw';
+import { formatDebugInfo } from '../debugInfo';
+import { collectDebugEnvironment } from './collectDebugEnv';
 import { makeDefaultPicture } from './defaultPicture';
 import type { Picture } from './jigsawDraw';
 import { makePenrosePicture } from './penrosePictureDraw';
@@ -166,6 +170,35 @@ const BorderCompleteToast = () => (
   </div>
 );
 
+const buildJigsawDebugInfo = (
+  puzzle: PuzzleState,
+  pictureLabel: string,
+  settings: JigsawSettings,
+  camera: Camera,
+  trayFilter: TrayFilter,
+  viewport: { width: number; height: number },
+  isPortrait: boolean,
+  dpr: number
+): string => {
+  const { placed, total } = progress(puzzle.pieces);
+  return formatDebugInfo({
+    mode: 'jigsaw',
+    env: collectDebugEnvironment(viewport, isPortrait, dpr),
+    settings,
+    camera,
+    layoutScale: puzzle.layout.scale,
+    size: puzzle.size,
+    seed: puzzle.seed,
+    picture: pictureLabel,
+    placed,
+    total,
+    solved: isSolved(puzzle.pieces),
+    trayAll: trayPieces(puzzle.pieces, 'all').length,
+    trayEdges: trayPieces(puzzle.pieces, 'edges').length,
+    trayFilter
+  });
+};
+
 export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
@@ -205,10 +238,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
       setCamera(DEFAULT_CAMERA);
       return;
     }
-    setPuzzle(prev => {
-      const next = repositionForViewport(prev.pieces, { width: vpWidth, height: vpHeight });
-      return { ...prev, pieces: next.pieces, layout: next.layout };
-    });
+    setPuzzle(prev => ({ ...prev, ...repositionForViewport(prev.pieces, { width: vpWidth, height: vpHeight }) }));
     clampToViewport({ width: vpWidth, height: vpHeight });
   }, [measured, vpWidth, vpHeight, setCamera, clampToViewport]);
 
@@ -323,6 +353,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
           settings={settings}
           onChange={setSettings}
           onChangeSize={changeSize}
+          getDebugInfo={() => buildJigsawDebugInfo(puzzle, isCustom ? 'custom' : settings.picture, settings, camera, trayFilter, viewport, isPortrait, dpr)}
           onClose={closeSettings}
         />
       )}

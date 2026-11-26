@@ -1,6 +1,7 @@
 // The jigsaw's Settings dialog (spec 9): puzzle size and display switches.
 // Opened from the header; closed like How to Play.
 import { PIECE_COUNTS, type JigsawSettings, type PuzzleSize } from '../jigsaw';
+import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
 import { playSound } from './jigsawSound';
 
@@ -8,6 +9,7 @@ interface Props {
   settings: JigsawSettings;
   onChange: (settings: JigsawSettings) => void;
   onChangeSize: (size: PuzzleSize) => void;
+  getDebugInfo: () => string;
   onClose: () => void;
 }
 
@@ -20,7 +22,7 @@ const SWITCHES: { key: 'showPicture' | 'showOutlines' | 'effects' | 'sound'; lab
   { key: 'sound', label: 'Sound effects', detail: 'Play subtle synthesized chimes when pieces snap, lock, complete the border, or finish the puzzle' }
 ];
 
-export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, onClose }: Props) => (
+export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, getDebugInfo, onClose }: Props) => (
   <Overlay onClose={onClose} title="Settings">
     <div className="space-y-4">
       <div className="space-y-2 pb-3 border-b border-slate-700/80">
@@ -66,6 +68,8 @@ export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, onClose
           />
         </label>
       ))}
+
+      <DebugInfoSection getDebugInfo={getDebugInfo} />
     </div>
   </Overlay>
 );
