@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOARD_H, BOARD_W, TILE_SIZE, getVertices, isLegalPlacement, isOutsidePlayfield, tilesOverlap, type Tile } from './rules';
+import { BOARD_H, BOARD_W, PHI, TILE_SIZE, getVertices, isLegalPlacement, isOutsidePlayfield, tilesOverlap, type Tile } from './rules';
 import {
   FRAME_CENTER,
   LOCK_RADIUS,
@@ -16,13 +16,16 @@ import {
   coverRect,
   DEFAULT_CAMERA,
   DEFAULT_SETTINGS,
+  detectCelebrations,
   MAX_ZOOM,
   MIN_ZOOM,
+  orderedBorderLoops,
   parseSettings,
   serializeSettings,
   dropPiece,
   drawLayers,
   generatePatch,
+  isBorderComplete,
   isEdgePiece,
   isGroupSelected,
   isSolved,
@@ -795,4 +798,119 @@ test('popSpotOnBoard places a tapped piece near a custom zoomed-view anchor insi
   const spot = popSpotOnBoard(pieces, layout.board, anchor);
   near(spot.x, anchor.x);
   near(spot.y, anchor.y);
+});
+
+// ---------------------------------------------------------------------
+// Celebratory milestones and ordered border loops
+// ---------------------------------------------------------------------
+
+const lockIds = (pieces: readonly Piece[], ids: ReadonlySet<number>): Piece[] =>
+  pieces.map(p =>
+    ids.has(p.id) ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false } : p
+  );
+
+test('isBorderComplete is true only once every edge piece is locked', () => {
+  assert.equal(isBorderComplete([]), false);
+  const pieces = newPuzzle('medium', 7);
+  const edges = pieces.filter(isEdgePiece);
+  const interiors = pieces.filter(p => !isEdgePiece(p));
+  assert.ok(edges.length > 0 && interiors.length > 0);
+
+  assert.equal(isBorderComplete(pieces), false);
+  const almostBorder = lockIds(pieces, new Set(edges.slice(0, -1).map(p => p.id)));
+  assert.equal(isBorderComplete(almostBorder), false, 'one unlocked edge piece keeps border incomplete');
+
+  const fullBorder = lockIds(pieces, new Set(edges.map(p => p.id)));
+  assert.equal(isBorderComplete(fullBorder), true, 'all edge pieces locked completes the border');
+  assert.equal(isSolved(fullBorder), false, 'interior pieces still loose');
+});
+
+test('detectCelebrations reports newly locked pieces, border completion, and puzzle solve cleanly', () => {
+  const pieces = newPuzzle('medium', 7);
+  const edges = pieces.filter(isEdgePiece);
+  const interiors = pieces.filter(p => !isEdgePiece(p));
+
+  // No lock change -> no events
+  assert.deepEqual(detectCelebrations(pieces, pieces), {
+    newlyLockedIds: [],
+    borderCompleted: false,
+    puzzleSolved: false
+  });
+
+  // Locking a multi-piece group (two edge pieces) triggers only newlyLockedIds
+  const step1 = lockIds(pieces, new Set([edges[0].id, edges[1].id]));
+  assert.deepEqual(detectCelebrations(pieces, step1), {
+    newlyLockedIds: [edges[0].id, edges[1].id].sort((a, b) => step1.findIndex(p => p.id === a) - step1.findIndex(p => p.id === b)),
+    borderCompleted: false,
+    puzzleSolved: false
+  });
+
+  // Locking the remaining edge pieces completes the border while interiors remain
+  const step2 = lockIds(pieces, new Set(edges.map(p => p.id)));
+  const borderEv = detectCelebrations(step1, step2);
+  assert.equal(borderEv.newlyLockedIds.length, edges.length - 2);
+  assert.equal(borderEv.borderCompleted, true);
+  assert.equal(borderEv.puzzleSolved, false);
+
+  // Locking an interior piece afterward does not re-trigger borderCompleted
+  const step3 = lockIds(step2, new Set([interiors[0].id]));
+  assert.deepEqual(detectCelebrations(step2, step3), {
+    newlyLockedIds: [interiors[0].id],
+    borderCompleted: false,
+    puzzleSolved: false
+  });
+
+  // Locking the remaining interior pieces triggers puzzleSolved
+  const solved = lockIds(pieces, new Set(pieces.map(p => p.id)));
+  const solveEv = detectCelebrations(step3, solved);
+  assert.equal(solveEv.newlyLockedIds.length, interiors.length - 1);
+  assert.equal(solveEv.borderCompleted, false);
+  assert.equal(solveEv.puzzleSolved, true);
+
+  // If the very last piece placed is an edge piece (completing border + puzzle together),
+  // puzzleSolved takes priority so borderCompleted is suppressed
+  const oneEdgeLeft = lockIds(pieces, new Set(pieces.filter(p => p.id !== edges[0].id).map(p => p.id)));
+  assert.deepEqual(detectCelebrations(oneEdgeLeft, solved), {
+    newlyLockedIds: [edges[0].id],
+    borderCompleted: false,
+    puzzleSolved: true
+  });
+
+  // Resetting to a new puzzle (unlocked pieces or different size) fires no celebrations
+  assert.deepEqual(detectCelebrations(solved, pieces), {
+    newlyLockedIds: [],
+    borderCompleted: false,
+    puzzleSolved: false
+  });
+  assert.deepEqual(detectCelebrations(pieces, newPuzzle('small', 3)), {
+    newlyLockedIds: [],
+    borderCompleted: false,
+    puzzleSolved: false
+  });
+});
+
+test('orderedBorderLoops chains every puzzle border segment into closed edge loops', () => {
+  const shortLen = TILE_SIZE / PHI;
+  for (const size of ['small', 'medium', 'large'] as const) {
+    for (const seed of [1, 7, 42]) {
+      const pieces = newPuzzle(size, seed);
+      const expectedSegments = pieces.reduce((sum, p) => sum + p.border.length, 0);
+      const loops = orderedBorderLoops(pieces);
+      assert.ok(loops.length >= 1, `${size} seed ${seed} has at least one border loop`);
+      const totalVerts = loops.reduce((sum, loop) => sum + loop.length, 0);
+      assert.equal(totalVerts, expectedSegments, `${size} seed ${seed} uses every border segment once`);
+      for (const loop of loops) {
+        assert.ok(loop.length >= 3);
+        for (let i = 0; i < loop.length; i++) {
+          const a = loop[i];
+          const b = loop[(i + 1) % loop.length];
+          const len = Math.hypot(b.x - a.x, b.y - a.y);
+          assert.ok(
+            Math.abs(len - TILE_SIZE) < 0.5 || Math.abs(len - shortLen) < 0.5,
+            `segment length ${len} matches a kite/dart edge`
+          );
+        }
+      }
+    }
+  }
 });
