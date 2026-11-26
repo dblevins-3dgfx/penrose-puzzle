@@ -1,6 +1,8 @@
-// The jigsaw's Settings dialog (spec 9): puzzle size and display switches.
-// Opened from the header; closed like How to Play.
-import { PIECE_COUNTS, type JigsawSettings, type PuzzleSize } from '../jigsaw';
+// The jigsaw's Settings dialog (spec 9): stepped/cyclic puzzle size selector,
+// display/audio switches, and diagnostics copy. Opened from the header; closed
+// like How to Play.
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { PUZZLE_SIZES, stepPuzzleSize, type JigsawSettings, type PuzzleSize } from '../jigsaw';
 import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
 import { playSound } from './jigsawSound';
@@ -13,7 +15,13 @@ interface Props {
   onClose: () => void;
 }
 
-const SIZE_LABELS: Record<PuzzleSize, string> = { small: 'Small', medium: 'Medium', large: 'Large' };
+const SIZE_LABELS: Record<PuzzleSize, string> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  xl: 'XL',
+  giant: 'Giant'
+};
 
 const SWITCHES: { key: 'showPicture' | 'showOutlines' | 'effects' | 'sound'; label: string; detail: string }[] = [
   { key: 'showPicture', label: 'Show picture', detail: 'Show the whole picture faintly inside the outline, like the picture on the box' },
@@ -25,25 +33,52 @@ const SWITCHES: { key: 'showPicture' | 'showOutlines' | 'effects' | 'sound'; lab
 export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, getDebugInfo, onClose }: Props) => (
   <Overlay onClose={onClose} title="Settings">
     <div className="space-y-4">
-      <div className="space-y-2 pb-3 border-b border-slate-700/80">
+      <div className="flex items-center justify-between gap-4 flex-wrap pb-3 border-b border-slate-700/80">
         <div>
           <span className="block text-white font-semibold">Puzzle size</span>
-          <span className="block text-slate-400 text-sm">Starts a new puzzle with the chosen number of pieces</span>
+          <span className="block text-slate-400 text-sm">Starts a new puzzle of the chosen size</span>
         </div>
-        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Puzzle size">
-          {(Object.keys(PIECE_COUNTS) as PuzzleSize[]).map(s => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={settings.size === s}
-              onClick={() => onChangeSize(s)}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                settings.size === s ? 'bg-sky-500 text-slate-950' : 'bg-slate-700 hover:bg-slate-600 text-white'
-              }`}
-            >
-              {SIZE_LABELS[s]} ({PIECE_COUNTS[s]})
-            </button>
-          ))}
+        <div
+          className="flex items-center gap-1 bg-slate-900/70 border border-slate-700/80 rounded-lg p-1"
+          role="group"
+          aria-label="Puzzle size"
+        >
+          <button
+            type="button"
+            onClick={() => onChangeSize(stepPuzzleSize(settings.size, -1))}
+            aria-label="Previous puzzle size"
+            className="p-2 rounded-md bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-white"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeSize(stepPuzzleSize(settings.size, 1))}
+            aria-label={`Puzzle size ${SIZE_LABELS[settings.size]}, tap for next size`}
+            className="min-w-24 px-3 py-1 rounded-md hover:bg-slate-700/60 active:bg-slate-700 text-center"
+          >
+            <span className="block text-sm font-semibold text-white leading-tight">{SIZE_LABELS[settings.size]}</span>
+            <span className="mt-1 flex items-center justify-center gap-1" aria-hidden="true">
+              {PUZZLE_SIZES.map(s => (
+                <span
+                  key={s}
+                  className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                    s === settings.size ? 'bg-sky-400' : 'bg-slate-600'
+                  }`}
+                />
+              ))}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChangeSize(stepPuzzleSize(settings.size, 1))}
+            aria-label="Next puzzle size"
+            className="p-2 rounded-md bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-white"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
       </div>
 
