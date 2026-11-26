@@ -9,6 +9,8 @@ import {
   clampCamera,
   coverRect,
   DEFAULT_CAMERA,
+  easeCamera,
+  isCameraAtFit,
   isSolved,
   newPuzzleForViewport,
   parseSettings,
@@ -104,11 +106,59 @@ const makePuzzleState = (size: PuzzleSize, seed: number, width: number, height: 
   return { size, seed, baseHomes: pieces.map(p => p.home), pieces, layout };
 };
 
+const FIT_TRANSITION_MS = 650;
+
 const useBoardCamera = (viewport: { width: number; height: number }) => {
-  const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const [camera, setCameraRaw] = useState<Camera>(DEFAULT_CAMERA);
+  const cameraRef = useRef<Camera>(DEFAULT_CAMERA);
+  const animRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    cameraRef.current = camera;
+  }, [camera]);
+
+  const cancelAnimation = useCallback(() => {
+    if (animRef.current !== null) {
+      window.cancelAnimationFrame(animRef.current);
+      animRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => cancelAnimation, [cancelAnimation]);
+
+  const setCamera = useCallback(
+    (next: Camera | ((c: Camera) => Camera)) => {
+      cancelAnimation();
+      setCameraRaw(next);
+    },
+    [cancelAnimation]
+  );
+
+  const animateToFit = useCallback(() => {
+    cancelAnimation();
+    const from = cameraRef.current;
+    if (isCameraAtFit(from)) return;
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setCameraRaw(DEFAULT_CAMERA);
+      return;
+    }
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = (now - start) / FIT_TRANSITION_MS;
+      if (t >= 1) {
+        animRef.current = null;
+        setCameraRaw(DEFAULT_CAMERA);
+        return;
+      }
+      setCameraRaw(easeCamera(from, DEFAULT_CAMERA, t));
+      animRef.current = window.requestAnimationFrame(step);
+    };
+    animRef.current = window.requestAnimationFrame(step);
+  }, [cancelAnimation]);
+
   const zoomAt = useCallback(
     (factor: number, focus: Point) => setCamera(c => zoomCameraAt(c, factor, focus, viewport)),
-    [viewport]
+    [setCamera, viewport]
   );
   const zoomIn = useCallback(
     () => zoomAt(ZOOM_STEP, { x: viewport.width / 2, y: viewport.height / 2 }),
@@ -118,8 +168,8 @@ const useBoardCamera = (viewport: { width: number; height: number }) => {
     () => zoomAt(1 / ZOOM_STEP, { x: viewport.width / 2, y: viewport.height / 2 }),
     [zoomAt, viewport.width, viewport.height]
   );
-  const resetZoom = useCallback(() => setCamera(DEFAULT_CAMERA), []);
-  return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom };
+  const resetZoom = useCallback(() => setCamera(DEFAULT_CAMERA), [setCamera]);
+  return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit };
 };
 
 const BorderCompleteToast = () => (
@@ -146,14 +196,14 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
   const { size, pieces, layout } = puzzle;
-  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useBoardCamera(viewport);
+  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(viewport);
   const initializedViewport = useRef(false);
 
   const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(
     settings.picture,
     puzzle.baseHomes,
     puzzle.seed,
-    Math.ceil(layout.scale * camera.zoom * dpr)
+    Math.max(2, Math.min(4, Math.ceil(layout.scale * camera.zoom * dpr)))
   );
   const [trayFilter, setTrayFilter] = useState<TrayFilter>('all');
   const [dropHighlight, setDropHighlight] = useState(false);
@@ -229,7 +279,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   );
   const puzzleKey = `${puzzle.seed}:${puzzle.size}`;
   const { borderToast } = useJigsawRenderAndEffects(
-    canvasRef, view, puzzleKey, vpWidth, vpHeight, dpr, layout.scale, camera
+    canvasRef, view, puzzleKey, vpWidth, vpHeight, dpr, layout.scale, camera, animateToFit
   );
 
   const selectedPiece = pieces.find(p => p.id === selectedId);
