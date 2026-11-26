@@ -19,6 +19,7 @@ import {
   hasActiveEffects,
   LOCK_DURATION_MS,
   pruneEffects,
+  SNAP_DURATION_MS,
   SOLVE_DURATION_MS,
   type ActiveEffects
 } from './jigsawEffects';
@@ -59,10 +60,18 @@ export const useJigsawRenderAndEffects = (
 
     const events = detectCelebrations(prev.pieces, view.pieces);
     prevRef.current = { key: puzzleKey, pieces: view.pieces };
-    if (events.newlyLockedIds.length === 0 && !events.borderCompleted && !events.puzzleSolved) return;
+    const hasEvents =
+      events.newlyLockedIds.length > 0 ||
+      events.joinedSeams.length > 0 ||
+      events.borderCompleted ||
+      events.puzzleSolved;
+    if (!hasEvents) return;
 
     const now = performance.now();
     const next = pruneEffects(effectsRef.current, now);
+    if (events.joinedSeams.length > 0) {
+      next.snaps = [...next.snaps, { seams: events.joinedSeams, startTime: now, duration: SNAP_DURATION_MS }];
+    }
     if (events.newlyLockedIds.length > 0) {
       next.locks = [...next.locks, { pieceIds: events.newlyLockedIds, startTime: now, duration: LOCK_DURATION_MS }];
     }

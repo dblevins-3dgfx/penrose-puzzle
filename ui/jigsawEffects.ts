@@ -1,11 +1,13 @@
 // Celebratory canvas animations for Jigsaw mode (spec 9):
+// 0. Loose-piece snap: crisp aqua-white flash and micro-sparks along the shared seam.
 // 1. Piece locked: subtle golden outline pulse, soft fill flash, and corner glints.
 // 2. Outer border completed: golden light wave chasing around the outer perimeter.
 // 3. Puzzle finished: glossy sheen sweep across the completed picture + Penrose
 //    kite-and-dart confetti burst in the stained-glass palette.
 import { getVertices, type BoardSize, type Point, type TileType } from '../rules';
-import { boundsOf, type Piece } from '../jigsaw';
+import { boundsOf, pieceTile, type JoinedSeam, type Piece } from '../jigsaw';
 
+export const SNAP_DURATION_MS = 420;
 export const LOCK_DURATION_MS = 600;
 export const BORDER_DURATION_MS = 1600;
 export const SOLVE_DURATION_MS = 3400;
@@ -17,6 +19,12 @@ const CONFETTI_COLORS = ['#ea982e', '#c43d6c', '#1c9c98', '#424eb8', '#fef08a', 
 
 const UNIT_KITE = getVertices({ type: 'kite', x: 0, y: 0, rotation: 0 });
 const UNIT_DART = getVertices({ type: 'dart', x: 0, y: 0, rotation: 0 });
+
+export interface SnapSparkEffect {
+  seams: JoinedSeam[];
+  startTime: number;
+  duration: number;
+}
 
 export interface LockPulseEffect {
   pieceIds: number[];
@@ -51,19 +59,22 @@ export interface SolveFinaleEffect {
 }
 
 export interface ActiveEffects {
+  snaps: SnapSparkEffect[];
   locks: LockPulseEffect[];
   border: BorderWaveEffect | null;
   solve: SolveFinaleEffect | null;
 }
 
-export const emptyEffects = (): ActiveEffects => ({ locks: [], border: null, solve: null });
+export const emptyEffects = (): ActiveEffects => ({ snaps: [], locks: [], border: null, solve: null });
 
 export const hasActiveEffects = (effects: ActiveEffects, now: number): boolean =>
+  effects.snaps.some(e => now < e.startTime + e.duration) ||
   effects.locks.some(e => now < e.startTime + e.duration) ||
   (effects.border !== null && now < effects.border.startTime + effects.border.duration) ||
   (effects.solve !== null && now < effects.solve.startTime + effects.solve.duration);
 
 export const pruneEffects = (effects: ActiveEffects, now: number): ActiveEffects => ({
+  snaps: effects.snaps.filter(e => now < e.startTime + e.duration),
   locks: effects.locks.filter(e => now < e.startTime + e.duration),
   border: effects.border && now < effects.border.startTime + effects.border.duration ? effects.border : null,
   solve: effects.solve && now < effects.solve.startTime + effects.solve.duration ? effects.solve : null
@@ -306,6 +317,59 @@ const drawSolveSheen = (
   ctx.restore();
 };
 
+const drawSnapSpark = (
+  ctx: CanvasRenderingContext2D,
+  byId: Map<number, Piece>,
+  effect: SnapSparkEffect,
+  now: number,
+  reducedMotion: boolean
+) => {
+  const t = Math.max(0, Math.min(1, (now - effect.startTime) / effect.duration));
+  const easeOut = 1 - (1 - t) ** 3;
+  const fade = 1 - easeOut;
+  if (fade <= 0.01) return;
+
+  for (const seam of effect.seams) {
+    const piece = byId.get(seam.pieceId);
+    const partner = byId.get(seam.partnerId);
+    if (!piece || !partner || piece.locked || piece.inTray || partner.locked || partner.inTray) continue;
+
+    const verts = getVertices(pieceTile(piece));
+    const a = verts[seam.edgeIndex];
+    const b = verts[(seam.edgeIndex + 1) % 4];
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.shadowColor = `rgba(103, 232, 249, ${(0.9 * fade).toFixed(3)})`;
+    ctx.shadowBlur = 9 * fade;
+    ctx.strokeStyle = `rgba(103, 232, 249, ${(0.88 * fade).toFixed(3)})`;
+    ctx.lineWidth = 4.2 + 2.2 * easeOut;
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${(0.96 * fade).toFixed(3)})`;
+    ctx.lineWidth = 1.8 * fade + 0.4;
+    ctx.stroke();
+    ctx.restore();
+
+    if (reducedMotion) continue;
+    const mx = (a.x + b.x) / 2;
+    const my = (a.y + b.y) / 2;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const push = 9 * easeOut;
+    drawSparkle(ctx, mx, my, 5.2 * fade, `rgba(255, 255, 255, ${(0.95 * fade).toFixed(3)})`);
+    drawSparkle(ctx, mx + nx * push, my + ny * push, 3.2 * fade, `rgba(103, 232, 249, ${(0.9 * fade).toFixed(3)})`);
+    drawSparkle(ctx, mx - nx * push, my - ny * push, 3.2 * fade, `rgba(103, 232, 249, ${(0.9 * fade).toFixed(3)})`);
+  }
+};
+
 export const drawWorldEffects = (
   ctx: CanvasRenderingContext2D,
   pieces: readonly Piece[],
@@ -314,10 +378,11 @@ export const drawWorldEffects = (
   now: number,
   reducedMotion: boolean
 ) => {
-  if (effects.locks.length > 0) {
+  if (effects.locks.length > 0 || effects.snaps.length > 0) {
     const byId = new Map<number, Piece>();
     for (const p of pieces) byId.set(p.id, p);
     for (const lock of effects.locks) drawLockPulse(ctx, byId, lock, now, reducedMotion);
+    for (const snap of effects.snaps) drawSnapSpark(ctx, byId, snap, now, reducedMotion);
   }
   if (effects.border) drawBorderWave(ctx, borderLoops, effects.border, now, reducedMotion);
   if (effects.solve) drawSolveSheen(ctx, pieces, borderLoops, effects.solve, now, reducedMotion);
