@@ -36,6 +36,7 @@ import {
   neighbors,
   newPuzzle,
   newPuzzleForViewport,
+  nextCameraOnResize,
   panCamera,
   placeBeside,
   popSpotOnBoard,
@@ -870,6 +871,16 @@ test('isCameraAtFit detects Fit vs zoomed or panned cameras, and easeCamera move
   const sm = worldToScreen(world, 1.4, mid);
   near(sm.x, s0.x + (s1.x - s0.x) * 0.875);
   near(sm.y, s0.y + (s1.y - s0.y) * 0.875);
+
+  // Passive viewport resizes clamp the camera without cancelling an active Fit animation
+  const vp = { width: 390, height: 520 };
+  const duringAnim = nextCameraOnResize({ zoom: 2.5, panX: 999, panY: -999 }, vp, true);
+  assert.equal(duringAnim.keepAnimation, true, 'resize must not cancel solve-to-Fit animation');
+  assert.deepEqual(duringAnim.camera, clampCamera({ zoom: 2.5, panX: 999, panY: -999 }, vp));
+
+  const idle = nextCameraOnResize({ zoom: 2.5, panX: 999, panY: -999 }, vp, false);
+  assert.equal(idle.keepAnimation, false);
+  assert.deepEqual(idle.camera, clampCamera({ zoom: 2.5, panX: 999, panY: -999 }, vp));
 });
 
 // ---------------------------------------------------------------------
