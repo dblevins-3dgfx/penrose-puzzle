@@ -523,12 +523,13 @@ test('each piece carries its part of the picture to wherever it is', () => {
 // Settings
 // ---------------------------------------------------------------------
 
-test('by default the picture is hidden, tile outlines are shown, picture is subdivided, size is medium, and sound is off', () => {
+test('by default the picture is hidden, tile outlines and effects are on, picture is subdivided, size is medium, and sound is off', () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
     showPicture: false,
     showOutlines: true,
     picture: 'subdivided',
     size: 'medium',
+    effects: true,
     sound: false
   });
 });
@@ -536,9 +537,9 @@ test('by default the picture is hidden, tile outlines are shown, picture is subd
 test('saved settings are read back as they were saved', () => {
   const cases = [
     DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, sound: true },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, sound: false },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const, sound: true }
+    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, effects: false, sound: true },
+    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, effects: true, sound: false },
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const, effects: false, sound: false }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -560,16 +561,18 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
     showOutlines: true,
     picture: 'subdivided',
     size: 'medium',
+    effects: true,
     sound: false
   });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "sound": true}'), {
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "effects": false, "sound": true}'), {
     showPicture: false,
     showOutlines: false,
     picture: 'sunset',
     size: 'large',
+    effects: false,
     sound: true
   });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "effects": "none", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
 });
 
 test('tap-to-rotate selects on first tap and rotates on subsequent taps within TAP_MAX_MOVE', () => {

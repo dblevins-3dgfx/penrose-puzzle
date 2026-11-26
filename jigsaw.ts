@@ -771,6 +771,8 @@ export interface JigsawSettings {
   picture: PictureStyle;
   // Piece count preset for new puzzles
   size: PuzzleSize;
+  // Celebratory canvas visual effects (sparks, glows, shimmer, confetti)
+  effects: boolean;
   // Synthesized Web Audio feedback on snap, lock, border complete, and solve
   sound: boolean;
 }
@@ -780,6 +782,7 @@ export const DEFAULT_SETTINGS: JigsawSettings = {
   showOutlines: true,
   picture: 'subdivided',
   size: 'medium',
+  effects: true,
   sound: false
 };
 
@@ -805,11 +808,18 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     saved = null;
   }
   const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: 'showPicture' | 'showOutlines' | 'sound') =>
+  const flag = (key: 'showPicture' | 'showOutlines' | 'effects' | 'sound') =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
   const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
   const size = isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size;
-  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture, size, sound: flag('sound') };
+  return {
+    showPicture: flag('showPicture'),
+    showOutlines: flag('showOutlines'),
+    picture,
+    size,
+    effects: flag('effects'),
+    sound: flag('sound')
+  };
 };
 
 export const progress = (pieces: readonly Piece[]) => ({

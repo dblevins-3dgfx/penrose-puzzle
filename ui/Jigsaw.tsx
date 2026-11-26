@@ -108,7 +108,7 @@ const makePuzzleState = (size: PuzzleSize, seed: number, width: number, height: 
 
 const FIT_TRANSITION_MS = 650;
 
-const useBoardCamera = (viewport: { width: number; height: number }) => {
+const useBoardCamera = (viewport: { width: number; height: number }, animateEffects: boolean) => {
   const [camera, setCameraRaw] = useState<Camera>(DEFAULT_CAMERA);
   const cameraRef = useRef<Camera>(DEFAULT_CAMERA);
   const animRef = useRef<number | null>(null);
@@ -138,7 +138,8 @@ const useBoardCamera = (viewport: { width: number; height: number }) => {
     cancelAnimation();
     const from = cameraRef.current;
     if (isCameraAtFit(from)) return;
-    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!animateEffects || reduced) {
       setCameraRaw(DEFAULT_CAMERA);
       return;
     }
@@ -154,7 +155,7 @@ const useBoardCamera = (viewport: { width: number; height: number }) => {
       animRef.current = window.requestAnimationFrame(step);
     };
     animRef.current = window.requestAnimationFrame(step);
-  }, [cancelAnimation]);
+  }, [animateEffects, cancelAnimation]);
 
   const zoomAt = useCallback(
     (factor: number, focus: Point) => setCamera(c => zoomCameraAt(c, factor, focus, viewport)),
@@ -196,7 +197,10 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
   const { size, pieces, layout } = puzzle;
-  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(viewport);
+  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
+    viewport,
+    settings.effects
+  );
   const initializedViewport = useRef(false);
 
   const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(
