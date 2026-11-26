@@ -600,6 +600,18 @@ export const easeCamera = (from: Camera, to: Camera, t: number): Camera => {
   };
 };
 
+// Passive viewport resizes (e.g. mobile Safari address bar shifts or toolbar
+// reflow) clamp the camera to the new viewport without cancelling an active
+// solve-to-Fit animation; only manual pan/zoom or puzzle resets cancel it.
+export const nextCameraOnResize = (
+  camera: Camera,
+  viewport: BoardSize,
+  animatingToFit: boolean
+): { camera: Camera; keepAnimation: boolean } => ({
+  camera: clampCamera(camera, viewport),
+  keepAnimation: animatingToFit
+});
+
 // ---------------------------------------------------------------------
 // Piece tray
 // ---------------------------------------------------------------------

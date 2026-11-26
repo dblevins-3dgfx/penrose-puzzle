@@ -27,7 +27,7 @@ const PICTURE_LABELS: Record<PictureStyle, string> = {
 const control =
   'bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-white px-2.5 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm flex items-center justify-center gap-1.5';
 const selectClass =
-  'bg-slate-700 text-white px-2 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm max-w-40 sm:max-w-none min-w-0';
+  'bg-slate-700 text-white px-2 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm max-w-32 sm:max-w-none min-w-0';
 
 export const JigsawToolbar = (props: Props) => {
   const fileInput = useRef<HTMLInputElement>(null);
@@ -84,9 +84,9 @@ export const JigsawToolbar = (props: Props) => {
 
       <div className="flex items-center gap-1 sm:gap-2.5">
         <div
-          className={`text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center gap-1.5 ${
+          className={`text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center gap-1 sm:gap-1.5 ${
             props.solved
-              ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-400/40 px-2.5 py-0.5 rounded-full'
+              ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-400/40 px-2 sm:px-2.5 py-0.5 rounded-full'
               : 'text-slate-300'
           }`}
           aria-live="polite"

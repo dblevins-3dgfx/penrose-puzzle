@@ -6,13 +6,13 @@ import { Sparkles } from 'lucide-react';
 import type { Point } from '../rules';
 import {
   boundsOf,
-  clampCamera,
   coverRect,
   DEFAULT_CAMERA,
   easeCamera,
   isCameraAtFit,
   isSolved,
   newPuzzleForViewport,
+  nextCameraOnResize,
   progress,
   repositionForViewport,
   rotateGroup,
@@ -111,6 +111,10 @@ const useBoardCamera = (viewport: { width: number; height: number }, animateEffe
     [cancelAnimation]
   );
 
+  const clampToViewport = useCallback((vp: { width: number; height: number }) => {
+    setCameraRaw(c => nextCameraOnResize(c, vp, animRef.current !== null).camera);
+  }, []);
+
   const animateToFit = useCallback(() => {
     cancelAnimation();
     const from = cameraRef.current;
@@ -120,8 +124,9 @@ const useBoardCamera = (viewport: { width: number; height: number }, animateEffe
       setCameraRaw(DEFAULT_CAMERA);
       return;
     }
-    const start = performance.now();
+    let start: number | null = null;
     const step = (now: number) => {
+      if (start === null) start = now;
       const t = (now - start) / FIT_TRANSITION_MS;
       if (t >= 1) {
         animRef.current = null;
@@ -147,7 +152,7 @@ const useBoardCamera = (viewport: { width: number; height: number }, animateEffe
     [zoomAt, viewport.width, viewport.height]
   );
   const resetZoom = useCallback(() => setCamera(DEFAULT_CAMERA), [setCamera]);
-  return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit };
+  return { camera, setCamera, clampToViewport, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit };
 };
 
 const BorderCompleteToast = () => (
@@ -174,7 +179,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
   const { size, pieces, layout } = puzzle;
-  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
+  const { camera, setCamera, clampToViewport, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
     viewport,
     settings.effects
   );
@@ -204,8 +209,8 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
       const next = repositionForViewport(prev.pieces, { width: vpWidth, height: vpHeight });
       return { ...prev, pieces: next.pieces, layout: next.layout };
     });
-    setCamera(c => clampCamera(c, { width: vpWidth, height: vpHeight }));
-  }, [measured, vpWidth, vpHeight, setCamera]);
+    clampToViewport({ width: vpWidth, height: vpHeight });
+  }, [measured, vpWidth, vpHeight, setCamera, clampToViewport]);
 
   const { placed, total } = progress(pieces);
   const solved = isSolved(pieces);
