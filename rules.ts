@@ -415,9 +415,151 @@ export const countTiles = (tiles: readonly Tile[]) => ({
   dart: tiles.filter(t => t.type === 'dart').length
 });
 
+// Generous Sandbox world canvas (world units = CSS pixels at zoom 1), allowing
+// large Penrose tilings with pan and zoom on both phones and desktops.
+export const SANDBOX_WORLD: BoardSize = { width: 1600, height: 1200 };
+export const SANDBOX_MAX_ZOOM = 4;
+
+export interface SandboxCamera {
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
+// Minimum zoom lets the player zoom all the way out to view the entire world
+// canvas (with a small margin), while staying bounded for very tiny viewports.
+export const sandboxMinZoom = (viewport: BoardSize, world: BoardSize = SANDBOX_WORLD): number => {
+  const vw = Math.max(1, viewport.width);
+  const vh = Math.max(1, viewport.height);
+  const fitAll = Math.min((vw - 24) / world.width, (vh - 24) / world.height);
+  return Math.max(0.2, Math.min(0.75, fitAll));
+};
+
+// Default Sandbox view: 100% zoom (1 world unit = 1 CSS pixel) centered on the
+// middle of the generous world canvas.
+export const defaultSandboxCamera = (viewport: BoardSize, world: BoardSize = SANDBOX_WORLD): SandboxCamera => ({
+  zoom: 1,
+  panX: (Math.max(1, viewport.width) - world.width) / 2,
+  panY: (Math.max(1, viewport.height) - world.height) / 2
+});
+
+export const isSandboxCameraDefault = (
+  camera: SandboxCamera,
+  viewport: BoardSize,
+  world: BoardSize = SANDBOX_WORLD
+): boolean => {
+  const def = defaultSandboxCamera(viewport, world);
+  return (
+    Math.abs(camera.zoom - def.zoom) < 1e-3 &&
+    Math.abs(camera.panX - def.panX) < 0.5 &&
+    Math.abs(camera.panY - def.panY) < 0.5
+  );
+};
+
+export const sandboxScreenToWorld = (screen: Point, camera: SandboxCamera): Point => ({
+  x: (screen.x - camera.panX) / camera.zoom,
+  y: (screen.y - camera.panY) / camera.zoom
+});
+
+export const sandboxWorldToScreen = (worldPt: Point, camera: SandboxCamera): Point => ({
+  x: worldPt.x * camera.zoom + camera.panX,
+  y: worldPt.y * camera.zoom + camera.panY
+});
+
+const clampSandboxAxis = (pan: number, vp: number, worldSpan: number, zoom: number): number => {
+  const rendered = worldSpan * zoom;
+  if (rendered <= vp) return (vp - rendered) / 2;
+  const pad = Math.min(80, vp * 0.15);
+  return Math.max(vp - rendered - pad, Math.min(pad, pan));
+};
+
+export const clampSandboxCamera = (
+  camera: SandboxCamera,
+  viewport: BoardSize,
+  world: BoardSize = SANDBOX_WORLD
+): SandboxCamera => {
+  const minZoom = sandboxMinZoom(viewport, world);
+  const zoom = Math.max(minZoom, Math.min(SANDBOX_MAX_ZOOM, camera.zoom));
+  return {
+    zoom,
+    panX: clampSandboxAxis(camera.panX, Math.max(1, viewport.width), world.width, zoom),
+    panY: clampSandboxAxis(camera.panY, Math.max(1, viewport.height), world.height, zoom)
+  };
+};
+
+export const panSandboxCamera = (
+  camera: SandboxCamera,
+  dx: number,
+  dy: number,
+  viewport: BoardSize,
+  world: BoardSize = SANDBOX_WORLD
+): SandboxCamera => clampSandboxCamera({ zoom: camera.zoom, panX: camera.panX + dx, panY: camera.panY + dy }, viewport, world);
+
+export const zoomSandboxCameraAt = (
+  camera: SandboxCamera,
+  factor: number,
+  focus: Point,
+  viewport: BoardSize,
+  world: BoardSize = SANDBOX_WORLD
+): SandboxCamera => {
+  const minZoom = sandboxMinZoom(viewport, world);
+  const nextZoom = Math.max(minZoom, Math.min(SANDBOX_MAX_ZOOM, camera.zoom * factor));
+  const ratio = nextZoom / camera.zoom;
+  return clampSandboxCamera(
+    {
+      zoom: nextZoom,
+      panX: focus.x - (focus.x - camera.panX) * ratio,
+      panY: focus.y - (focus.y - camera.panY) * ratio
+    },
+    viewport,
+    world
+  );
+};
+
+// Keeps a loose Sandbox tile's center inside the world bounds.
+export const clampTileCenter = (p: Point, world: BoardSize = SANDBOX_WORLD): Point => ({
+  x: Math.max(0, Math.min(world.width, p.x)),
+  y: Math.max(0, Math.min(world.height, p.y))
+});
+
+// Resolves a loose Sandbox tile candidate against existing tiles: uses
+// auto-rotate when enabled and near a legal free edge, otherwise snaps to the
+// nearest legal fit at its chosen angle, and checks full placement legality.
+export const resolveSandboxTile = (
+  tiles: readonly Tile[],
+  candidate: Tile,
+  autoRotate: boolean,
+  autoChoice = 0,
+  board: BoardSize = SANDBOX_WORLD
+): { tile: Tile; valid: boolean } => {
+  const auto = autoRotate ? autoRotatePlacement(tiles, candidate.type, candidate, autoChoice, board) : null;
+  if (auto) return { tile: auto.tile, valid: isLegalPlacement(tiles, auto.tile, false, board) };
+  const snapped = snapPosition(tiles, candidate, board);
+  const tile = { ...candidate, x: snapped.x, y: snapped.y };
+  return { tile, valid: isLegalPlacement(tiles, tile, false, board) };
+};
+
 // ---------------------------------------------------------------------
 // Section 7: Connected edges
 // ---------------------------------------------------------------------
+
+const edgesConnect = (e: Edge, f: Edge): boolean =>
+  (samePoint(e.a, f.a) && samePoint(e.b, f.b) && e.colorA === f.colorA && e.colorB === f.colorB) ||
+  (samePoint(e.a, f.b) && samePoint(e.b, f.a) && e.colorA === f.colorB && e.colorB === f.colorA);
+
+// Every edge shared with matching colors between a newly placed tile and the
+// tiles already on the board (used for placement seam-spark feedback).
+export const connectedEdgesForTile = (existing: readonly Tile[], placed: Tile): Segment[] => {
+  const own = edgesOf(placed);
+  const segments: Segment[] = [];
+  for (const other of existing) {
+    const oe = edgesOf(other);
+    for (const e of own) {
+      if (oe.some(f => edgesConnect(e, f))) segments.push({ x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y });
+    }
+  }
+  return segments;
+};
 
 // Every edge shared by two placed tiles (both endpoints coincide) where the
 // vertex colors also agree at both ends.
@@ -425,16 +567,10 @@ export const findConnectedEdges = (allTiles: readonly Tile[]): Segment[] => {
   const connected: Segment[] = [];
   const edges = allTiles.map(edgesOf);
 
-  // An edge of one tile that coincides with an edge of the other, with the
-  // colors agreeing at both ends
-  const matches = (e: Edge, f: Edge) =>
-    (samePoint(e.a, f.a) && samePoint(e.b, f.b) && e.colorA === f.colorA && e.colorB === f.colorB) ||
-    (samePoint(e.a, f.b) && samePoint(e.b, f.a) && e.colorA === f.colorB && e.colorB === f.colorA);
-
   for (let i = 0; i < edges.length; i++) {
     for (let j = i + 1; j < edges.length; j++) {
       for (const e of edges[i]) {
-        if (edges[j].some(f => matches(e, f))) connected.push({ x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y });
+        if (edges[j].some(f => edgesConnect(e, f))) connected.push({ x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y });
       }
     }
   }

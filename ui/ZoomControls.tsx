@@ -8,13 +8,25 @@ interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
+  minZoom?: number;
+  isDefault?: boolean;
+  resetLabel?: string;
 }
 
 const btn =
   'p-2.5 sm:p-1.5 rounded hover:bg-slate-700/80 active:bg-slate-600/80 disabled:opacity-40 disabled:hover:bg-transparent text-white';
 
-export const ZoomControls = ({ camera, isPortrait, onZoomIn, onZoomOut, onReset }: Props) => {
-  const isDefault = isCameraAtFit(camera);
+export const ZoomControls = ({
+  camera,
+  isPortrait,
+  onZoomIn,
+  onZoomOut,
+  onReset,
+  minZoom = MIN_ZOOM,
+  isDefault,
+  resetLabel = 'Fit'
+}: Props) => {
+  const atDefault = isDefault ?? isCameraAtFit(camera);
   const pct = Math.round(camera.zoom * 100);
 
   return (
@@ -30,7 +42,7 @@ export const ZoomControls = ({ camera, isPortrait, onZoomIn, onZoomOut, onReset 
       <button
         type="button"
         onClick={onZoomOut}
-        disabled={camera.zoom <= MIN_ZOOM + 1e-3}
+        disabled={camera.zoom <= minZoom + 1e-3}
         aria-label="Zoom out"
         title="Zoom out (-)"
         className={btn}
@@ -41,12 +53,12 @@ export const ZoomControls = ({ camera, isPortrait, onZoomIn, onZoomOut, onReset 
       <button
         type="button"
         onClick={onReset}
-        disabled={isDefault}
-        aria-label="Fit to screen"
-        title="Fit to screen (0)"
+        disabled={atDefault}
+        aria-label={resetLabel === 'Fit' ? 'Fit to screen' : 'Reset view'}
+        title={resetLabel === 'Fit' ? 'Fit to screen (0)' : 'Reset view (0)'}
         className="px-2 py-2 sm:py-1 rounded text-xs font-semibold text-white hover:bg-slate-700/80 active:bg-slate-600/80 disabled:text-slate-400 disabled:hover:bg-transparent min-w-12 text-center"
       >
-        {isDefault ? 'Fit' : `${pct}%`}
+        {atDefault ? resetLabel : `${pct}%`}
       </button>
 
       <button

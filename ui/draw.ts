@@ -77,7 +77,7 @@ const drawVertexDots = (ctx: CanvasRenderingContext2D, tile: Tile, vertices: Poi
   });
 };
 
-const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile) => {
+export const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile) => {
   const vertices = getVertices(tile);
   const style = TILE_STYLE[tile.type];
 
@@ -107,16 +107,24 @@ const drawConnectedEdges = (ctx: CanvasRenderingContext2D, tiles: Tile[]) => {
   ctx.restore();
 };
 
-// The tile about to be placed: translucent, outlined solid green if it can
-// go there or dashed red if not, with a red border around the board while
-// any of its corners is off the board.
+// The loose tile being dragged or adjusted: casts a soft shadow (matching
+// Jigsaw), drawn translucent and outlined solid green when legal or dashed
+// red when illegal, with a thick red world border when any corner is off-board.
 const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean, board: BoardSize) => {
+  const vertices = getVertices(tile);
   ctx.save();
-  ctx.globalAlpha = 0.55;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+  ctx.shadowBlur = 6;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  tracePolygon(ctx, vertices);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.72;
   drawTile(ctx, tile);
   ctx.restore();
 
-  const vertices = getVertices(tile);
   ctx.save();
   tracePolygon(ctx, vertices);
   ctx.strokeStyle = valid ? '#16a34a' : '#dc2626';
@@ -145,9 +153,29 @@ export const drawBoard = (
   preview: Preview | null,
   board: BoardSize = DEFAULT_BOARD
 ) => {
-  ctx.clearRect(0, 0, board.width, board.height);
+  // White world playfield sheet with subtle perimeter frame (so zooming out
+  // clearly shows the bounds of the generous Sandbox canvas)
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, board.width, board.height);
   drawGrid(ctx, board);
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(1, 1, board.width - 2, board.height - 2);
+  ctx.restore();
+
   tiles.forEach(tile => drawTile(ctx, tile));
   drawConnectedEdges(ctx, tiles);
   if (preview) drawPreview(ctx, preview.tile, preview.valid, board);
+};
+
+// Draws a single Kite or Dart centered inside a square `size x size` tray icon.
+export const drawSandboxTileThumb = (ctx: CanvasRenderingContext2D, type: Tile['type'], size: number) => {
+  ctx.clearRect(0, 0, size, size);
+  const scale = size / 108;
+  ctx.save();
+  ctx.translate(size / 2, size / 2);
+  ctx.scale(scale, scale);
+  drawTile(ctx, { type, x: 0, y: 0, rotation: 270 });
+  ctx.restore();
 };

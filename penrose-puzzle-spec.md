@@ -67,7 +67,7 @@ A candidate placement is legal only if all of the following hold. Checks apply t
 2. **Vertex color agreement.** Wherever a candidate vertex coincides with an existing vertex, the two colors must match. This is Penrose's vertex-coloring matching rule: any point shared by several tiles must be the same color on each.
 3. **No overlap.** The candidate's triangles must not intersect any existing tile's triangles. Separating-axis test with a 1.5 px tolerance, so touching edges and vertices are allowed.
 
-4. **Inside the playfield.** Every vertex of the candidate must lie within the playfield canvas (0.5 px tolerance; 1:1 with the canvas's CSS pixel dimensions, defaulting to 800 x 600). This applies to the opening tile as well. While the previewed tile has a vertex outside the board, a red border is drawn around the playfield (the preview is also shown in the blocked red dashed style, and clicking does nothing).
+4. **Inside the playfield.** Every vertex of the candidate must lie within the playfield world canvas (0.5 px tolerance; Sandbox uses a generous `1600 x 1200` world canvas centered at 100% zoom with pan and zoom; pure rules default to 800 x 600). This applies to the opening tile as well. While the loose tile has a vertex outside the playfield, a red border is drawn around the playfield (the tile is also shown in the blocked red dashed style and cannot be locked there).
 
 Source for the coloring rule: arXiv 1104.3811 (kite: 144 deg vertex and its opposite black, other two white; dart: 216 deg vertex and its opposite white, other two black).
 
@@ -98,53 +98,47 @@ An optional mode, switched on and off with the **Auto-rotate** button (off when 
 
 ## 6. Play
 
-1. The board starts empty. The first tile can be a kite or dart, at any rotation, anywhere inside the board.
-2. The player chooses **Kite** or **Dart**, rotates it (or lets auto-rotate turn it, section 5b), positions it, and places it. Each later tile must follow the rules in section 4. The rotation is kept after placing, so several tiles at the same angle can be placed in a row.
-3. Illegal placements are ignored silently (the preview shows why, see section 7).
-4. **Undo** removes the most recently placed tile (repeatable back to an empty board). **Clear** removes every tile and resets the rotation to 0. Both are disabled while the board is empty.
-5. The header shows how many kites and darts are on the board.
+1. The board starts empty, centered on the generous `1600 x 1200` world canvas at 100% zoom (1 world unit = 1 CSS pixel). The first tile can be a kite or dart, at any rotation, anywhere inside the world canvas.
+2. **Loose tile workflow (matching Jigsaw).** A **Kite / Dart tile tray** sits on the right side in landscape or along the bottom in portrait:
+   - Dragging a Kite or Dart directly off the tray lifts a loose tile onto the board (snapping live to legal edges, or to auto-rotate fits when **Auto-rotate** is on); dropping it on a legal spot locks it into place in one motion.
+   - Dropping it on an illegal spot leaves the tile loose and selected on the board so the player can drag or rotate it into place (and dropping it back over the tray, tapping `×`, or pressing `Escape` puts it away).
+   - Tapping a Kite or Dart card in the tray spawns a loose tile at the center of the current view (or switches the active loose tile's type).
+   - Once placed, tiles stay locked on the board; the placed rotation is remembered as the default angle for the next tile.
+3. **Undo** removes the most recently placed tile (repeatable back to an empty board). **Clear** removes every placed tile and any loose tile, and resets the default rotation to 0. Both are disabled while no tiles are placed.
+4. The header shows how many kites and darts are on the board, plus **Settings** (Visual effects and Sound effects, shared with Jigsaw in `localStorage`) and **How to Play**.
 
-Nothing is saved: reloading the page starts with an empty board.
+Placed tiles are not saved: reloading the page starts with an empty board (only the shared Visual effects / Sound effects settings persist).
 
 ## 7. Visual Feedback
 
 | Element | Behavior |
 |---|---|
-| Tile fill | Kites amber, darts indigo, semi-transparent, each with a darker outline of its own color. The selected Kite / Dart button uses the same color |
+| World sheet & grid | White `1600 x 1200` playfield sheet with a light 40 px grid and subtle slate border, set against a soft slate backdrop when zoomed out |
+| Tile fill | Kites amber, darts indigo, semi-transparent, each with a darker outline of its own color |
 | Edge ticks | Small tick marks at each edge midpoint (decorative only; not part of the rules) |
-| Vertex colors | Each vertex is drawn as a 5 px dot: black dot with white ring, or white dot with black ring, showing the matching color. Shown on placed tiles and the preview |
-| Preview tile | Drawn at 55% opacity at the snapped position, or at the auto-rotate fit (section 5b) |
-| Preview outline | Solid green if placement is legal, dashed red if blocked |
+| Vertex colors | Each vertex is drawn as a 5 px dot: black dot with white ring, or white dot with black ring, showing the matching color. Shown on placed tiles, loose tiles, and tray thumbnails |
+| Loose tile | Casts a soft drop shadow, drawn semi-transparent at its snapped position or auto-rotate fit (section 5b), with a solid green outline when legal or a dashed red outline when blocked |
 | Connected edges | Edges shared by two placed tiles, with colors agreeing at both endpoints, are stroked green (4 px, round caps) |
-| Grid | Light 40 px background grid |
+| Placement effects & sound | When **Visual effects** is on (default), locking a tile plays a brief warm golden outline glow and outward corner sparkles (600 ms) plus a crisp aqua-white seam spark along each newly connected edge (420 ms; calm glows under `prefers-reduced-motion`). When **Sound effects** is on (off by default), locking a tile plays a warm synthesized chime |
 
 ## 8. Controls
 
-### Desktop
+Sandbox and Jigsaw share the same unified pointer, touch, and keyboard interaction model:
 
 | Input | Action |
 |---|---|
-| Mouse move | Move the preview (snaps to legal edges) |
-| Left click | Place the tile |
-| Scroll wheel over the board | Rotate 36 deg: up = clockwise, down = counter-clockwise. One step per wheel notch, or one per 50 px of trackpad scrolling (`TRACKPAD_STEP`), so longer swipes turn further; a partial step left over is dropped after a 150 ms pause. The page does not scroll while the pointer is over the board |
-| Right click | Rotate 36 deg clockwise (Shift + right click: counter-clockwise); the browser menu is suppressed on the board |
-| Left / Right arrow, `R` / `Shift+R` | Rotate 36 deg counter-clockwise / clockwise (`R` clockwise, `Shift+R` counter-clockwise; ignored while typing in a form field) |
-| Angle indicator | Compact badge showing the previewed tile's angle (with the rotation controls listed in its tooltip and in How to Play) |
-| Kite / Dart buttons | Choose tile type |
-| Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on. While on, the scroll wheel, right click and arrow keys step through the fits instead of turning the tile |
-| Ctrl+Z / Cmd+Z | Undo the last tile |
-| Undo / Clear buttons | See section 6 |
-
-### Touch (iPhone and other touch devices)
-
-| Input | Action |
-|---|---|
-| Touch and drag on board | Move the preview, lifted 60 canvas units above the fingertip |
-| Lift finger | Preview stays in place (adjustable) |
-| **Place** button | Confirm placement; disabled while the preview is illegal |
-| Undo / Clear buttons | See section 6 |
-| Auto-rotate button | As on desktop; while on, the rotate buttons step through the fits |
-| Rotate buttons | Compact tap targets, clockwise button also shows the previewed tile's angle. Shown only on touch devices (`navigator.maxTouchPoints > 0`); desktop gets the angle indicator instead |
+| Drag from Kite / Dart tray | Lift a loose tile onto the board; drop on a legal spot to lock in one motion, drop on an illegal spot to keep adjusting, or drop back on the tray to put away |
+| Tap Kite / Dart in tray | Spawn a loose tile at the center of the current view (or switch the active loose tile's type) |
+| Drag loose tile on board | Move the loose tile (snaps live to legal edges / auto-rotate fits); drop legal to lock, drop illegal to keep loose, or drop on the tray to put away |
+| Tap loose tile | Rotate 36 deg clockwise (`Shift + click`: counter-clockwise), or step through nearby fits while Auto-rotate is on |
+| Floating bottom-right pill | Shown whenever a loose tile is on the board: discard (`×`), rotate CCW / CW, and confirm/place (`✓`, highlighted green when legal) |
+| Drag empty space / placed tiles | Pan across the `1600 x 1200` world canvas (mouse drag or 1-finger touch) |
+| Zoom (`-`, `100%`/`%`, `+`, `+`/`-`/`0`, `Ctrl/Cmd + wheel`, 2-finger pinch) | Zoom from full-world fit (`0.2x`–`0.75x`) up to `4x` around the focal point, or reset to centered `100%` |
+| Scroll wheel / right-click / `R`, `Shift+R`, `←`, `→` | Rotate the active loose tile 36 deg (or step Auto-rotate fits). Trackpad wheel steps per 50 px (`TRACKPAD_STEP`), dropping leftover partial steps after 150 ms; browser context menu and page scroll are suppressed over the board |
+| `Enter` / `Space` / `Escape` | Place a legal loose tile (`Enter` / `Space`) or put away a loose tile (`Escape`, when no overlay is open) |
+| Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on |
+| `Ctrl/Cmd + Z`, Undo / Clear | See section 6 |
+| Settings button | Opens Sandbox Settings (**Visual effects** and **Sound effects**, shared with Jigsaw and persisted in `localStorage`) |
 
 Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` (plus iOS `gesturestart`/`gesturechange` prevention) on the gameplay canvas, `touch-action: manipulation` on buttons and form controls, `overscroll-behavior: none` on the page root, `-webkit-touch-callout: none` / `user-select: none` on the game chrome (while keeping overlay text selectable), and a backing store scaled by `devicePixelRatio`. The page uses `viewport-fit=cover`, fills the dynamic visible window (`h-dvh`, synced with `ResizeObserver`, `visualViewport`, and `orientationchange` as mobile browser toolbars expand or collapse), and applies `env(safe-area-inset-*)` padding on the top bar, piece tray, floating controls, and overlays so no control is obscured by iPhone notches, Dynamic Island, or the Home Indicator. On small screens (`< 640px`), the title hides to keep the top bar compact and touch targets stay generous (`min-h-9` / `p-2`+). The app provides a web app manifest (`public/manifest.webmanifest`), `apple-mobile-web-app-capable` metadata, and Penrose sun icons (`public/apple-touch-icon.png`, `public/icon-192.png`, `public/icon-512.png`, `public/icon.svg`) for standalone launch from the iPhone Home Screen. The rules are on a separate **How to Play** screen, a full-screen overlay (`z-50`) closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
 

@@ -7,8 +7,14 @@ import {
   KITE_VERTEX_COLORS,
   PHI,
   AUTO_ROTATE_RADIUS,
+  SANDBOX_MAX_ZOOM,
+  SANDBOX_WORLD,
   SNAP_RADIUS,
   autoRotatePlacement,
+  clampSandboxCamera,
+  clampTileCenter,
+  connectedEdgesForTile,
+  defaultSandboxCamera,
   distanceToSegment,
   edgesOf,
   findOpenEdges,
@@ -21,12 +27,19 @@ import {
   getVertices,
   isLegalPlacement,
   isOutsidePlayfield,
+  isSandboxCameraDefault,
+  panSandboxCamera,
   removeLastTile,
+  resolveSandboxTile,
   rotateBy,
+  sandboxMinZoom,
+  sandboxScreenToWorld,
+  sandboxWorldToScreen,
   snapPosition,
   tilesOverlap,
   wheelDeltaPixels,
   wheelSteps,
+  zoomSandboxCameraAt,
   type Point,
   type Tile,
   type TileType
@@ -470,4 +483,84 @@ test('a swipe that reverses direction works its total back', () => {
   assert.deepEqual(a, { steps: 0, total: -40 });
   const b = wheelSteps(a.total, 30);
   assert.deepEqual(b, { steps: 0, total: -10 });
+});
+
+// ---------------------------------------------------------------------
+// Sandbox generous world camera, loose-tile resolution, and new edges
+// ---------------------------------------------------------------------
+
+test('defaultSandboxCamera centers the generous world at 100% zoom and sandboxMinZoom fits the whole world', () => {
+  const phone = { width: 390, height: 580 };
+  const cam = defaultSandboxCamera(phone);
+  assert.equal(cam.zoom, 1);
+  near(cam.panX, (phone.width - SANDBOX_WORLD.width) / 2);
+  near(cam.panY, (phone.height - SANDBOX_WORLD.height) / 2);
+  assert.equal(isSandboxCameraDefault(cam, phone), true);
+  assert.equal(isSandboxCameraDefault({ ...cam, zoom: 1.5 }, phone), false);
+
+  // World center maps to viewport center at default camera
+  const center = sandboxWorldToScreen({ x: SANDBOX_WORLD.width / 2, y: SANDBOX_WORLD.height / 2 }, cam);
+  near(center.x, phone.width / 2);
+  near(center.y, phone.height / 2);
+
+  // Min zoom on a phone lets the entire 1600x1200 world fit inside the screen
+  const minZ = sandboxMinZoom(phone);
+  assert.ok(minZ >= 0.2 && minZ < 0.3, `phone minZoom ${minZ} fits 1600px wide world`);
+  assert.ok(SANDBOX_WORLD.width * minZ <= phone.width);
+});
+
+test('sandboxScreenToWorld and sandboxWorldToScreen are inverses, and zoom/pan stay clamped', () => {
+  const vp = { width: 1000, height: 600 };
+  const start = defaultSandboxCamera(vp);
+  const focus = { x: 250, y: 180 };
+  const before = sandboxScreenToWorld(focus, start);
+
+  const zoomed = zoomSandboxCameraAt(start, 2, focus, vp);
+  near(zoomed.zoom, 2);
+  const after = sandboxScreenToWorld(focus, zoomed);
+  near(after.x, before.x);
+  near(after.y, before.y);
+
+  const back = sandboxWorldToScreen(after, zoomed);
+  near(back.x, focus.x);
+  near(back.y, focus.y);
+
+  // Panning stays within bounds and extreme zooms clamp cleanly
+  const panned = panSandboxCamera(zoomed, 50000, -50000, vp);
+  assert.ok(panned.panX <= 80);
+  assert.ok(panned.panY >= vp.height - SANDBOX_WORLD.height * zoomed.zoom - 80);
+
+  const tooSmall = clampSandboxCamera({ zoom: 0.01, panX: 999, panY: -999 }, vp);
+  near(tooSmall.zoom, sandboxMinZoom(vp));
+  near(tooSmall.panX, (vp.width - SANDBOX_WORLD.width * tooSmall.zoom) / 2);
+
+  const tooBig = clampSandboxCamera({ zoom: 20, panX: 0, panY: 0 }, vp);
+  near(tooBig.zoom, SANDBOX_MAX_ZOOM);
+});
+
+test('clampTileCenter keeps loose tiles inside the world and resolveSandboxTile snaps legally', () => {
+  assert.deepEqual(clampTileCenter({ x: -20, y: 9999 }), { x: 0, y: SANDBOX_WORLD.height });
+
+  const first = resolveSandboxTile([], { type: 'kite', x: 800, y: 600, rotation: 0 }, false);
+  assert.equal(first.valid, true);
+
+  const centerKite = first.tile;
+  const [ob] = edgesOf(centerKite);
+  const nearEdge = {
+    x: (ob.a.x + ob.b.x) / 2 + 12,
+    y: (ob.a.y + ob.b.y) / 2 - 12
+  };
+  const auto = resolveSandboxTile([centerKite], { type: 'kite', ...nearEdge, rotation: 0 }, true, 0);
+  assert.equal(auto.valid, true, 'auto-rotate finds a legal fit near a free edge');
+
+  const far = resolveSandboxTile([centerKite], { type: 'kite', x: 200, y: 200, rotation: 0 }, false);
+  assert.equal(far.valid, false, 'tile far from existing tiles is illegal');
+});
+
+test('connectedEdgesForTile returns only edges newly shared with matching colors', () => {
+  assert.equal(connectedEdgesForTile([], kite).length, 0);
+  const edges = connectedEdgesForTile([kite], kiteNeighbor);
+  assert.equal(edges.length, 1);
+  const clash = tileWithVertexAt('dart', 288, 0, O);
+  assert.equal(connectedEdgesForTile([kite], clash).length, 0);
 });
