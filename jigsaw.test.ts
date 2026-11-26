@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOARD_H, BOARD_W, PHI, TILE_SIZE, getVertices, isLegalPlacement, isOutsidePlayfield, tilesOverlap, type Tile } from './rules';
+import { BOARD_H, BOARD_W, PHI, TILE_SIZE, edgesOf, getVertices, isLegalPlacement, isOutsidePlayfield, sameEdge, tilesOverlap, type Tile } from './rules';
 import {
   FRAME_CENTER,
   LOCK_RADIUS,
@@ -833,6 +833,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   // No lock change -> no events
   assert.deepEqual(detectCelebrations(pieces, pieces), {
     newlyLockedIds: [],
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
   });
@@ -841,6 +842,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   const step1 = lockIds(pieces, new Set([edges[0].id, edges[1].id]));
   assert.deepEqual(detectCelebrations(pieces, step1), {
     newlyLockedIds: [edges[0].id, edges[1].id].sort((a, b) => step1.findIndex(p => p.id === a) - step1.findIndex(p => p.id === b)),
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
   });
@@ -849,6 +851,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   const step2 = lockIds(pieces, new Set(edges.map(p => p.id)));
   const borderEv = detectCelebrations(step1, step2);
   assert.equal(borderEv.newlyLockedIds.length, edges.length - 2);
+  assert.deepEqual(borderEv.joinedSeams, []);
   assert.equal(borderEv.borderCompleted, true);
   assert.equal(borderEv.puzzleSolved, false);
 
@@ -856,6 +859,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   const step3 = lockIds(step2, new Set([interiors[0].id]));
   assert.deepEqual(detectCelebrations(step2, step3), {
     newlyLockedIds: [interiors[0].id],
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
   });
@@ -864,6 +868,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   const solved = lockIds(pieces, new Set(pieces.map(p => p.id)));
   const solveEv = detectCelebrations(step3, solved);
   assert.equal(solveEv.newlyLockedIds.length, interiors.length - 1);
+  assert.deepEqual(solveEv.joinedSeams, []);
   assert.equal(solveEv.borderCompleted, false);
   assert.equal(solveEv.puzzleSolved, true);
 
@@ -872,6 +877,7 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   const oneEdgeLeft = lockIds(pieces, new Set(pieces.filter(p => p.id !== edges[0].id).map(p => p.id)));
   assert.deepEqual(detectCelebrations(oneEdgeLeft, solved), {
     newlyLockedIds: [edges[0].id],
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: true
   });
@@ -879,14 +885,70 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   // Resetting to a new puzzle (unlocked pieces or different size) fires no celebrations
   assert.deepEqual(detectCelebrations(solved, pieces), {
     newlyLockedIds: [],
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
   });
   assert.deepEqual(detectCelebrations(pieces, newPuzzle('small', 3)), {
     newlyLockedIds: [],
+    joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
   });
+});
+
+test('detectCelebrations reports newly joined shared seams on loose snaps and ignores drags or locks', () => {
+  const pieces = newPuzzle('medium', 7);
+  // Find a piece A with two neighbors B and C so we can test both single and chain snaps
+  const a = pieces.find(p => pieces.filter(q => q.id !== p.id && neighbors(p, q)).length >= 2)!;
+  const [b, c] = pieces.filter(q => q.id !== a.id && neighbors(a, q));
+
+  // Turn A 36° off home so none of them lock into home
+  const turn = 36;
+  const placedA: Piece = { ...a, x: 400, y: 300, rotation: (a.home.rotation + turn) % 360, locked: false, inTray: false };
+  const spotB = placeBeside(placedA, b);
+  const nearB: Piece = { ...b, x: spotB.x + 6, y: spotB.y - 4, rotation: (b.home.rotation + turn) % 360, locked: false, inTray: false };
+  const farC: Piece = { ...c, x: 100, y: 100, rotation: (c.home.rotation + turn) % 360, locked: false, inTray: false };
+
+  const beforeSingle = pieces.map(p => (p.id === a.id ? placedA : p.id === b.id ? nearB : p.id === c.id ? farC : p));
+  const afterSingle = settleGroup(beforeSingle, b.id);
+  const ev1 = detectCelebrations(beforeSingle, afterSingle);
+  assert.deepEqual(ev1.newlyLockedIds, []);
+  assert.equal(ev1.borderCompleted, false);
+  assert.equal(ev1.puzzleSolved, false);
+  assert.equal(ev1.joinedSeams.length, 1, 'exactly one seam joined');
+
+  const seam = ev1.joinedSeams[0];
+  const p1 = afterSingle.find(p => p.id === seam.pieceId)!;
+  const p2 = afterSingle.find(p => p.id === seam.partnerId)!;
+  assert.equal(p1.group, p2.group);
+  const seamEdge = edgesOf(pieceTile(p1))[seam.edgeIndex];
+  assert.ok(edgesOf(pieceTile(p2)).some(f => sameEdge(seamEdge, f)), 'edgeIndex points to the shared edge');
+
+  // Dragging the already-merged group does not re-trigger joinedSeams
+  const dragged = moveGroup(afterSingle, a.id, 15, -10);
+  assert.deepEqual(detectCelebrations(afterSingle, dragged).joinedSeams, []);
+
+  // Now bring C right beside A in the dragged cluster and settle -> only the new seam(s) with C spark
+  const curA = dragged.find(p => p.id === a.id)!;
+  const spotC = placeBeside(curA, c);
+  const beforeSecond = dragged.map(p => (p.id === c.id ? { ...p, x: spotC.x - 5, y: spotC.y + 3 } : p));
+  const afterSecond = settleGroup(beforeSecond, c.id);
+  const ev2 = detectCelebrations(beforeSecond, afterSecond);
+  assert.ok(ev2.joinedSeams.length >= 1, 'joining C to the cluster reports its new seam(s)');
+  assert.ok(
+    ev2.joinedSeams.every(s => s.pieceId === c.id || s.partnerId === c.id),
+    'existing A-B seam does not re-spark'
+  );
+
+  // Locking the cluster at home triggers newlyLockedIds, not joinedSeams
+  const atHome = afterSecond.map(p =>
+    p.group === curA.group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation } : p
+  );
+  const locked = settleGroup(atHome, a.id);
+  const evLock = detectCelebrations(atHome, locked);
+  assert.equal(evLock.newlyLockedIds.length, 3);
+  assert.deepEqual(evLock.joinedSeams, []);
 });
 
 test('orderedBorderLoops chains every puzzle border segment into closed edge loops', () => {

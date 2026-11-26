@@ -802,9 +802,19 @@ export const isBorderComplete = (pieces: readonly Piece[]): boolean => {
   return edges.length > 0 && edges.every(p => p.locked);
 };
 
+export interface JoinedSeam {
+  // One of the two newly merged loose pieces, and its shared neighbor
+  pieceId: number;
+  partnerId: number;
+  // Edge index (0..3) on `pieceId` running from corner k to corner (k + 1) % 4
+  edgeIndex: number;
+}
+
 export interface CelebrationEvents {
   // Piece IDs that transitioned from unlocked to locked on this update
   newlyLockedIds: number[];
+  // Shared edges newly formed by loose pieces/groups snapping together
+  joinedSeams: JoinedSeam[];
   // True on the exact update that completes the outer border (suppressed if
   // that same update also solves the entire puzzle, so the solve finale wins)
   borderCompleted: boolean;
@@ -814,8 +824,40 @@ export interface CelebrationEvents {
 
 const NO_CELEBRATIONS: CelebrationEvents = {
   newlyLockedIds: [],
+  joinedSeams: [],
   borderCompleted: false,
   puzzleSolved: false
+};
+
+const sharedEdgeIndex = (a: Piece, b: Piece): number => {
+  const eb = edgesOf(pieceTile(b));
+  return edgesOf(pieceTile(a)).findIndex(e => eb.some(f => sameEdge(e, f)));
+};
+
+const findJoinedSeams = (prevById: ReadonlyMap<number, Piece>, next: readonly Piece[]): JoinedSeam[] => {
+  const byGroup = new Map<number, Piece[]>();
+  for (const p of next) {
+    if (p.locked || p.inTray) continue;
+    const list = byGroup.get(p.group);
+    if (list) list.push(p);
+    else byGroup.set(p.group, [p]);
+  }
+
+  const seams: JoinedSeam[] = [];
+  for (const members of byGroup.values()) {
+    if (members.length < 2) continue;
+    for (let i = 0; i < members.length; i++) {
+      const a = members[i];
+      const prevGroupA = prevById.get(a.id)!.group;
+      for (let j = i + 1; j < members.length; j++) {
+        const b = members[j];
+        if (prevGroupA === prevById.get(b.id)!.group) continue;
+        const edgeIndex = sharedEdgeIndex(a, b);
+        if (edgeIndex >= 0) seams.push({ pieceId: a.id, partnerId: b.id, edgeIndex });
+      }
+    }
+  }
+  return seams;
 };
 
 // Detects celebratory milestones between two states of the same puzzle.
@@ -831,11 +873,12 @@ export const detectCelebrations = (prev: readonly Piece[], next: readonly Piece[
     if (!before || (before.locked && !p.locked)) return NO_CELEBRATIONS;
     if (!before.locked && p.locked) newlyLockedIds.push(p.id);
   }
-  if (newlyLockedIds.length === 0) return NO_CELEBRATIONS;
+  const joinedSeams = findJoinedSeams(prevById, next);
+  if (newlyLockedIds.length === 0 && joinedSeams.length === 0) return NO_CELEBRATIONS;
 
   const puzzleSolved = !isSolved(prev) && isSolved(next);
   const borderCompleted = !puzzleSolved && !isBorderComplete(prev) && isBorderComplete(next);
-  return { newlyLockedIds, borderCompleted, puzzleSolved };
+  return { newlyLockedIds, joinedSeams, borderCompleted, puzzleSolved };
 };
 
 // Traces the solved puzzle's outer border (and any hole borders) into ordered
