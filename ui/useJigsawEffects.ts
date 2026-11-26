@@ -47,18 +47,27 @@ export const useJigsawRenderAndEffects = (
 
   const borderLoops = useMemo(() => orderedBorderLoops(view.pieces), [view.pieces]);
 
-  // Detect lock / border-complete / solve transitions cleanly per puzzle.
+  // Detect snap / lock / border-complete / solve transitions cleanly per puzzle.
   useEffect(() => {
-    const prev = prevRef.current;
-    if (prev.key !== puzzleKey) {
-      prevRef.current = { key: puzzleKey, pieces: view.pieces };
-      effectsRef.current = emptyEffects();
+    const clearToast = () => {
       if (toastTimerRef.current !== null) {
         window.clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;
       }
       setBorderToast(false);
+    };
+
+    const prev = prevRef.current;
+    if (prev.key !== puzzleKey) {
+      prevRef.current = { key: puzzleKey, pieces: view.pieces };
+      effectsRef.current = emptyEffects();
+      clearToast();
       return;
+    }
+
+    if (!view.settings.effects) {
+      effectsRef.current = emptyEffects();
+      clearToast();
     }
 
     const events = detectCelebrations(prev.pieces, view.pieces);
@@ -70,43 +79,41 @@ export const useJigsawRenderAndEffects = (
       events.puzzleSolved;
     if (!hasEvents) return;
 
-    const now = performance.now();
-    const next = pruneEffects(effectsRef.current, now);
-    if (events.joinedSeams.length > 0) {
-      next.snaps = [...next.snaps, { seams: events.joinedSeams, startTime: now, duration: SNAP_DURATION_MS }];
-    }
-    if (events.newlyLockedIds.length > 0) {
-      next.locks = [...next.locks, { pieceIds: events.newlyLockedIds, startTime: now, duration: LOCK_DURATION_MS }];
-    }
-    if (events.borderCompleted) {
-      next.border = { startTime: now, duration: BORDER_DURATION_MS };
-      setBorderToast(true);
-      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = window.setTimeout(() => {
-        setBorderToast(false);
-        toastTimerRef.current = null;
-      }, BORDER_TOAST_MS);
-    }
-    if (events.puzzleSolved) {
-      next.solve = {
-        startTime: now,
-        duration: SOLVE_DURATION_MS,
-        confetti: createConfetti({ width: vpWidth, height: vpHeight })
-      };
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
+    if (view.settings.effects) {
+      const now = performance.now();
+      const next = pruneEffects(effectsRef.current, now);
+      if (events.joinedSeams.length > 0) {
+        next.snaps = [...next.snaps, { seams: events.joinedSeams, startTime: now, duration: SNAP_DURATION_MS }];
       }
-      setBorderToast(false);
-      onSolve?.();
+      if (events.newlyLockedIds.length > 0) {
+        next.locks = [...next.locks, { pieceIds: events.newlyLockedIds, startTime: now, duration: LOCK_DURATION_MS }];
+      }
+      if (events.borderCompleted) {
+        next.border = { startTime: now, duration: BORDER_DURATION_MS };
+        setBorderToast(true);
+        if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = window.setTimeout(() => {
+          setBorderToast(false);
+          toastTimerRef.current = null;
+        }, BORDER_TOAST_MS);
+      }
+      if (events.puzzleSolved) {
+        next.solve = {
+          startTime: now,
+          duration: SOLVE_DURATION_MS,
+          confetti: createConfetti({ width: vpWidth, height: vpHeight })
+        };
+        clearToast();
+      }
+      effectsRef.current = next;
     }
-    effectsRef.current = next;
 
+    if (events.puzzleSolved) onSolve?.();
     if (view.settings.sound) {
       const cue = soundCueFor(events);
       if (cue) playSound(cue);
     }
-  }, [puzzleKey, view.pieces, view.settings.sound, vpWidth, vpHeight, onSolve]);
+  }, [puzzleKey, view.pieces, view.settings.effects, view.settings.sound, vpWidth, vpHeight, onSolve]);
 
   // Cleanup toast timer on unmount.
   useEffect(() => () => {
