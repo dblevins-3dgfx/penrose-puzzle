@@ -195,16 +195,18 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
   - **Piece locked:** a brief warm golden fill flash, glowing perimeter pulse, and small corner glints on the newly locked piece(s).
   - **Border completed:** once every edge piece (`isEdgePiece`) is locked (provided that move did not also solve the entire puzzle), twin golden-and-aqua comets race around the puzzle's ordered outer border loop(s) alongside a warm border glow and a brief non-blocking **"Border complete!"** toast pill.
   - **Puzzle finished:** once every piece is locked, if the board is zoomed or panned the camera smoothly eases back to Fit (snapping directly to Fit under `prefers-reduced-motion`, or cancelling if the player pans or zooms manually); a diagonal glossy sheen sweeps across the completed artwork, the outer border glows, and a burst of miniature **Penrose kite-and-dart confetti** in the stained-glass palette arcs across the board.
+  - **Optional sound effects:** when **Sound effects** is turned on in **Settings** (off by default), synthesized Web Audio tones accompany each tier using the highest-priority cue per move (`solve` > `border` > `lock` > `snap`): a soft click on loose snap, a warm two-note chime on piece lock, an ascending pentatonic shimmer on border completion, and a gentle celebratory chord on solve.
 - **New puzzle** starts a new puzzle of the chosen size with a new seed.
 - **Settings** (gear button in the header, next to How to Play) opens a dialog in the same kind of overlay as How to Play (closed with its X button, a tap outside it, or Escape; titled "Settings"). Changes apply at once, carry over to new puzzles, and are saved in the browser (see Saved settings below).
   - **Puzzle size** (**Small** 12, **Medium** 24 default, **Large** 40): moved out of the top bar to avoid accidental resets while playing; choosing a different size starts a new puzzle of that size.
   - **Show picture** (off by default): the whole picture shown faintly (30% opacity) inside the outline, like the picture on a puzzle box.
   - **Show tile outlines** (on by default): the edges of every piece and of every tile in the gray outline. Off, the outline is one plain gray shape and pieces have no edges, so placed pieces read as one seamless picture; the selected group's blue outline is still drawn.
+  - **Sound effects** (off by default): toggles synthesized Web Audio feedback on snap, lock, border completion, and solve (turning it on plays a soft confirmation chime and unlocks browser audio).
 - **How to Play** shows the jigsaw's instructions in the same kind of overlay as the sandbox's (section 8).
 
 ### Saved settings
 
-- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided", "size": "medium"}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided", "size": "medium", "sound": false}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
 - Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing or invalid setting (non-boolean toggle, unknown `picture`, or unknown `size`) takes its default; unknown fields are ignored.
 - If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 

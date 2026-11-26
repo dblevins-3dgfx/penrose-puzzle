@@ -771,13 +771,16 @@ export interface JigsawSettings {
   picture: PictureStyle;
   // Piece count preset for new puzzles
   size: PuzzleSize;
+  // Synthesized Web Audio feedback on snap, lock, border complete, and solve
+  sound: boolean;
 }
 
 export const DEFAULT_SETTINGS: JigsawSettings = {
   showPicture: false,
   showOutlines: true,
   picture: 'subdivided',
-  size: 'medium'
+  size: 'medium',
+  sound: false
 };
 
 // Where the settings are kept in the browser's local storage.
@@ -802,11 +805,11 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     saved = null;
   }
   const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: 'showPicture' | 'showOutlines') =>
+  const flag = (key: 'showPicture' | 'showOutlines' | 'sound') =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
   const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
   const size = isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size;
-  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture, size };
+  return { showPicture: flag('showPicture'), showOutlines: flag('showOutlines'), picture, size, sound: flag('sound') };
 };
 
 export const progress = (pieces: readonly Piece[]) => ({
@@ -899,6 +902,19 @@ export const detectCelebrations = (prev: readonly Piece[], next: readonly Piece[
   const puzzleSolved = !isSolved(prev) && isSolved(next);
   const borderCompleted = !puzzleSolved && !isBorderComplete(prev) && isBorderComplete(next);
   return { newlyLockedIds, joinedSeams, borderCompleted, puzzleSolved };
+};
+
+export type SoundCue = 'snap' | 'lock' | 'border' | 'solve';
+
+// Picks the single highest-priority sound cue for a celebratory transition so
+// simultaneous milestones (for example locking the final piece) never stack
+// overlapping chimes.
+export const soundCueFor = (events: CelebrationEvents): SoundCue | null => {
+  if (events.puzzleSolved) return 'solve';
+  if (events.borderCompleted) return 'border';
+  if (events.newlyLockedIds.length > 0) return 'lock';
+  if (events.joinedSeams.length > 0) return 'snap';
+  return null;
 };
 
 // Traces the solved puzzle's outer border (and any hole borders) into ordered

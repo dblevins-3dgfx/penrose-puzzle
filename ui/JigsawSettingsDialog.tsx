@@ -2,6 +2,7 @@
 // Opened from the header; closed like How to Play.
 import { PIECE_COUNTS, type JigsawSettings, type PuzzleSize } from '../jigsaw';
 import { Overlay } from './HelpOverlay';
+import { playSound } from './jigsawSound';
 
 interface Props {
   settings: JigsawSettings;
@@ -12,9 +13,10 @@ interface Props {
 
 const SIZE_LABELS: Record<PuzzleSize, string> = { small: 'Small', medium: 'Medium', large: 'Large' };
 
-const SWITCHES: { key: 'showPicture' | 'showOutlines'; label: string; detail: string }[] = [
+const SWITCHES: { key: 'showPicture' | 'showOutlines' | 'sound'; label: string; detail: string }[] = [
   { key: 'showPicture', label: 'Show picture', detail: 'Show the whole picture faintly inside the outline, like the picture on the box' },
-  { key: 'showOutlines', label: 'Show tile outlines', detail: 'Draw the edges of every piece and of the tiles in the outline' }
+  { key: 'showOutlines', label: 'Show tile outlines', detail: 'Draw the edges of every piece and of the tiles in the outline' },
+  { key: 'sound', label: 'Sound effects', detail: 'Play subtle synthesized chimes when pieces snap, lock, complete the border, or finish the puzzle' }
 ];
 
 export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, onClose }: Props) => (
@@ -52,7 +54,11 @@ export const JigsawSettingsDialog = ({ settings, onChange, onChangeSize, onClose
             type="checkbox"
             role="switch"
             checked={settings[key]}
-            onChange={e => onChange({ ...settings, [key]: e.target.checked })}
+            onChange={e => {
+              const checked = e.target.checked;
+              onChange({ ...settings, [key]: checked });
+              if (key === 'sound' && checked) playSound('lock');
+            }}
             className="h-6 w-11 shrink-0 appearance-none rounded-full bg-slate-600 checked:bg-sky-500 relative cursor-pointer transition-colors
               before:absolute before:top-0.5 before:left-0.5 before:h-5 before:w-5 before:rounded-full before:bg-white before:transition-transform
               checked:before:translate-x-5"

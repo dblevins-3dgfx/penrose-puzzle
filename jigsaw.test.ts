@@ -59,6 +59,7 @@ import {
   seedFromQuery,
   shareEdge,
   solvedTiling,
+  soundCueFor,
   tileFromVertices,
   transformPoint,
   type Piece
@@ -522,16 +523,22 @@ test('each piece carries its part of the picture to wherever it is', () => {
 // Settings
 // ---------------------------------------------------------------------
 
-test('by default the picture is hidden, tile outlines are shown, picture is subdivided, and size is medium', () => {
-  assert.deepEqual(DEFAULT_SETTINGS, { showPicture: false, showOutlines: true, picture: 'subdivided', size: 'medium' });
+test('by default the picture is hidden, tile outlines are shown, picture is subdivided, size is medium, and sound is off', () => {
+  assert.deepEqual(DEFAULT_SETTINGS, {
+    showPicture: false,
+    showOutlines: true,
+    picture: 'subdivided',
+    size: 'medium',
+    sound: false
+  });
 });
 
 test('saved settings are read back as they were saved', () => {
   const cases = [
     DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const }
+    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, sound: true },
+    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, sound: false },
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const, sound: true }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -552,15 +559,17 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
     showPicture: true,
     showOutlines: true,
     picture: 'subdivided',
-    size: 'medium'
+    size: 'medium',
+    sound: false
   });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large"}'), {
+  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "sound": true}'), {
     showPicture: false,
     showOutlines: false,
     picture: 'sunset',
-    size: 'large'
+    size: 'large',
+    sound: true
   });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
 });
 
 test('tap-to-rotate selects on first tap and rotates on subsequent taps within TAP_MAX_MOVE', () => {
@@ -979,6 +988,17 @@ test('detectCelebrations reports newly joined shared seams on loose snaps and ig
   const evLock = detectCelebrations(atHome, locked);
   assert.equal(evLock.newlyLockedIds.length, 3);
   assert.deepEqual(evLock.joinedSeams, []);
+});
+
+test('soundCueFor picks the single highest-priority sound cue for celebratory events', () => {
+  const seam = { pieceId: 0, partnerId: 1, edgeIndex: 0 };
+  assert.equal(soundCueFor({ newlyLockedIds: [], joinedSeams: [], borderCompleted: false, puzzleSolved: false }), null);
+  assert.equal(soundCueFor({ newlyLockedIds: [], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }), 'snap');
+  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: false }), 'lock');
+  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }), 'lock');
+  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: true, puzzleSolved: false }), 'border');
+  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: true }), 'solve');
+  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: true, puzzleSolved: true }), 'solve');
 });
 
 test('orderedBorderLoops chains every puzzle border segment into closed edge loops', () => {
