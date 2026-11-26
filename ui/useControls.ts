@@ -8,8 +8,10 @@ type Rotate = (steps: number) => void;
 type ZoomAt = (factor: number, focus: Point) => void;
 
 // Left / Right arrows or R / Shift+R rotate; Ctrl/Cmd+Z undoes the last tile.
-export const useKeyboardControls = (rotate: Rotate, undo: () => void) => {
+// Only listens while `enabled` is true so hidden mode tabs never intercept keys.
+export const useKeyboardControls = (rotate: Rotate, undo: () => void, enabled = true) => {
   useEffect(() => {
+    if (!enabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
@@ -30,12 +32,13 @@ export const useKeyboardControls = (rotate: Rotate, undo: () => void) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [rotate, undo]);
+  }, [rotate, undo, enabled]);
 };
 
 // + / = zooms in, - zooms out, 0 resets zoom and pan (ignored inside inputs).
-export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset: () => void) => {
+export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset: () => void, enabled = true) => {
   useEffect(() => {
+    if (!enabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -53,7 +56,7 @@ export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onZoomIn, onZoomOut, onReset]);
+  }, [onZoomIn, onZoomOut, onReset, enabled]);
 };
 
 // Mouse wheel over the board rotates the tile: up = clockwise. A mouse

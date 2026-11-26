@@ -2,7 +2,7 @@
 // manipulation mechanics: drag or tap Kite/Dart tiles from the tray, drop on a
 // legal edge to lock with visual/audio feedback, tap to rotate or use floating
 // bottom-right controls, and pan/zoom across the generous 1600x1200 world.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
   clampSandboxCamera,
   countTiles,
@@ -33,7 +33,6 @@ import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoard
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
 import { useSandboxRenderAndEffects } from './useSandboxEffects';
 import { useSandboxBoardPointers, useSandboxTrayInteraction } from './useSandboxPointers';
-import { useSharedSettings } from './useSharedSettings';
 
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
@@ -113,7 +112,14 @@ const buildSandboxDebugInfo = (
     hasLooseTile
   });
 
-export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
+interface SandboxProps {
+  modeSwitch: ReactNode;
+  active: boolean;
+  settings: JigsawSettings;
+  onChangeSettings: Dispatch<SetStateAction<JigsawSettings>>;
+}
+
+export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: SandboxProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -121,7 +127,6 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
-  const [settings, setSettings] = useSharedSettings();
   const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useSandboxCamera(viewport, measured);
 
   const [tiles, setTiles] = useState<Tile[]>([]);
@@ -189,9 +194,9 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const closeHelp = useCallback(() => setShowHelp(false), []);
   const closeSettings = useCallback(() => setShowSettings(false), []);
 
-  useLooseTileKeys(!!loose && !showHelp && !showSettings, !!preview?.valid, confirmLoose, discardLoose);
-  useKeyboardControls(rotate, undo);
-  useZoomKeys(zoomIn, zoomOut, resetZoom);
+  useLooseTileKeys(active && !!loose && !showHelp && !showSettings, !!preview?.valid, confirmLoose, discardLoose);
+  useKeyboardControls(rotate, undo, active);
+  useZoomKeys(zoomIn, zoomOut, resetZoom, active);
   useWheelRotation(canvasRef, rotate, zoomAt);
   usePreventSafariGesture(canvasRef);
 
