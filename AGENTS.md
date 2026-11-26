@@ -11,3 +11,7 @@ A pull request that adds or changes a rule in `penrose-puzzle-spec.md` adds or u
 # Work on a branch, merge by pull request
 
 Never commit or push to `main` directly: every push to `main` deploys the live site. Make each change on a branch, push the branch, and open a pull request for it; the owner merges. The Test workflow checks every pull request (typecheck, lint, tests, build), so run the same checks locally (`npm run typecheck`, `npm run lint`, `npm test`, `npm run build`) before pushing. Once a pull request is merged, start the next change from the latest `main`.
+
+# Keep Jigsaw and Sandbox mechanics in sync
+
+When adding or changing shared tile mechanics, controls, pan/zoom, visual or audio effects, or Settings in either Jigsaw or Sandbox, point out whether the other mode should be updated to match (in the same pull request or as a follow-on issue) so the two modes stay consistent.
