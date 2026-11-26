@@ -1,169 +1,253 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+// The free-building Sandbox screen (spec 4–8), sharing Jigsaw's tile
+// manipulation mechanics: drag or tap Kite/Dart tiles from the tray, drop on a
+// legal edge to lock with visual/audio feedback, tap to rotate or use floating
+// bottom-right controls, and pan/zoom across the generous 1600x1200 world.
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  autoRotatePlacement,
+  clampSandboxCamera,
   countTiles,
+  defaultSandboxCamera,
   isLegalPlacement,
+  isSandboxCameraDefault,
   removeLastTile,
+  resolveSandboxTile,
   rotateBy,
-  snapPosition,
+  SANDBOX_WORLD,
+  sandboxMinZoom,
+  zoomSandboxCameraAt,
   type Point,
+  type SandboxCamera,
   type Tile,
   type TileType
 } from '../rules';
-import { drawBoard } from './draw';
+import { ZOOM_STEP } from '../jigsaw';
 import { HelpOverlay } from './HelpOverlay';
+import { RotateControls } from './RotateControls';
+import { SandboxSettingsDialog } from './SandboxSettingsDialog';
+import { SandboxTray } from './SandboxTray';
 import { Toolbar } from './Toolbar';
-import { useBoardSize, usePreventSafariGesture } from './useBoardSize';
-import { useKeyboardControls, useWheelRotation } from './useControls';
+import { ZoomControls } from './ZoomControls';
+import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoardSize';
+import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
+import { useSandboxRenderAndEffects } from './useSandboxEffects';
+import { useSandboxBoardPointers, useSandboxTrayInteraction } from './useSandboxPointers';
+import { useSharedSettings } from './useSharedSettings';
 
-// Touch devices have no hover, so the preview follows a finger drag and
-// is lifted above the fingertip so it isn't hidden under it.
-const TOUCH_OFFSET_Y = 60;
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
-// Convert a pointer event's CSS pixel position into board coordinates (1:1 CSS pixels).
-const canvasCoords = (canvas: HTMLCanvasElement, e: PointerEvent): Point => {
-  const rect = canvas.getBoundingClientRect();
-  const touch = e.pointerType === 'touch';
-  return {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top - (touch ? TOUCH_OFFSET_Y : 0)
-  };
-};
-
-// The free-building sandbox: place kites and darts under the matching
-// rules (spec sections 4 to 8). `modeSwitch` goes in the slim top bar.
-export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const board = useBoardSize(containerRef);
-
-  const [tiles, setTiles] = useState<Tile[]>([]);
-  const [selectedTileType, setSelectedTileType] = useState<TileType>('kite');
-  const [rotation, setRotation] = useState(0);
-  const [hoveredPos, setHoveredPos] = useState<Point | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
-  // Auto-rotate (spec 5b): on/off, and which of the fits near the pointer
-  // to show (the rotate controls step through them)
-  const [autoRotate, setAutoRotate] = useState(false);
-  const [autoChoice, setAutoChoice] = useState(0);
-
-  const counts = useMemo(() => countTiles(tiles), [tiles]);
-
-  // The tile under the pointer: turned to fit the nearest free edge in
-  // auto-rotate mode (spec 5b), otherwise snapped into place at the chosen
-  // rotation (spec 5). Whether it can be placed there is spec 4.
-  const snapped = useCallback(
-    (p: Point): Tile => {
-      const auto = autoRotate ? autoRotatePlacement(tiles, selectedTileType, p, autoChoice, board) : null;
-      if (auto) return auto.tile;
-      const candidate = { type: selectedTileType, x: p.x, y: p.y, rotation };
-      const { x, y } = snapPosition(tiles, candidate, board);
-      return { ...candidate, x, y };
-    },
-    [tiles, selectedTileType, rotation, autoRotate, autoChoice, board]
-  );
-  const preview = useMemo(() => {
-    if (!hoveredPos) return null;
-    const tile = snapped(hoveredPos);
-    return { tile, valid: isLegalPlacement(tiles, tile, false, board) };
-  }, [hoveredPos, snapped, tiles, board]);
-
-  const place = (tile: Tile) => {
-    if (!isLegalPlacement(tiles, tile, false, board)) return;
-    setTiles([...tiles, tile]);
-    // Keep the angle auto-rotate chose, and start the next tile at the
-    // nearest fit again
-    setRotation(tile.rotation);
-    setAutoChoice(0);
-  };
-  const rotate = useCallback(
-    (steps: number) => (autoRotate ? setAutoChoice(c => c + steps) : setRotation(r => rotateBy(r, steps))),
-    [autoRotate]
-  );
-  const undo = useCallback(() => setTiles(removeLastTile), []);
-  const clearBoard = () => {
-    setTiles([]);
-    setRotation(0);
-    setHoveredPos(null);
-  };
-  const closeHelp = useCallback(() => setShowHelp(false), []);
-
-  useKeyboardControls(rotate, undo);
-  useWheelRotation(canvasRef, rotate);
-  usePreventSafariGesture(canvasRef);
+const useSandboxCamera = (viewport: { width: number; height: number }, measured: boolean) => {
+  const [camera, setCamera] = useState<SandboxCamera>(() => defaultSandboxCamera(viewport));
+  const initialized = useRef(false);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const backingW = Math.max(1, Math.round(board.width * board.dpr));
-    const backingH = Math.max(1, Math.round(board.height * board.dpr));
-    if (canvas.width !== backingW || canvas.height !== backingH) {
-      canvas.width = backingW;
-      canvas.height = backingH;
+    if (!measured) return;
+    if (!initialized.current) {
+      initialized.current = true;
+      setCamera(defaultSandboxCamera(viewport));
+      return;
     }
-    ctx.setTransform(board.dpr, 0, 0, board.dpr, 0, 0);
-    drawBoard(ctx, tiles, preview, board);
-  }, [tiles, preview, board]);
+    setCamera(c => clampSandboxCamera(c, viewport));
+  }, [measured, viewport]);
 
-  const handlePointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch') e.currentTarget.setPointerCapture?.(e.pointerId);
-    setHoveredPos(canvasCoords(e.currentTarget, e));
-  };
-  const handlePointerMove = (e: PointerEvent<HTMLCanvasElement>) => setHoveredPos(canvasCoords(e.currentTarget, e));
-  const handlePointerLeave = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'mouse') setHoveredPos(null);
-  };
-  const handlePointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType !== 'mouse' || e.button !== 0) return;
-    place(snapped(canvasCoords(e.currentTarget, e)));
-  };
-  const placeAtPreview = () => {
-    if (!preview?.valid) return;
-    place(preview.tile);
-    setHoveredPos(null);
-  };
+  const zoomAt = useCallback(
+    (factor: number, focus: Point) => setCamera(c => zoomSandboxCameraAt(c, factor, focus, viewport)),
+    [viewport]
+  );
+  const zoomIn = useCallback(
+    () => zoomAt(ZOOM_STEP, { x: viewport.width / 2, y: viewport.height / 2 }),
+    [zoomAt, viewport.width, viewport.height]
+  );
+  const zoomOut = useCallback(
+    () => zoomAt(1 / ZOOM_STEP, { x: viewport.width / 2, y: viewport.height / 2 }),
+    [zoomAt, viewport.width, viewport.height]
+  );
+  const resetZoom = useCallback(() => setCamera(defaultSandboxCamera(viewport)), [viewport]);
+
+  return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom };
+};
+
+const useLooseTileKeys = (
+  enabled: boolean,
+  canConfirm: boolean,
+  onConfirm: () => void,
+  onDiscard: () => void
+) => {
+  useEffect(() => {
+    if (!enabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onDiscard();
+      } else if ((e.key === 'Enter' || e.key === ' ') && canConfirm) {
+        e.preventDefault();
+        onConfirm();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [enabled, canConfirm, onConfirm, onDiscard]);
+};
+
+export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isPortrait = useIsPortrait();
+  const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
+  const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
+
+  const [settings, setSettings] = useSharedSettings();
+  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useSandboxCamera(viewport, measured);
+
+  const [tiles, setTiles] = useState<Tile[]>([]);
+  const [loose, setLoose] = useState<Tile | null>(null);
+  const [defaultRotation, setDefaultRotation] = useState(0);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoChoice, setAutoChoice] = useState(0);
+  const [dropHighlight, setDropHighlight] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const counts = useMemo(() => countTiles(tiles), [tiles]);
+  const preview = useMemo(
+    () => (loose ? resolveSandboxTile(tiles, loose, autoRotate, autoChoice, SANDBOX_WORLD) : null),
+    [loose, tiles, autoRotate, autoChoice]
+  );
+
+  const place = useCallback(
+    (tile: Tile) => {
+      setTiles(prev => (isLegalPlacement(prev, tile, false, SANDBOX_WORLD) ? [...prev, tile] : prev));
+      setLoose(null);
+      setDefaultRotation(tile.rotation);
+      setAutoChoice(0);
+    },
+    []
+  );
+
+  const confirmLoose = useCallback(() => {
+    if (preview?.valid) place(preview.tile);
+  }, [preview, place]);
+
+  const discardLoose = useCallback(() => setLoose(null), []);
+
+  const rotate = useCallback(
+    (steps: number) => {
+      if (!loose) return;
+      if (autoRotate) {
+        setAutoChoice(c => c + steps);
+        return;
+      }
+      setLoose(prev => (prev ? { ...prev, rotation: rotateBy(prev.rotation, steps) } : null));
+    },
+    [loose, autoRotate]
+  );
+
+  const spawnTap = useCallback(
+    (type: TileType, at: Point) => {
+      setAutoChoice(0);
+      setLoose(prev =>
+        prev ? { ...prev, type } : { type, x: at.x, y: at.y, rotation: defaultRotation }
+      );
+    },
+    [defaultRotation]
+  );
+
+  const undo = useCallback(() => setTiles(removeLastTile), []);
+  const clearBoard = useCallback(() => {
+    setTiles([]);
+    setLoose(null);
+    setDefaultRotation(0);
+    setAutoChoice(0);
+  }, []);
+  const closeHelp = useCallback(() => setShowHelp(false), []);
+  const closeSettings = useCallback(() => setShowSettings(false), []);
+
+  useLooseTileKeys(!!loose && !showHelp && !showSettings, !!preview?.valid, confirmLoose, discardLoose);
+  useKeyboardControls(rotate, undo);
+  useZoomKeys(zoomIn, zoomOut, resetZoom);
+  useWheelRotation(canvasRef, rotate, zoomAt);
+  usePreventSafariGesture(canvasRef);
+
+  const trayState = useMemo(
+    () => ({ tiles, autoRotate, autoChoice, defaultRotation }),
+    [tiles, autoRotate, autoChoice, defaultRotation]
+  );
+  const handleStartFromTray = useSandboxTrayInteraction(
+    canvasRef, trayRef, viewport, camera, isPortrait, trayState, setLoose, spawnTap, place, setDropHighlight
+  );
+  const boardHandlers = useSandboxBoardPointers(
+    trayRef, tiles, loose, preview, autoRotate, autoChoice, viewport, camera, setCamera, setLoose, place, rotate, setDropHighlight
+  );
+
+  useSandboxRenderAndEffects(
+    canvasRef, tiles, preview, vpWidth, vpHeight, dpr, camera, settings.effects, settings.sound
+  );
 
   return (
     <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col game-shell">
       <Toolbar
         modeSwitch={modeSwitch}
-        isTouchDevice={isTouchDevice}
-        selectedTileType={selectedTileType}
-        onSelectTileType={setSelectedTileType}
-        rotation={preview ? preview.tile.rotation : rotation}
-        onRotate={rotate}
         autoRotate={autoRotate}
         onToggleAutoRotate={() => {
           setAutoRotate(a => !a);
           setAutoChoice(0);
         }}
-        canPlace={!!preview?.valid}
-        onPlace={placeAtPreview}
         boardEmpty={tiles.length === 0}
         onUndo={undo}
         onClear={clearBoard}
         kiteCount={counts.kite}
         dartCount={counts.dart}
+        onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
       />
 
-      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden bg-white">
-        <canvas
-          ref={canvasRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerLeave}
-          onContextMenu={e => {
-            e.preventDefault();
-            rotate(e.shiftKey ? -1 : 1);
-          }}
-          style={{ touchAction: 'none' }}
-          className="absolute inset-0 w-full h-full cursor-crosshair"
+      <div className={`flex-1 min-h-0 flex ${isPortrait ? 'flex-col' : 'flex-row'}`}>
+        <div ref={containerRef} className="flex-1 min-h-0 min-w-0 relative overflow-hidden bg-slate-200">
+          <canvas
+            ref={canvasRef}
+            onPointerDown={boardHandlers.onPointerDown}
+            onPointerMove={boardHandlers.onPointerMove}
+            onPointerUp={boardHandlers.onPointerUp}
+            onPointerCancel={boardHandlers.onPointerUp}
+            onContextMenu={boardHandlers.onContextMenu}
+            style={{ touchAction: 'none' }}
+            className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
+          />
+          <ZoomControls
+            camera={camera}
+            isPortrait={isPortrait}
+            minZoom={sandboxMinZoom(viewport)}
+            isDefault={isSandboxCameraDefault(camera, viewport)}
+            resetLabel="100%"
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onReset={resetZoom}
+          />
+          {loose && (
+            <RotateControls
+              isPortrait={isPortrait}
+              onRotate={rotate}
+              onConfirm={confirmLoose}
+              canConfirm={!!preview?.valid}
+              onDiscard={discardLoose}
+            />
+          )}
+        </div>
+
+        <SandboxTray
+          trayRef={trayRef}
+          activeType={loose?.type ?? null}
+          isPortrait={isPortrait}
+          dropHighlight={dropHighlight}
+          onStartFromTray={handleStartFromTray}
         />
       </div>
+
+      {showSettings && (
+        <SandboxSettingsDialog settings={settings} onChange={setSettings} onClose={closeSettings} />
+      )}
 
       {showHelp && <HelpOverlay isTouchDevice={isTouchDevice} onClose={closeHelp} />}
     </div>

@@ -49,22 +49,36 @@ export const Overlay = ({ onClose, children, title = 'How to Play' }: { onClose:
 // The sandbox's How to Play text.
 export const HelpOverlay = ({ isTouchDevice, onClose }: Props) => (
   <Overlay onClose={onClose}>
-    <p className="mb-3">Build a Penrose tiling from kites and darts.</p>
+    <p className="mb-3">Build a Penrose tiling from kites and darts on a spacious pan-and-zoom canvas.</p>
     <ul className="list-disc list-inside space-y-2">
-      <li>Place the first tile anywhere on the board</li>
-      <li>Each tile after that must share a full edge with the tiles already down</li>
+      <li>
+        <strong>Place tiles:</strong> drag a Kite or Dart from the tray and drop it on a legal spot to lock it in
+        place, or tap a tray tile to spawn it on the board
+      </li>
+      <li>Place the first tile anywhere on the board; each tile after that must share a full edge with tiles already down</li>
       <li>Where tiles meet, the corner dots must match: black on black, white on white</li>
       <li>
+        <strong>Rotate &amp; adjust:</strong> dropping on an invalid spot leaves the tile loose so you can adjust it.{' '}
         {isTouchDevice
-          ? 'Drag on the board to position the tile, rotate with the buttons (36° steps), then tap Place'
-          : 'Click to place. Rotate with the scroll wheel over the board, right-click (Shift + right-click for the other way), or Left/Right arrow keys (36° steps)'}
+          ? 'Tap the loose tile or use the bottom-right rotate buttons (36° steps), then drag-drop or tap ✓ to place'
+          : 'Tap the loose tile, use the bottom-right rotate buttons, scroll wheel, right-click (Shift for CCW), or R / Left / Right keys (36° steps); drop or tap ✓ / Enter to place'}
       </li>
-      <li>Green preview outline = the tile fits; red dashed = it doesn't</li>
+      <li>Drop a loose tile back onto the tray (or tap ×{isTouchDevice ? '' : ' / Escape'}) to put it away</li>
+      <li>Green outline = legal fit; dashed red = illegal</li>
       <li>
-        Auto-rotate turns the tile to fit the free edge nearest the pointer; rotating then steps through the
-        other ways it fits nearby
+        <strong>Pan &amp; zoom:</strong> drag empty space to pan across the board;{' '}
+        {isTouchDevice
+          ? 'pinch with two fingers or use the bottom-left zoom controls'
+          : 'use Ctrl/Cmd + scroll, +/-/0 keys, or the bottom-left zoom controls'}
       </li>
-      <li>{isTouchDevice ? 'Undo' : 'Undo (or Ctrl/Cmd+Z)'} removes the last tile; Clear empties the board</li>
+      <li>
+        <strong>Auto-rotate</strong> turns the loose tile to fit the nearest free edge; rotating steps through nearby
+        fits
+      </li>
+      <li>
+        {isTouchDevice ? 'Undo' : 'Undo (or Ctrl/Cmd+Z)'} removes the last placed tile; Clear empties the board.
+        Toggle visual and sound effects in Settings.
+      </li>
     </ul>
   </Overlay>
 );

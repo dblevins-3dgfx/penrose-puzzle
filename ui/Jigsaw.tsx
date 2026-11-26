@@ -13,17 +13,13 @@ import {
   isCameraAtFit,
   isSolved,
   newPuzzleForViewport,
-  parseSettings,
   progress,
   repositionForViewport,
   rotateGroup,
   seedFromQuery,
-  serializeSettings,
-  SETTINGS_KEY,
   ZOOM_STEP,
   zoomCameraAt,
   type Camera,
-  type JigsawSettings,
   type PictureStyle,
   type Piece,
   type PuzzleSize,
@@ -43,30 +39,11 @@ import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoard
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
 import { useJigsawRenderAndEffects } from './useJigsawEffects';
 import { useBoardPointers, useTrayInteraction } from './useJigsawPointers';
+import { useSharedSettings } from './useSharedSettings';
 
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 const noUndo = () => {};
-
-const useJigsawSettings = () => {
-  // Settings are kept in the browser (spec 9). Storage can be unavailable
-  // (private browsing, blocked cookies); the game then just doesn't save.
-  const [settings, setSettings] = useState<JigsawSettings>(() => {
-    try {
-      return parseSettings(window.localStorage.getItem(SETTINGS_KEY));
-    } catch {
-      return parseSettings(null);
-    }
-  });
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(SETTINGS_KEY, serializeSettings(settings));
-    } catch {
-      // Not saved; the settings still apply until the page is reloaded
-    }
-  }, [settings]);
-  return [settings, setSettings] as const;
-};
 
 const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: number, pixelScale: number) => {
   const sunset = useMemo<Picture>(() => {
@@ -192,7 +169,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
-  const [settings, setSettings] = useJigsawSettings();
+  const [settings, setSettings] = useSharedSettings();
   const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
