@@ -17,6 +17,7 @@ import {
   DEFAULT_CAMERA,
   DEFAULT_SETTINGS,
   detectCelebrations,
+  easeCamera,
   MAX_ZOOM,
   MIN_ZOOM,
   orderedBorderLoops,
@@ -26,6 +27,7 @@ import {
   drawLayers,
   generatePatch,
   isBorderComplete,
+  isCameraAtFit,
   isEdgePiece,
   isGroupSelected,
   isSolved,
@@ -798,6 +800,34 @@ test('popSpotOnBoard places a tapped piece near a custom zoomed-view anchor insi
   const spot = popSpotOnBoard(pieces, layout.board, anchor);
   near(spot.x, anchor.x);
   near(spot.y, anchor.y);
+});
+
+test('isCameraAtFit detects Fit vs zoomed or panned cameras, and easeCamera moves screen points smoothly', () => {
+  assert.equal(isCameraAtFit(DEFAULT_CAMERA), true);
+  assert.equal(isCameraAtFit({ zoom: 1.0002, panX: 0.1, panY: -0.1 }), true);
+  assert.equal(isCameraAtFit({ zoom: 1.25, panX: 0, panY: 0 }), false);
+  assert.equal(isCameraAtFit({ zoom: 0.75, panX: 125, panY: 75 }), false);
+  assert.equal(isCameraAtFit({ zoom: 1, panX: 10, panY: 0 }), false);
+
+  const from = { zoom: 2.5, panX: -320, panY: -180 };
+  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, -0.5), from);
+  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 0), from);
+  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 1), DEFAULT_CAMERA);
+  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 1.5), DEFAULT_CAMERA);
+
+  // At t = 0.5, ease-out cubic is 1 - 0.5^3 = 0.875 of the way to Fit
+  const mid = easeCamera(from, DEFAULT_CAMERA, 0.5);
+  near(mid.zoom, from.zoom + (DEFAULT_CAMERA.zoom - from.zoom) * 0.875);
+  near(mid.panX, from.panX + (DEFAULT_CAMERA.panX - from.panX) * 0.875);
+  near(mid.panY, from.panY + (DEFAULT_CAMERA.panY - from.panY) * 0.875);
+
+  // Every world point moves along a straight line on screen
+  const world = { x: 240, y: 170 };
+  const s0 = worldToScreen(world, 1.4, from);
+  const s1 = worldToScreen(world, 1.4, DEFAULT_CAMERA);
+  const sm = worldToScreen(world, 1.4, mid);
+  near(sm.x, s0.x + (s1.x - s0.x) * 0.875);
+  near(sm.y, s0.y + (s1.y - s0.y) * 0.875);
 });
 
 // ---------------------------------------------------------------------

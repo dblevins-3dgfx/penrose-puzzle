@@ -580,6 +580,26 @@ export const zoomCameraAt = (camera: Camera, factor: number, focus: Point, viewp
   );
 };
 
+// True when the camera is effectively already at DEFAULT_CAMERA (Fit).
+export const isCameraAtFit = (camera: Camera): boolean =>
+  Math.abs(camera.zoom - DEFAULT_CAMERA.zoom) < 1e-3 &&
+  Math.abs(camera.panX - DEFAULT_CAMERA.panX) < 0.5 &&
+  Math.abs(camera.panY - DEFAULT_CAMERA.panY) < 0.5;
+
+// Smoothly eases from one camera pose to another with ease-out cubic timing.
+// Interpolating zoom, panX and panY by the same factor moves every world point
+// along a straight line on screen.
+export const easeCamera = (from: Camera, to: Camera, t: number): Camera => {
+  if (t <= 0) return { ...from };
+  if (t >= 1) return { ...to };
+  const e = 1 - (1 - t) ** 3;
+  return {
+    zoom: from.zoom + (to.zoom - from.zoom) * e,
+    panX: from.panX + (to.panX - from.panX) * e,
+    panY: from.panY + (to.panY - from.panY) * e
+  };
+};
+
 // ---------------------------------------------------------------------
 // Piece tray
 // ---------------------------------------------------------------------

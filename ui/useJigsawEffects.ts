@@ -35,7 +35,8 @@ export const useJigsawRenderAndEffects = (
   vpHeight: number,
   dpr: number,
   layoutScale: number,
-  camera: Camera
+  camera: Camera,
+  onSolve?: () => void
 ) => {
   const effectsRef = useRef<ActiveEffects>(emptyEffects());
   const prevRef = useRef<{ key: string; pieces: Piece[] }>({ key: puzzleKey, pieces: view.pieces });
@@ -95,9 +96,10 @@ export const useJigsawRenderAndEffects = (
         toastTimerRef.current = null;
       }
       setBorderToast(false);
+      onSolve?.();
     }
     effectsRef.current = next;
-  }, [puzzleKey, view.pieces, vpWidth, vpHeight]);
+  }, [puzzleKey, view.pieces, vpWidth, vpHeight, onSolve]);
 
   // Cleanup toast timer on unmount.
   useEffect(() => () => {
