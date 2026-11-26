@@ -13,7 +13,7 @@ import {
 import { drawBoard } from './draw';
 import { HelpOverlay } from './HelpOverlay';
 import { Toolbar } from './Toolbar';
-import { useBoardSize } from './useBoardSize';
+import { useBoardSize, usePreventSafariGesture } from './useBoardSize';
 import { useKeyboardControls, useWheelRotation } from './useControls';
 
 // Touch devices have no hover, so the preview follows a finger drag and
@@ -91,6 +91,7 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
 
   useKeyboardControls(rotate, undo);
   useWheelRotation(canvasRef, rotate);
+  usePreventSafariGesture(canvasRef);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -125,7 +126,7 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   };
 
   return (
-    <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col">
+    <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col game-shell">
       <Toolbar
         modeSwitch={modeSwitch}
         isTouchDevice={isTouchDevice}

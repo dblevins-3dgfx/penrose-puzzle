@@ -4,14 +4,19 @@
 import { RotateCw } from 'lucide-react';
 
 interface Props {
+  isPortrait: boolean;
   onRotate: (steps: number) => void;
 }
 
 const btn = 'p-2.5 sm:p-2 rounded hover:bg-slate-700/80 active:bg-slate-600/80 text-white';
 
-export const RotateControls = ({ onRotate }: Props) => (
+export const RotateControls = ({ isPortrait, onRotate }: Props) => (
   <div
-    className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm border border-slate-700/70 rounded-lg p-1 shadow-lg"
+    style={{
+      right: isPortrait ? 'max(0.625rem, env(safe-area-inset-right))' : '0.625rem',
+      bottom: isPortrait ? '0.625rem' : 'max(0.625rem, env(safe-area-inset-bottom))'
+    }}
+    className="absolute z-10 flex items-center gap-1 bg-slate-900/80 backdrop-blur-sm border border-slate-700/70 rounded-lg p-1 shadow-lg"
     role="group"
     aria-label="Rotate selected piece"
   >

@@ -1,1 +1,26 @@
 @import "tailwindcss";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: #0f172a;
+}
+
+/* Prevent iOS Safari double-tap zoom on repeated taps of controls */
+button,
+select,
+input {
+  touch-action: manipulation;
+}
+
+/* Prevent iOS long-press callout, accidental selection, and tap flash during play */
+.game-shell {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}

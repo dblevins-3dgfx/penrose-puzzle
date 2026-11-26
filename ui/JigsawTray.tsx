@@ -24,10 +24,11 @@ interface ThumbProps {
   picture: Picture;
   pictureRect: ReturnType<typeof coverRect>;
   showOutlines: boolean;
+  isPortrait: boolean;
   onStart: (id: number, e: PointerEvent<HTMLButtonElement>) => void;
 }
 
-const PieceThumb = memo(({ piece, picture, pictureRect, showOutlines, onStart }: ThumbProps) => {
+const PieceThumb = memo(({ piece, picture, pictureRect, showOutlines, isPortrait, onStart }: ThumbProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ const PieceThumb = memo(({ piece, picture, pictureRect, showOutlines, onStart }:
       type="button"
       onPointerDown={e => onStart(piece.id, e)}
       aria-label={`Piece ${piece.id + 1}${isEdgePiece(piece) ? ' (edge)' : ''}`}
+      style={{ touchAction: isPortrait ? 'pan-x' : 'pan-y' }}
       className="shrink-0 w-16 h-16 rounded-md bg-slate-100 hover:bg-white shadow-sm hover:ring-2 hover:ring-sky-400 flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
     >
       <canvas ref={canvasRef} className="w-16 h-16 pointer-events-none" />
@@ -79,7 +81,7 @@ const FilterPills = ({
         type="button"
         aria-pressed={filter === key}
         onClick={() => onFilter(key)}
-        className={`px-2 py-0.5 rounded font-semibold whitespace-nowrap ${
+        className={`px-2.5 py-1 sm:px-2 sm:py-0.5 rounded font-semibold whitespace-nowrap ${
           filter === key ? 'bg-slate-600 text-white' : 'text-slate-400 hover:text-white'
         }`}
       >
@@ -106,17 +108,29 @@ export const JigsawTray = ({
   const shown = filter === 'edges' ? edgesInTray : allInTray;
 
   const containerClass = isPortrait
-    ? 'h-28 shrink-0 border-t border-slate-700/70 flex flex-col'
-    : 'w-40 lg:w-44 shrink-0 border-l border-slate-700/70 flex flex-col';
+    ? 'shrink-0 border-t border-slate-700/70 flex flex-col'
+    : 'w-[calc(10rem+env(safe-area-inset-right))] lg:w-[calc(11rem+env(safe-area-inset-right))] shrink-0 border-l border-slate-700/70 flex flex-col';
+
+  const containerStyle = isPortrait
+    ? {
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }
+    : {
+        paddingRight: 'env(safe-area-inset-right)',
+        paddingBottom: 'env(safe-area-inset-bottom)'
+      };
 
   const listClass = isPortrait
-    ? 'flex-1 min-h-0 flex flex-row items-center gap-1.5 px-2 py-1 overflow-x-auto overflow-y-hidden'
-    : 'flex-1 min-h-0 grid grid-cols-2 content-start justify-items-center gap-1.5 p-1.5 overflow-y-auto overflow-x-hidden';
+    ? 'h-[76px] flex flex-row items-center gap-1.5 px-2 py-1 overflow-x-auto overflow-y-hidden overscroll-contain'
+    : 'flex-1 min-h-0 grid grid-cols-2 content-start justify-items-center gap-1.5 p-1.5 overflow-y-auto overflow-x-hidden overscroll-contain';
 
   return (
     <aside
       ref={trayRef}
       aria-label="Piece tray"
+      style={containerStyle}
       className={`${containerClass} ${
         dropHighlight ? 'bg-slate-800 ring-2 ring-inset ring-sky-400' : 'bg-slate-800/90'
       }`}
@@ -129,7 +143,7 @@ export const JigsawTray = ({
         )}
       </div>
 
-      <div className={listClass}>
+      <div className={listClass} style={{ touchAction: isPortrait ? 'pan-x' : 'pan-y' }}>
         {shown.length > 0 ? (
           shown.map(p => (
             <PieceThumb
@@ -138,6 +152,7 @@ export const JigsawTray = ({
               picture={picture}
               pictureRect={pictureRect}
               showOutlines={showOutlines}
+              isPortrait={isPortrait}
               onStart={onStartFromTray}
             />
           ))

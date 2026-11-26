@@ -7,6 +7,7 @@ import {
   bringToFront,
   canReturnToTray,
   isGroupSelected,
+  isTrayTap,
   moveGroup,
   panCamera,
   pieceAt,
@@ -18,6 +19,7 @@ import {
   shouldTapRotate,
   takeFromTray,
   TAP_MAX_MOVE,
+  trayDragAction,
   zoomCameraAt,
   type Camera,
   type Piece,
@@ -73,15 +75,9 @@ export const useTrayInteraction = (
         if (!canvas || scrolled) return;
         const dx = e.clientX - startX, dy = e.clientY - startY;
         if (!lifted) {
-          if (isTouch) {
-            const scrollMoved = isPortrait
-              ? Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)
-              : Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx);
-            if (scrollMoved) { scrolled = true; return; }
-            if (!(isPortrait ? dy < -12 : dx < -12)) return;
-          } else if (Math.hypot(dx, dy) <= 6) {
-            return;
-          }
+          const action = trayDragAction(isTouch, isPortrait, dx, dy);
+          if (action === 'scroll') { scrolled = true; return; }
+          if (action === 'wait') return;
           lifted = true;
           const pt = clientToBoard(canvas, e.clientX, e.clientY, layout.scale, camera);
           onSelect(id);
@@ -95,12 +91,12 @@ export const useTrayInteraction = (
         });
       };
 
-      const onEnd = (e: globalThis.PointerEvent) => {
+      const finish = (e: globalThis.PointerEvent, cancelled: boolean) => {
         window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onEnd);
-        window.removeEventListener('pointercancel', onEnd);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
         if (lifted) {
-          if (isInElement(trayRef.current, e.clientX, e.clientY)) {
+          if (!cancelled && isInElement(trayRef.current, e.clientX, e.clientY)) {
             onSelect(null);
             updatePieces(ps => returnToTray(ps, id));
           } else {
@@ -108,16 +104,19 @@ export const useTrayInteraction = (
           }
           return;
         }
-        if (!scrolled && Math.hypot(e.clientX - startX, e.clientY - startY) <= 8) {
+        if (isTrayTap(lifted, scrolled, cancelled, Math.hypot(e.clientX - startX, e.clientY - startY))) {
           const anchor = screenToWorld({ x: viewport.width / 2, y: viewport.height / 2 }, layout.scale, camera);
           onSelect(id);
           updatePieces(ps => takeFromTray(ps, id, popSpotOnBoard(ps, layout.board, anchor), layout.board));
         }
       };
 
+      const onUp = (e: globalThis.PointerEvent) => finish(e, false);
+      const onCancel = (e: globalThis.PointerEvent) => finish(e, true);
+
       window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onEnd);
-      window.addEventListener('pointercancel', onEnd);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
     },
     [canvasRef, trayRef, layout.scale, layout.board, viewport.width, viewport.height, camera, isPortrait, updatePieces, onSelect]
   );

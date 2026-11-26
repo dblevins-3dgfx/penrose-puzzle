@@ -51,4 +51,5 @@ Every pull request runs the type checker, the linter, the unit tests and the pro
 - `penrose-puzzle.tsx`: the React root, switching between the jigsaw and the sandbox
 - `ui/`: the React side. Sandbox: `Sandbox.tsx`, `draw.ts`, `Toolbar.tsx`. Jigsaw: `Jigsaw.tsx`, `jigsawDraw.ts`, `jigsawEffects.ts`, `jigsawSound.ts`, `useJigsawEffects.ts`, `JigsawToolbar.tsx`, `JigsawTray.tsx`, `ZoomControls.tsx`, `RotateControls.tsx`, `useJigsawPointers.ts`, `JigsawSettingsDialog.tsx`, `JigsawHelp.tsx`, `penrosePictureDraw.ts`, `defaultPicture.ts`. Shared: `ModeSwitch.tsx`, `useControls.ts` (keyboard and wheel), `useBoardSize.ts` (responsive canvas sizing), `HelpOverlay.tsx`. All of it calls `rules.ts`, `jigsaw.ts` and `penrosePicture.ts` for decisions
 - `untested-requirements.md`: spec rules that have no unit test, and why
-- `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point and Tailwind setup
+- `public/`: web app manifest (`manifest.webmanifest`) and Penrose sun Home Screen / favicon icons (`apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon.svg`)
+- `src/main.tsx`, `src/index.css`, `index.html`: Vite entry point, Tailwind / mobile gesture CSS, and iOS web-app metadata
