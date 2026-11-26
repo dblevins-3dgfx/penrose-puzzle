@@ -20,7 +20,9 @@ import {
   type Tile,
   type TileType
 } from '../rules';
-import { ZOOM_STEP } from '../jigsaw';
+import { ZOOM_STEP, type JigsawSettings } from '../jigsaw';
+import { formatDebugInfo } from '../debugInfo';
+import { collectDebugEnvironment } from './collectDebugEnv';
 import { HelpOverlay } from './HelpOverlay';
 import { RotateControls } from './RotateControls';
 import { SandboxSettingsDialog } from './SandboxSettingsDialog';
@@ -90,6 +92,27 @@ const useLooseTileKeys = (
   }, [enabled, canConfirm, onConfirm, onDiscard]);
 };
 
+const buildSandboxDebugInfo = (
+  counts: { kite: number; dart: number },
+  autoRotate: boolean,
+  hasLooseTile: boolean,
+  settings: JigsawSettings,
+  camera: SandboxCamera,
+  viewport: { width: number; height: number },
+  isPortrait: boolean,
+  dpr: number
+): string =>
+  formatDebugInfo({
+    mode: 'sandbox',
+    env: collectDebugEnvironment(viewport, isPortrait, dpr),
+    settings,
+    camera,
+    kites: counts.kite,
+    darts: counts.dart,
+    autoRotate,
+    hasLooseTile
+  });
+
 export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
@@ -147,9 +170,7 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const spawnTap = useCallback(
     (type: TileType, at: Point) => {
       setAutoChoice(0);
-      setLoose(prev =>
-        prev ? { ...prev, type } : { type, x: at.x, y: at.y, rotation: defaultRotation }
-      );
+      setLoose(prev => (prev ? { ...prev, type } : { type, x: at.x, y: at.y, rotation: defaultRotation }));
     },
     [defaultRotation]
   );
@@ -159,6 +180,10 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     setTiles([]);
     setLoose(null);
     setDefaultRotation(0);
+    setAutoChoice(0);
+  }, []);
+  const toggleAutoRotate = useCallback(() => {
+    setAutoRotate(a => !a);
     setAutoChoice(0);
   }, []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -190,10 +215,7 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
       <Toolbar
         modeSwitch={modeSwitch}
         autoRotate={autoRotate}
-        onToggleAutoRotate={() => {
-          setAutoRotate(a => !a);
-          setAutoChoice(0);
-        }}
+        onToggleAutoRotate={toggleAutoRotate}
         boardEmpty={tiles.length === 0}
         onUndo={undo}
         onClear={clearBoard}
@@ -226,27 +248,20 @@ export const Sandbox = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
             onReset={resetZoom}
           />
           {loose && (
-            <RotateControls
-              isPortrait={isPortrait}
-              onRotate={rotate}
-              onConfirm={confirmLoose}
-              canConfirm={!!preview?.valid}
-              onDiscard={discardLoose}
-            />
+            <RotateControls isPortrait={isPortrait} onRotate={rotate} onConfirm={confirmLoose} canConfirm={!!preview?.valid} onDiscard={discardLoose} />
           )}
         </div>
 
-        <SandboxTray
-          trayRef={trayRef}
-          activeType={loose?.type ?? null}
-          isPortrait={isPortrait}
-          dropHighlight={dropHighlight}
-          onStartFromTray={handleStartFromTray}
-        />
+        <SandboxTray trayRef={trayRef} activeType={loose?.type ?? null} isPortrait={isPortrait} dropHighlight={dropHighlight} onStartFromTray={handleStartFromTray} />
       </div>
 
       {showSettings && (
-        <SandboxSettingsDialog settings={settings} onChange={setSettings} onClose={closeSettings} />
+        <SandboxSettingsDialog
+          settings={settings}
+          onChange={setSettings}
+          getDebugInfo={() => buildSandboxDebugInfo(counts, autoRotate, loose !== null, settings, camera, viewport, isPortrait, dpr)}
+          onClose={closeSettings}
+        />
       )}
 
       {showHelp && <HelpOverlay isTouchDevice={isTouchDevice} onClose={closeHelp} />}

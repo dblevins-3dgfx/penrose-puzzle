@@ -1,12 +1,14 @@
 // The sandbox's Settings dialog (spec 6 & 8): Visual effects and Sound effects
 // switches, persisted alongside Jigsaw settings.
 import type { JigsawSettings } from '../jigsaw';
+import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
 import { playSound } from './jigsawSound';
 
 interface Props {
   settings: JigsawSettings;
   onChange: (settings: JigsawSettings) => void;
+  getDebugInfo: () => string;
   onClose: () => void;
 }
 
@@ -15,7 +17,7 @@ const SWITCHES: { key: 'effects' | 'sound'; label: string; detail: string }[] = 
   { key: 'sound', label: 'Sound effects', detail: 'Play a subtle synthesized chime when a tile locks into place' }
 ];
 
-export const SandboxSettingsDialog = ({ settings, onChange, onClose }: Props) => (
+export const SandboxSettingsDialog = ({ settings, onChange, getDebugInfo, onClose }: Props) => (
   <Overlay onClose={onClose} title="Settings">
     <div className="space-y-4">
       {SWITCHES.map(({ key, label, detail }) => (
@@ -39,6 +41,8 @@ export const SandboxSettingsDialog = ({ settings, onChange, onClose }: Props) =>
           />
         </label>
       ))}
+
+      <DebugInfoSection getDebugInfo={getDebugInfo} />
     </div>
   </Overlay>
 );
