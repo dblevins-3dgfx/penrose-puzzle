@@ -1,7 +1,7 @@
 // The jigsaw's single slim top bar: brand, mode switch, New puzzle, Picture,
 // Your picture, progress, Settings (which holds Puzzle size) and How to Play (spec 9).
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
-import { CircleHelp, ImagePlus, Settings, Shuffle } from 'lucide-react';
+import { CircleHelp, ImagePlus, Settings, Shuffle, Sparkles } from 'lucide-react';
 import { PICTURE_STYLES, type PictureStyle } from '../jigsaw';
 
 interface Props {
@@ -75,9 +75,14 @@ export const JigsawToolbar = (props: Props) => {
 
       <div className="flex items-center gap-2.5 sm:gap-3">
         <div
-          className={`text-xs sm:text-sm font-semibold whitespace-nowrap ${props.solved ? 'text-emerald-400' : 'text-slate-300'}`}
+          className={`text-xs sm:text-sm font-semibold whitespace-nowrap flex items-center gap-1.5 ${
+            props.solved
+              ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-400/40 px-2.5 py-0.5 rounded-full'
+              : 'text-slate-300'
+          }`}
           aria-live="polite"
         >
+          {props.solved && <Sparkles size={14} className="text-amber-300 shrink-0" />}
           {props.solved ? `Solved! All ${props.total} pieces in place` : `${props.placed} / ${props.total} placed`}
         </div>
         <button

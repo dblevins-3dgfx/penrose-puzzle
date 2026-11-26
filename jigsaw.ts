@@ -15,6 +15,7 @@ import {
   rotateBy,
   getVertices,
   sameEdge,
+  samePoint,
   edgesOf,
   toTriangles,
   type BoardSize,
@@ -794,6 +795,77 @@ export const progress = (pieces: readonly Piece[]) => ({
 });
 
 export const isSolved = (pieces: readonly Piece[]): boolean => pieces.length > 0 && pieces.every(p => p.locked);
+
+// True once the puzzle has at least one edge piece and every edge piece is locked.
+export const isBorderComplete = (pieces: readonly Piece[]): boolean => {
+  const edges = pieces.filter(isEdgePiece);
+  return edges.length > 0 && edges.every(p => p.locked);
+};
+
+export interface CelebrationEvents {
+  // Piece IDs that transitioned from unlocked to locked on this update
+  newlyLockedIds: number[];
+  // True on the exact update that completes the outer border (suppressed if
+  // that same update also solves the entire puzzle, so the solve finale wins)
+  borderCompleted: boolean;
+  // True on the exact update that solves the entire puzzle
+  puzzleSolved: boolean;
+}
+
+const NO_CELEBRATIONS: CelebrationEvents = {
+  newlyLockedIds: [],
+  borderCompleted: false,
+  puzzleSolved: false
+};
+
+// Detects celebratory milestones between two states of the same puzzle.
+// Returns no events if the puzzle was reset or replaced.
+export const detectCelebrations = (prev: readonly Piece[], next: readonly Piece[]): CelebrationEvents => {
+  if (prev.length === 0 || prev.length !== next.length) return NO_CELEBRATIONS;
+  const prevById = new Map<number, Piece>();
+  for (const p of prev) prevById.set(p.id, p);
+
+  const newlyLockedIds: number[] = [];
+  for (const p of next) {
+    const before = prevById.get(p.id);
+    if (!before || (before.locked && !p.locked)) return NO_CELEBRATIONS;
+    if (!before.locked && p.locked) newlyLockedIds.push(p.id);
+  }
+  if (newlyLockedIds.length === 0) return NO_CELEBRATIONS;
+
+  const puzzleSolved = !isSolved(prev) && isSolved(next);
+  const borderCompleted = !puzzleSolved && !isBorderComplete(prev) && isBorderComplete(next);
+  return { newlyLockedIds, borderCompleted, puzzleSolved };
+};
+
+// Traces the solved puzzle's outer border (and any hole borders) into ordered
+// closed vertex loops so visual effects can animate smoothly along the edge.
+export const orderedBorderLoops = (pieces: readonly Piece[]): Point[][] => {
+  interface Seg { a: Point; b: Point; used: boolean }
+  const segments: Seg[] = [];
+  for (const p of pieces) {
+    if (p.border.length === 0) continue;
+    const v = getVertices(p.home);
+    for (const k of p.border) segments.push({ a: v[k], b: v[(k + 1) % 4], used: false });
+  }
+
+  const loops: Point[][] = [];
+  for (const start of segments) {
+    if (start.used) continue;
+    start.used = true;
+    const loop: Point[] = [start.a, start.b];
+    let cur = start.b;
+    while (!samePoint(cur, start.a)) {
+      const next = segments.find(s => !s.used && (samePoint(s.a, cur) || samePoint(s.b, cur)));
+      if (!next) break;
+      next.used = true;
+      cur = samePoint(next.a, cur) ? next.b : next.a;
+      if (!samePoint(cur, start.a)) loop.push(cur);
+    }
+    if (loop.length >= 3) loops.push(loop);
+  }
+  return loops;
+};
 
 // ---------------------------------------------------------------------
 // The picture

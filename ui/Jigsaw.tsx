@@ -1,7 +1,8 @@
 // The jigsaw puzzle screen (spec 9). Every decision is made by jigsaw.ts;
 // this keeps the state, wires controls and pointer hooks, and lays out the
 // board alongside the scrollable piece tray.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Sparkles } from 'lucide-react';
 import type { Point } from '../rules';
 import {
   boundsOf,
@@ -28,7 +29,7 @@ import {
   type ViewportLayout
 } from '../jigsaw';
 import { makeDefaultPicture } from './defaultPicture';
-import { drawJigsaw, type Picture } from './jigsawDraw';
+import type { Picture } from './jigsawDraw';
 import { makePenrosePicture } from './penrosePictureDraw';
 import { JigsawHelp } from './JigsawHelp';
 import { JigsawSettingsDialog } from './JigsawSettingsDialog';
@@ -38,6 +39,7 @@ import { RotateControls } from './RotateControls';
 import { ZoomControls } from './ZoomControls';
 import { useBoardSize, useIsPortrait } from './useBoardSize';
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
+import { useJigsawRenderAndEffects } from './useJigsawEffects';
 import { useBoardPointers, useTrayInteraction } from './useJigsawPointers';
 
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
@@ -120,32 +122,16 @@ const useBoardCamera = (viewport: { width: number; height: number }) => {
   return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom };
 };
 
-const useCanvasRender = (
-  canvasRef: RefObject<HTMLCanvasElement | null>,
-  view: Parameters<typeof drawJigsaw>[1],
-  vpWidth: number,
-  vpHeight: number,
-  dpr: number,
-  layoutScale: number,
-  camera: Camera
-) => {
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    const backingW = Math.max(1, Math.round(vpWidth * dpr));
-    const backingH = Math.max(1, Math.round(vpHeight * dpr));
-    if (canvas.width !== backingW || canvas.height !== backingH) {
-      canvas.width = backingW;
-      canvas.height = backingH;
-    }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const s = layoutScale * camera.zoom * dpr;
-    ctx.setTransform(s, 0, 0, s, camera.panX * dpr, camera.panY * dpr);
-    drawJigsaw(ctx, view);
-  }, [canvasRef, view, vpWidth, vpHeight, dpr, layoutScale, camera]);
-};
+const BorderCompleteToast = () => (
+  <div
+    role="status"
+    aria-live="polite"
+    className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 bg-slate-900/90 text-amber-200 border border-amber-400/70 shadow-lg rounded-full px-3.5 py-1.5 text-sm font-semibold flex items-center gap-1.5 backdrop-blur-xs"
+  >
+    <Sparkles size={15} className="text-amber-300" />
+    Border complete!
+  </div>
+);
 
 export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -241,7 +227,10 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     () => ({ pieces, picture, settings, selectedId, board: layout.board }),
     [pieces, picture, settings, selectedId, layout.board]
   );
-  useCanvasRender(canvasRef, view, vpWidth, vpHeight, dpr, layout.scale, camera);
+  const puzzleKey = `${puzzle.seed}:${puzzle.size}`;
+  const { borderToast } = useJigsawRenderAndEffects(
+    canvasRef, view, puzzleKey, vpWidth, vpHeight, dpr, layout.scale, camera
+  );
 
   const selectedPiece = pieces.find(p => p.id === selectedId);
   const canRotate = !!selectedPiece && !selectedPiece.locked && !selectedPiece.inTray;
@@ -275,6 +264,7 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
           />
           <ZoomControls camera={camera} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
           {canRotate && <RotateControls onRotate={rotate} />}
+          {borderToast && <BorderCompleteToast />}
         </div>
 
         <JigsawTray
