@@ -28,6 +28,7 @@ import {
   isLegalPlacement,
   isOutsidePlayfield,
   isSandboxCameraDefault,
+  nextMeasuredSize,
   panSandboxCamera,
   removeLastTile,
   resolveSandboxTile,
@@ -563,4 +564,17 @@ test('connectedEdgesForTile returns only edges newly shared with matching colors
   assert.equal(edges.length, 1);
   const clash = tileWithVertexAt('dart', 288, 0, O);
   assert.equal(connectedEdgesForTile([kite], clash).length, 0);
+});
+
+test('nextMeasuredSize ignores hidden 0x0 measurements and preserves reference when unchanged', () => {
+  const initial = { width: 800, height: 600, dpr: 1, measured: false };
+  assert.equal(nextMeasuredSize(initial, { width: 0, height: 0 }, 2), initial, '0x0 hidden tab is ignored');
+
+  const measured = nextMeasuredSize(initial, { width: 390.4, height: 591.6 }, 3);
+  assert.deepEqual(measured, { width: 390, height: 592, dpr: 3, measured: true });
+  assert.equal(nextMeasuredSize(measured, { width: 390, height: 592 }, 3), measured, 'unchanged measurement keeps ref');
+  assert.equal(nextMeasuredSize(measured, { width: 0, height: 0 }, 3), measured, 'hiding an active tab preserves its size');
+
+  const rotated = nextMeasuredSize(measured, { width: 700, height: 340 }, 3);
+  assert.deepEqual(rotated, { width: 700, height: 340, dpr: 3, measured: true });
 });

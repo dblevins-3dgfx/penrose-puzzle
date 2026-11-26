@@ -125,6 +125,22 @@ export interface BoardSize {
   height: number;
 }
 
+export interface MeasuredSize extends BoardSize {
+  dpr: number;
+  measured: boolean;
+}
+
+// Updates a container's measured CSS pixel size while ignoring 0x0 readings
+// from hidden containers (e.g. an inactive mode tab with display: none) so
+// switching modes never collapses the canvas or crushes loose pieces.
+export const nextMeasuredSize = (prev: MeasuredSize, rect: BoardSize, dpr: number): MeasuredSize => {
+  const width = Math.round(rect.width);
+  const height = Math.round(rect.height);
+  if (width < 1 || height < 1) return prev;
+  if (prev.measured && prev.width === width && prev.height === height && prev.dpr === dpr) return prev;
+  return { width, height, dpr, measured: true };
+};
+
 export const DEFAULT_BOARD: BoardSize = { width: BOARD_W, height: BOARD_H };
 
 // Rule 4: true if any vertex lies outside the playfield (0.5 px tolerance).

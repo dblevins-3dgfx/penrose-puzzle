@@ -1,12 +1,9 @@
 // Measures the board container's CSS pixel dimensions and devicePixelRatio
 // so canvases can fill the entire available viewport crisply on any screen.
 import { useEffect, useState, type RefObject } from 'react';
-import { BOARD_H, BOARD_W, type BoardSize } from '../rules';
+import { BOARD_H, BOARD_W, nextMeasuredSize, type MeasuredSize } from '../rules';
 
-export interface MeasuredBoard extends BoardSize {
-  dpr: number;
-  measured: boolean;
-}
+export type MeasuredBoard = MeasuredSize;
 
 const readDpr = () => (typeof window !== 'undefined' ? Math.max(1, window.devicePixelRatio || 1) : 1);
 const readPortrait = () => {
@@ -62,14 +59,7 @@ export const useBoardSize = (ref: RefObject<HTMLDivElement | null>): MeasuredBoa
 
     const update = () => {
       const rect = el.getBoundingClientRect();
-      const width = Math.max(1, Math.round(rect.width));
-      const height = Math.max(1, Math.round(rect.height));
-      const dpr = readDpr();
-      setSize(prev =>
-        prev.measured && prev.width === width && prev.height === height && prev.dpr === dpr
-          ? prev
-          : { width, height, dpr, measured: true }
-      );
+      setSize(prev => nextMeasuredSize(prev, { width: rect.width, height: rect.height }, readDpr()));
     };
 
     update();

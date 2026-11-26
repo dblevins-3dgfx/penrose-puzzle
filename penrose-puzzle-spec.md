@@ -4,7 +4,7 @@ Status: reflects the app as currently implemented. The rules (sections 3 to 6, i
 
 ## 1. Overview
 
-A single-player puzzle app played with Penrose kite and dart tiles. It has two modes, switched with the **Jigsaw / Sandbox** tabs in the header (the page opens on Jigsaw; the choice isn't saved, and each mode keeps its state only while it is shown):
+A single-player puzzle app played with Penrose kite and dart tiles. It has two modes, switched with the **Jigsaw / Sandbox** tabs in the header (the page opens on Jigsaw; the active tab isn't saved on reload, and switching between Jigsaw and Sandbox preserves each mode's full board state, camera, and settings for the session):
 
 - **Jigsaw** (section 9): a picture is laid over a patch of a real Penrose tiling and broken up into its kites and darts; the player puts it back together.
 - **Sandbox** (sections 4 to 8): the player builds a structure one tile at a time. Every placement must obey Penrose's matching rules, so the structure stays a valid (locally) Penrose arrangement. There is no goal, score or end.

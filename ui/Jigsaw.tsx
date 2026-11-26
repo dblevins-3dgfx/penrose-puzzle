@@ -1,7 +1,7 @@
 // The jigsaw puzzle screen (spec 9). Every decision is made by jigsaw.ts;
 // this keeps the state, wires controls and pointer hooks, and lays out the
 // board alongside the scrollable piece tray.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { Point } from '../rules';
 import {
@@ -43,7 +43,6 @@ import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoard
 import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
 import { useJigsawRenderAndEffects } from './useJigsawEffects';
 import { useBoardPointers, useTrayInteraction } from './useJigsawPointers';
-import { useSharedSettings } from './useSharedSettings';
 
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
@@ -199,7 +198,14 @@ const buildJigsawDebugInfo = (
   });
 };
 
-export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
+interface JigsawProps {
+  modeSwitch: ReactNode;
+  active: boolean;
+  settings: JigsawSettings;
+  onChangeSettings: Dispatch<SetStateAction<JigsawSettings>>;
+}
+
+export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: JigsawProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -207,7 +213,6 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
   const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
-  const [settings, setSettings] = useSharedSettings();
   const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
     makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
   );
@@ -279,8 +284,8 @@ export const Jigsaw = ({ modeSwitch }: { modeSwitch: ReactNode }) => {
     },
     [selectedId, updatePieces]
   );
-  useKeyboardControls(rotate, noUndo);
-  useZoomKeys(zoomIn, zoomOut, resetZoom);
+  useKeyboardControls(rotate, noUndo, active);
+  useZoomKeys(zoomIn, zoomOut, resetZoom, active);
   useWheelRotation(canvasRef, rotate, zoomAt);
   usePreventSafariGesture(canvasRef);
   const closeHelp = useCallback(() => setShowHelp(false), []);
