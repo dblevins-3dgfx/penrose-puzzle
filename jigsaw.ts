@@ -131,8 +131,22 @@ export const generatePatch = (depth: number): Tile[] => {
 // Choosing the puzzle
 // ---------------------------------------------------------------------
 
-export type PuzzleSize = 'small' | 'medium' | 'large';
-export const PIECE_COUNTS: Record<PuzzleSize, number> = { small: 12, medium: 24, large: 40 };
+export type PuzzleSize = 'small' | 'medium' | 'large' | 'xl' | 'giant';
+export const PUZZLE_SIZES: readonly PuzzleSize[] = ['small', 'medium', 'large', 'xl', 'giant'];
+export const PIECE_COUNTS: Record<PuzzleSize, number> = {
+  small: 12,
+  medium: 24,
+  large: 40,
+  xl: 60,
+  giant: 100
+};
+
+// Steps through PUZZLE_SIZES by `delta` (+1 next, -1 previous), wrapping cyclically.
+export const stepPuzzleSize = (current: PuzzleSize, delta: number): PuzzleSize => {
+  const i = PUZZLE_SIZES.indexOf(current);
+  const n = PUZZLE_SIZES.length;
+  return PUZZLE_SIZES[((((i < 0 ? 0 : i) + delta) % n) + n) % n];
+};
 
 // Where the solved puzzle sits: centered here, on the left of the board,
 // leaving the right side and the margins for the loose pieces.
@@ -195,7 +209,7 @@ export interface ViewportLayout {
 }
 
 const FRAME_PAD = 20;
-const MIN_SCALE = 0.45;
+const MIN_SCALE = 0.25;
 const MAX_SCALE = 3.0;
 
 export const computeViewportLayout = (

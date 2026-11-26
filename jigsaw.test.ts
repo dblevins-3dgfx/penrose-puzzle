@@ -5,6 +5,7 @@ import {
   FRAME_CENTER,
   LOCK_RADIUS,
   PIECE_COUNTS,
+  PUZZLE_SIZES,
   borderEdges,
   boundsOf,
   bringToFront,
@@ -65,6 +66,7 @@ import {
   shareEdge,
   solvedTiling,
   soundCueFor,
+  stepPuzzleSize,
   tileFromVertices,
   transformPoint,
   type Piece
@@ -544,11 +546,23 @@ test('saved settings are read back as they were saved', () => {
     DEFAULT_SETTINGS,
     { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, effects: false, sound: true },
     { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, effects: true, sound: false },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'medium' as const, effects: false, sound: false }
+    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'xl' as const, effects: false, sound: false },
+    { showPicture: false, showOutlines: false, picture: 'subdivided' as const, size: 'giant' as const, effects: true, sound: true }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
   }
+});
+
+test('stepPuzzleSize cycles through Small, Medium, Large, XL, Giant in both directions', () => {
+  assert.deepEqual(PUZZLE_SIZES, ['small', 'medium', 'large', 'xl', 'giant']);
+  assert.equal(stepPuzzleSize('small', 1), 'medium');
+  assert.equal(stepPuzzleSize('medium', 1), 'large');
+  assert.equal(stepPuzzleSize('large', 1), 'xl');
+  assert.equal(stepPuzzleSize('xl', 1), 'giant');
+  assert.equal(stepPuzzleSize('giant', 1), 'small', 'wraps forward from Giant to Small');
+  assert.equal(stepPuzzleSize('small', -1), 'giant', 'wraps backward from Small to Giant');
+  assert.equal(stepPuzzleSize('giant', -1), 'xl');
 });
 
 test('nothing saved, or something unreadable, gives the defaults', () => {
@@ -625,10 +639,11 @@ test('viewport layout centers the puzzle in both orientations and scales smaller
 test('newPuzzleForViewport centers solved homes inside the board and starts every piece in the tray', () => {
   const viewports = [
     { width: 1264, height: 840 },
-    { width: 390, height: 590 }
+    { width: 390, height: 590 },
+    { width: 500, height: 320 }
   ];
   for (const vp of viewports) {
-    for (const size of ['small', 'medium', 'large'] as const) {
+    for (const size of PUZZLE_SIZES) {
       const { pieces, layout } = newPuzzleForViewport(size, 17, vp);
       assert.equal(pieces.length, PIECE_COUNTS[size]);
       const box = boundsOf(pieces.map(p => p.home));
