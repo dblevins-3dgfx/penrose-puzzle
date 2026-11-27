@@ -8,10 +8,8 @@
 
 import {
   DEFAULT_BOARD,
-  PHI,
   ROTATION_STEP,
   TILE_SIZE,
-  centroidOf,
   rotateBy,
   getVertices,
   pointInTile,
@@ -20,10 +18,10 @@ import {
   edgesOf,
   type BoardSize,
   type Point,
-  type Tile,
-  type TileType
+  type Tile
 } from './rules';
 import { TAP_MAX_MOVE } from './gestures';
+import { generatePatch } from './penroseTiling';
 import { PIECE_COUNTS, type PuzzleSize, type SoundCue } from './settings';
 
 // ---------------------------------------------------------------------
@@ -40,107 +38,6 @@ export const seededRandom = (seed: number): (() => number) => {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-};
-
-// ---------------------------------------------------------------------
-// The solved tiling
-//
-// Built by repeatedly subdividing ("deflating") Robinson half-tiles,
-// starting from a sun of five kites. Each half-kite splits into two
-// half-kites and a half-dart, and each half-dart into a half-kite and a
-// half-dart, every piece shrinking by the golden ratio. Mirror-image halves
-// that share their axis edge are then joined into whole kites and darts.
-// The result is a correct Penrose tiling by construction. (Ported from
-// Penrogo's penrose-board.ts.)
-//
-// Half-tiles are [type, apex, axisEnd, side]:
-//   half-kite: apex = kite tip O (72°), axisEnd = C (144°), side = B or D
-//   half-dart: apex = reflex vertex A' (216°), axisEnd = tip M, side = N or N'
-// ---------------------------------------------------------------------
-
-type HalfType = 'kite' | 'dart';
-type Half = [HalfType, Point, Point, Point];
-
-const lerp = (p: Point, q: Point, t: number): Point => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
-
-const deflate = (halves: Half[]): Half[] =>
-  halves.flatMap(([type, apex, axisEnd, side]): Half[] => {
-    if (type === 'kite') {
-      const P = lerp(apex, axisEnd, 1 / PHI);
-      const Q = lerp(side, apex, 1 / PHI);
-      return [['kite', side, P, axisEnd], ['kite', side, P, Q], ['dart', Q, apex, P]];
-    }
-    const P = lerp(axisEnd, side, 1 / PHI);
-    return [['kite', axisEnd, apex, P], ['dart', P, side, apex]];
-  });
-
-// Sun of five kites (ten half-kites) around the origin, tips at the center.
-const sun = (radius: number): Half[] => {
-  const halves: Half[] = [];
-  const d = (36 * Math.PI) / 180;
-  for (let k = 0; k < 5; k++) {
-    const a = (k * 72 * Math.PI) / 180;
-    const C = { x: radius * Math.cos(a), y: radius * Math.sin(a) };
-    for (const s of [a + d, a - d]) {
-      halves.push(['kite', { x: 0, y: 0 }, C, { x: radius * Math.cos(s), y: radius * Math.sin(s) }]);
-    }
-  }
-  return halves;
-};
-
-// Star of five darts (ten half-darts) around the origin, tips at the center.
-const star = (radius: number): Half[] => {
-  const halves: Half[] = [];
-  const d = (36 * Math.PI) / 180;
-  for (let k = 0; k < 5; k++) {
-    const a = (k * 72 * Math.PI) / 180;
-    const apex = { x: (radius / PHI) * Math.cos(a), y: (radius / PHI) * Math.sin(a) };
-    for (const s of [a + d, a - d]) {
-      halves.push(['dart', apex, { x: 0, y: 0 }, { x: radius * Math.cos(s), y: radius * Math.sin(s) }]);
-    }
-  }
-  return halves;
-};
-
-const pointKey = (p: Point) => `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
-
-// A whole tile as this game stores it: its type, centroid and the angle of
-// its axis (vertex 0 to vertex 2), which is always a multiple of 36°.
-export const tileFromVertices = (type: TileType, verts: Point[]): Tile => {
-  const c = centroidOf(verts);
-  const angle = (Math.atan2(verts[2].y - verts[0].y, verts[2].x - verts[0].x) * 180) / Math.PI;
-  const rotation = ((Math.round(angle / ROTATION_STEP) * ROTATION_STEP) % 360 + 360) % 360;
-  return { type, x: c.x, y: c.y, rotation };
-};
-
-// Joins mirror halves into whole tiles. Halves at the patch edge whose
-// mirror was cut off are dropped.
-const joinHalves = (halves: Half[]): Tile[] => {
-  const byAxis = new Map<string, Half[]>();
-  for (const h of halves) {
-    const k = `${h[0]}|${pointKey(h[1])}|${pointKey(h[2])}`;
-    const pair = byAxis.get(k);
-    if (pair) pair.push(h);
-    else byAxis.set(k, [h]);
-  }
-
-  const tiles: Tile[] = [];
-  for (const pair of byAxis.values()) {
-    if (pair.length !== 2) continue;
-    const [[type, apex, axisEnd, s1], [, , , s2]] = pair;
-    tiles.push(type === 'kite'
-      ? tileFromVertices('kite', [apex, s1, axisEnd, s2])
-      : tileFromVertices('dart', [axisEnd, s1, apex, s2]));
-  }
-  return tiles;
-};
-
-// A patch of the tiling around the origin, with long edges TILE_SIZE,
-// covering a disc of radius about TILE_SIZE * PHI ** depth.
-export const generatePatch = (depth: number, seedShape: 'sun' | 'star' = 'sun'): Tile[] => {
-  let halves = (seedShape === 'star' ? star : sun)(TILE_SIZE * PHI ** depth);
-  for (let i = 0; i < depth; i++) halves = deflate(halves);
-  return joinHalves(halves);
 };
 
 // ---------------------------------------------------------------------
