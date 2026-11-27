@@ -5,10 +5,10 @@
 import { PHI, TILE_SIZE, centroidOf, getVertices, type Point, type Tile } from './rules';
 import { deflateNTimes, joinToTiling, splitTile, sunHalves, type TilingTile } from './penroseTiling';
 import { boundsOf, seededRandom } from './jigsaw';
-import type { PictureStyle } from './settings';
 
 export type { TilingTile };
-export type PenrosePictureStyle = Exclude<PictureStyle, 'sunset'>;
+export type PenrosePictureStyle = 'subdivided' | 'matching' | 'independent';
+export const PENROSE_PICTURE_STYLES: readonly PenrosePictureStyle[] = ['subdivided', 'matching', 'independent'];
 export type RGB = [number, number, number];
 export type GradientKind = 'bilinear' | 'conic';
 

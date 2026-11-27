@@ -15,6 +15,7 @@ import { boundsOf, newPuzzle } from './jigsaw';
 import {
   INDEPENDENT_TILE_SIZE,
   PENROSE_PALETTES,
+  PENROSE_PICTURE_STYLES,
   PENROSE_TILING_GENERATORS,
   SUBDIVIDE_DEPTH,
   arcsForTile,
@@ -30,7 +31,6 @@ import {
   type RGB,
   type TilingTile
 } from './penrosePicture';
-import { PICTURE_STYLES } from './settings';
 
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const near = (actual: number, expected: number, eps = 1e-6, msg?: string) =>
@@ -281,8 +281,7 @@ test('independent tiling covers the puzzle box, is deterministic per seed, and h
 });
 
 test('pictureTiles dispatches each Penrose picture style', () => {
-  const penroseStyles = PICTURE_STYLES.filter(s => s !== 'sunset');
-  assert.deepEqual(Object.keys(PENROSE_TILING_GENERATORS).sort(), [...penroseStyles].sort());
+  assert.deepEqual(Object.keys(PENROSE_TILING_GENERATORS).sort(), [...PENROSE_PICTURE_STYLES].sort());
 
   const homes = newPuzzle('small', 3).map(p => p.home);
   assert.equal(pictureTiles('matching', homes, 3).length, homes.length);

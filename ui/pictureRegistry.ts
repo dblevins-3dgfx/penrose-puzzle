@@ -8,6 +8,7 @@ import { PICTURE_STYLES, type PictureStyle } from '../settings';
 import { makeDefaultPicture } from './defaultPicture';
 import type { Picture } from './jigsawDraw';
 import { makePenrosePicture } from './penrosePictureDraw';
+import { makeTopographicPicture } from './topographicPictureDraw';
 
 export interface PictureRenderContext {
   homes: readonly Tile[];
@@ -40,6 +41,11 @@ export const PICTURE_REGISTRY: Record<PictureStyle, PictureProvider> = {
   subdivided: penroseProvider('subdivided', 'Penrose (Subdivided)'),
   matching: penroseProvider('matching', 'Penrose (Matching)'),
   independent: penroseProvider('independent', 'Penrose (Independent)'),
+  topographic: {
+    id: 'topographic',
+    label: 'Topographic Map',
+    render: ({ seed }) => makeTopographicPicture(seed)
+  },
   sunset: {
     id: 'sunset',
     label: 'Sunset',
