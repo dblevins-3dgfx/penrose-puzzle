@@ -1,18 +1,29 @@
-// The sandbox's Settings dialog (spec 6 & 8): Visual effects and Sound effects
-// switches, persisted alongside Jigsaw settings.
-import type { SharedSettings } from '../settings';
+// The sandbox's Settings dialog (spec 6, 7 & 8): tile indicator switches
+// (Vertex dots, Matching arcs) plus Visual effects and Sound effects,
+// persisted alongside Jigsaw settings.
+import type { SandboxSettings } from '../settings';
 import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
 import { playSound } from './sound';
 
 interface Props {
-  settings: SharedSettings;
-  onChange: (patch: Partial<SharedSettings>) => void;
+  settings: SandboxSettings;
+  onChange: (patch: Partial<SandboxSettings>) => void;
   getDebugInfo: () => string;
   onClose: () => void;
 }
 
-const SWITCHES: { key: keyof SharedSettings; label: string; detail: string }[] = [
+const SWITCHES: { key: keyof SandboxSettings; label: string; detail: string }[] = [
+  {
+    key: 'vertexDots',
+    label: 'Vertex dots',
+    detail: 'Show black and white corner dots indicating Penrose vertex matching colors'
+  },
+  {
+    key: 'matchingArcs',
+    label: 'Matching arcs',
+    detail: 'Show Conway circular matching arcs across tile edges (hides midpoint edge ticks)'
+  },
   {
     key: 'effects',
     label: 'Visual effects',

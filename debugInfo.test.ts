@@ -71,5 +71,5 @@ test('formatDebugInfo formats Sandbox state and handles missing visualViewport c
   assert.match(out, /visual=n\/a/);
   assert.match(out, /camera: zoom=0\.5, pan=\(120, 40\)/);
   assert.match(out, /sandbox: kites=6, darts=4, autoRotate=true, looseTile=true/);
-  assert.match(out, /settings: effects=true, sound=false/);
+  assert.match(out, /settings: vertexDots=true, matchingArcs=false, effects=true, sound=false/);
 });

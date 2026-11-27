@@ -238,7 +238,7 @@ const computePictureRect = (picture: Picture, pieces: readonly Piece[]) =>
 
 const useJigsawSession = (
   settings: JigsawSettings,
-  setSettings: Dispatch<SetStateAction<JigsawSettings>>,
+  patchSettings: (patch: Partial<JigsawSettings>) => void,
   vpWidth: number,
   vpHeight: number,
   measured: boolean,
@@ -268,12 +268,12 @@ const useJigsawSession = (
   }, []);
 
   const changeSize = (s: PuzzleSize) => {
-    setSettings(prev => ({ ...prev, size: s }));
+    patchSettings({ size: s });
     if (s !== puzzle.size) startPuzzle(s, settings.symmetric);
   };
 
   const changeSymmetric = (sym: boolean) => {
-    setSettings(prev => ({ ...prev, symmetric: sym }));
+    patchSettings({ symmetric: sym });
     if (sym !== puzzle.symmetric) startPuzzle(puzzle.size, sym);
   };
 
@@ -308,10 +308,10 @@ interface JigsawProps {
   modeSwitch: ReactNode;
   active: boolean;
   settings: JigsawSettings;
-  onChangeSettings: Dispatch<SetStateAction<JigsawSettings>>;
+  onChangeSettings: (patch: Partial<JigsawSettings>) => void;
 }
 
-export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: JigsawProps) => {
+export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: patchSettings }: JigsawProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -320,7 +320,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
   const cam = useBoardCamera(viewport, settings.effects);
-  const session = useJigsawSession(settings, setSettings, vpWidth, vpHeight, measured, cam);
+  const session = useJigsawSession(settings, patchSettings, vpWidth, vpHeight, measured, cam);
   const { puzzle, selectedId } = session;
   const { size, pieces, layout, trayFilter } = puzzle;
 
@@ -338,7 +338,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
 
   const selectPicture = (style: PictureStyle) => {
     pic.clearCustom();
-    setSettings(s => ({ ...s, picture: style }));
+    patchSettings({ picture: style });
   };
 
   const handleStartFromTray = useTrayInteraction(
@@ -447,7 +447,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
       {overlay === 'settings' && (
         <JigsawSettingsDialog
           settings={settings}
-          onChange={setSettings}
+          onChange={patchSettings}
           onChangeSize={session.changeSize}
           onChangeSymmetric={session.changeSymmetric}
           getDebugInfo={() =>

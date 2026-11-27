@@ -1,5 +1,5 @@
 // Canvas drawing for the board (spec 7). No rules are decided here: what
-// to draw comes from rules.ts.
+// to draw comes from rules.ts, settings.ts, and penrosePicture.ts.
 import {
   DEFAULT_BOARD,
   findConnectedEdges,
@@ -10,12 +10,20 @@ import {
   type Point,
   type Tile
 } from '../rules';
+import { arcsForTile, type CircularArc } from '../penrosePicture';
+import { DEFAULT_SANDBOX_INDICATORS, sandboxTileDecorations, type SandboxTileIndicators } from '../settings';
 
 // Tile fills: kites and darts get their own colors so the pattern reads.
 const TILE_STYLE = {
   kite: { fill: 'rgba(245, 158, 11, 0.65)', stroke: '#92400e' },
   dart: { fill: 'rgba(99, 102, 241, 0.65)', stroke: '#3730a3' }
 };
+
+const ARC_CASING = 'rgba(15, 23, 42, 0.78)';
+const PRIMARY_ARC_COLOR = '#fef08a'; // warm gold (meets across long edges)
+const SECONDARY_ARC_COLOR = '#67e8f9'; // aqua cyan (meets across short edges)
+const ARC_CASING_WIDTH = 7;
+const ARC_STROKE_WIDTH = 3.6;
 
 const GRID_SPACING = 40;
 
@@ -43,7 +51,8 @@ const drawGrid = (ctx: CanvasRenderingContext2D, board: BoardSize) => {
   }
 };
 
-// Small tick marks at each edge midpoint (visual texture only)
+// Small tick marks at each edge midpoint (visual texture only; hidden when
+// Conway matching arcs are enabled)
 const drawEdgeTicks = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
   ctx.strokeStyle = '#000';
   ctx.lineWidth = 1;
@@ -59,6 +68,29 @@ const drawEdgeTicks = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
     ctx.lineTo(midX + (dx / len) * 3, midY + (dy / len) * 3);
     ctx.stroke();
   });
+};
+
+const strokeCircularArc = (ctx: CanvasRenderingContext2D, arc: CircularArc, color: string, width: number) => {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(arc.center.x, arc.center.y, arc.radius, arc.startAngle, arc.endAngle, arc.anticlockwise);
+  ctx.stroke();
+};
+
+// Conway's two-family circular matching arcs clipped cleanly inside the tile
+// polygon. Casings are stroked first so tangent arcs never cut each other.
+const drawMatchingArcs = (ctx: CanvasRenderingContext2D, tile: Tile, vertices: Point[]) => {
+  const [primary, secondary] = arcsForTile(tile);
+  ctx.save();
+  tracePolygon(ctx, vertices);
+  ctx.clip();
+  strokeCircularArc(ctx, primary, ARC_CASING, ARC_CASING_WIDTH);
+  strokeCircularArc(ctx, secondary, ARC_CASING, ARC_CASING_WIDTH);
+  strokeCircularArc(ctx, primary, PRIMARY_ARC_COLOR, ARC_STROKE_WIDTH);
+  strokeCircularArc(ctx, secondary, SECONDARY_ARC_COLOR, ARC_STROKE_WIDTH);
+  ctx.restore();
 };
 
 // Vertex colors (the Penrose matching labels): filled dots with a
@@ -77,19 +109,28 @@ const drawVertexDots = (ctx: CanvasRenderingContext2D, tile: Tile, vertices: Poi
   });
 };
 
-export const drawTile = (ctx: CanvasRenderingContext2D, tile: Tile) => {
+export const drawTile = (
+  ctx: CanvasRenderingContext2D,
+  tile: Tile,
+  indicators: SandboxTileIndicators = DEFAULT_SANDBOX_INDICATORS
+) => {
   const vertices = getVertices(tile);
   const style = TILE_STYLE[tile.type];
+  const decorations = sandboxTileDecorations(indicators);
 
   tracePolygon(ctx, vertices);
   ctx.fillStyle = style.fill;
   ctx.fill();
+
+  if (decorations.matchingArcs) drawMatchingArcs(ctx, tile, vertices);
+
+  tracePolygon(ctx, vertices);
   ctx.strokeStyle = style.stroke;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawEdgeTicks(ctx, vertices);
-  drawVertexDots(ctx, tile, vertices);
+  if (decorations.edgeTicks) drawEdgeTicks(ctx, vertices);
+  if (decorations.vertexDots) drawVertexDots(ctx, tile, vertices);
 };
 
 // Edges shared by two placed tiles with agreeing colors, in green
@@ -110,7 +151,13 @@ const drawConnectedEdges = (ctx: CanvasRenderingContext2D, tiles: Tile[]) => {
 // The loose tile being dragged or adjusted: casts a soft shadow (matching
 // Jigsaw), drawn translucent and outlined solid green when legal or dashed
 // red when illegal, with a thick red world border when any corner is off-board.
-const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean, board: BoardSize) => {
+const drawPreview = (
+  ctx: CanvasRenderingContext2D,
+  tile: Tile,
+  valid: boolean,
+  board: BoardSize,
+  indicators: SandboxTileIndicators
+) => {
   const vertices = getVertices(tile);
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
@@ -122,7 +169,7 @@ const drawPreview = (ctx: CanvasRenderingContext2D, tile: Tile, valid: boolean, 
 
   ctx.save();
   ctx.globalAlpha = 0.72;
-  drawTile(ctx, tile);
+  drawTile(ctx, tile, indicators);
   ctx.restore();
 
   ctx.save();
@@ -151,7 +198,8 @@ export const drawBoard = (
   ctx: CanvasRenderingContext2D,
   tiles: Tile[],
   preview: Preview | null,
-  board: BoardSize = DEFAULT_BOARD
+  board: BoardSize = DEFAULT_BOARD,
+  indicators: SandboxTileIndicators = DEFAULT_SANDBOX_INDICATORS
 ) => {
   // White world playfield sheet with subtle perimeter frame (so zooming out
   // clearly shows the bounds of the generous Sandbox canvas)
@@ -164,18 +212,23 @@ export const drawBoard = (
   ctx.strokeRect(1, 1, board.width - 2, board.height - 2);
   ctx.restore();
 
-  tiles.forEach(tile => drawTile(ctx, tile));
+  tiles.forEach(tile => drawTile(ctx, tile, indicators));
   drawConnectedEdges(ctx, tiles);
-  if (preview) drawPreview(ctx, preview.tile, preview.valid, board);
+  if (preview) drawPreview(ctx, preview.tile, preview.valid, board, indicators);
 };
 
 // Draws a single Kite or Dart centered inside a square `size x size` tray icon.
-export const drawSandboxTileThumb = (ctx: CanvasRenderingContext2D, type: Tile['type'], size: number) => {
+export const drawSandboxTileThumb = (
+  ctx: CanvasRenderingContext2D,
+  type: Tile['type'],
+  size: number,
+  indicators: SandboxTileIndicators = DEFAULT_SANDBOX_INDICATORS
+) => {
   ctx.clearRect(0, 0, size, size);
   const scale = size / 108;
   ctx.save();
   ctx.translate(size / 2, size / 2);
   ctx.scale(scale, scale);
-  drawTile(ctx, { type, x: 0, y: 0, rotation: 270 });
+  drawTile(ctx, { type, x: 0, y: 0, rotation: 270 }, indicators);
   ctx.restore();
 };

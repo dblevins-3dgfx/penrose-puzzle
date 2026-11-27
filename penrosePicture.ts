@@ -221,16 +221,20 @@ export const tileArcs = (tile: TilingTile): [CircularArc, CircularArc] => {
   ];
 };
 
+const toTilingTile = (tile: Tile): TilingTile => {
+  const [v0, v1, v2, v3] = getVertices(tile);
+  return { type: tile.type, vertices: [v0, v1, v2, v3], longEdge: TILE_SIZE };
+};
+
+// Conway's circular matching arcs for a single board Tile (used by Sandbox).
+export const arcsForTile = (tile: Tile): [CircularArc, CircularArc] => tileArcs(toTilingTile(tile));
+
 // ---------------------------------------------------------------------
 // The three Penrose tiling pictures
 // ---------------------------------------------------------------------
 
 // 1. Matching tiling: aligns 1:1 with the puzzle's solved tiles.
-export const matchingTiling = (homes: readonly Tile[]): TilingTile[] =>
-  homes.map(h => {
-    const [v0, v1, v2, v3] = getVertices(h);
-    return { type: h.type, vertices: [v0, v1, v2, v3], longEdge: TILE_SIZE };
-  });
+export const matchingTiling = (homes: readonly Tile[]): TilingTile[] => homes.map(toTilingTile);
 
 // 2. Subdivided tiling: deflates the puzzle's tiles `depth` times (default 2).
 // Boundary halves are completed by reflection so child tiles straddling the

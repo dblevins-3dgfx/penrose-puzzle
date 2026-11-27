@@ -1,8 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SETTINGS, PUZZLE_SIZES, parseSettings, serializeSettings, stepPuzzleSize } from './settings';
+import {
+  DEFAULT_SETTINGS,
+  PUZZLE_SIZES,
+  parseSettings,
+  sandboxTileDecorations,
+  serializeSettings,
+  stepPuzzleSize
+} from './settings';
 
-test('by default the picture is hidden, tile outlines, symmetric layout, and effects are on, picture is subdivided, size is medium, and sound is off', () => {
+test('by default the picture is hidden, tile outlines, symmetric layout, effects, and vertex dots are on, picture is subdivided, size is medium, and sound and matching arcs are off', () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
     showPicture: false,
     showOutlines: true,
@@ -10,7 +17,9 @@ test('by default the picture is hidden, tile outlines, symmetric layout, and eff
     size: 'medium',
     symmetric: true,
     effects: true,
-    sound: false
+    sound: false,
+    vertexDots: true,
+    matchingArcs: false
   });
 });
 
@@ -24,7 +33,9 @@ test('saved settings are read back as they were saved', () => {
       size: 'small' as const,
       symmetric: true,
       effects: false,
-      sound: true
+      sound: true,
+      vertexDots: false,
+      matchingArcs: true
     },
     {
       showPicture: false,
@@ -33,7 +44,9 @@ test('saved settings are read back as they were saved', () => {
       size: 'large' as const,
       symmetric: false,
       effects: true,
-      sound: false
+      sound: false,
+      vertexDots: true,
+      matchingArcs: true
     },
     {
       showPicture: true,
@@ -42,7 +55,9 @@ test('saved settings are read back as they were saved', () => {
       size: 'xl' as const,
       symmetric: true,
       effects: false,
-      sound: false
+      sound: false,
+      vertexDots: false,
+      matchingArcs: false
     },
     {
       showPicture: false,
@@ -51,7 +66,9 @@ test('saved settings are read back as they were saved', () => {
       size: 'giant' as const,
       symmetric: true,
       effects: true,
-      sound: true
+      sound: true,
+      vertexDots: true,
+      matchingArcs: false
     }
   ];
   for (const settings of cases) {
@@ -87,11 +104,13 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
     size: 'medium',
     symmetric: true,
     effects: true,
-    sound: false
+    sound: false,
+    vertexDots: true,
+    matchingArcs: false
   });
   assert.deepEqual(
     parseSettings(
-      '{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": false, "effects": false, "sound": true}'
+      '{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": false, "effects": false, "sound": true, "vertexDots": false, "matchingArcs": true}'
     ),
     {
       showPicture: false,
@@ -100,13 +119,38 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
       size: 'large',
       symmetric: false,
       effects: false,
-      sound: true
+      sound: true,
+      vertexDots: false,
+      matchingArcs: true
     }
   );
   assert.deepEqual(
     parseSettings(
-      '{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "volume": 11}'
+      '{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "vertexDots": "off", "matchingArcs": 1, "volume": 11}'
     ),
     DEFAULT_SETTINGS
   );
+});
+
+test('sandboxTileDecorations hides edge ticks when matching arcs are enabled and keeps vertex dots independent', () => {
+  assert.deepEqual(sandboxTileDecorations({ vertexDots: true, matchingArcs: false }), {
+    edgeTicks: true,
+    vertexDots: true,
+    matchingArcs: false
+  });
+  assert.deepEqual(sandboxTileDecorations({ vertexDots: true, matchingArcs: true }), {
+    edgeTicks: false,
+    vertexDots: true,
+    matchingArcs: true
+  });
+  assert.deepEqual(sandboxTileDecorations({ vertexDots: false, matchingArcs: true }), {
+    edgeTicks: false,
+    vertexDots: false,
+    matchingArcs: true
+  });
+  assert.deepEqual(sandboxTileDecorations({ vertexDots: false, matchingArcs: false }), {
+    edgeTicks: true,
+    vertexDots: false,
+    matchingArcs: false
+  });
 });

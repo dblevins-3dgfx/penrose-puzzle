@@ -1,6 +1,6 @@
-// Shared settings schema, Jigsaw settings persistence, and sound cue type
-// (spec 6, 8, and 9). Segregates SharedSettings (effects, sound) from
-// Jigsaw-only settings so Sandbox never depends on Jigsaw internals.
+// Shared settings schema, persisted settings (Jigsaw + Sandbox), and sound cue
+// type (spec 6, 7, 8, and 9). Segregates SharedSettings, JigsawSettings, and
+// SandboxSettings so neither mode depends on the other mode's internals.
 
 export type SoundCue = 'snap' | 'lock' | 'border' | 'solve';
 
@@ -10,6 +10,34 @@ export interface SharedSettings {
   // Synthesized Web Audio feedback on snap, lock, border complete, and solve
   sound: boolean;
 }
+
+export interface SandboxTileIndicators {
+  // Black/white corner dots showing Penrose vertex 2-coloring in Sandbox
+  vertexDots: boolean;
+  // Conway's two-family circular matching arcs on Sandbox kites and darts
+  matchingArcs: boolean;
+}
+
+export interface SandboxSettings extends SharedSettings, SandboxTileIndicators {}
+
+export interface SandboxTileDecorations {
+  edgeTicks: boolean;
+  vertexDots: boolean;
+  matchingArcs: boolean;
+}
+
+export const DEFAULT_SANDBOX_INDICATORS: SandboxTileIndicators = {
+  vertexDots: true,
+  matchingArcs: false
+};
+
+// Decides which tile markings to draw in Sandbox (spec 7): midpoint edge ticks
+// hide whenever Conway matching arcs are enabled for a cleaner look.
+export const sandboxTileDecorations = (indicators: SandboxTileIndicators): SandboxTileDecorations => ({
+  edgeTicks: !indicators.matchingArcs,
+  vertexDots: indicators.vertexDots,
+  matchingArcs: indicators.matchingArcs
+});
 
 export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'sunset';
 export const PICTURE_STYLES: readonly PictureStyle[] = ['subdivided', 'matching', 'independent', 'sunset'];
@@ -46,21 +74,25 @@ export interface JigsawSettings extends SharedSettings {
   symmetric: boolean;
 }
 
-export const DEFAULT_SETTINGS: JigsawSettings = {
+export interface AppSettings extends JigsawSettings, SandboxSettings {}
+
+export const DEFAULT_SETTINGS: AppSettings = {
   showPicture: false,
   showOutlines: true,
   picture: 'subdivided',
   size: 'medium',
   symmetric: true,
   effects: true,
-  sound: false
+  sound: false,
+  vertexDots: DEFAULT_SANDBOX_INDICATORS.vertexDots,
+  matchingArcs: DEFAULT_SANDBOX_INDICATORS.matchingArcs
 };
 
 // Where the settings are kept in the browser's local storage. Kept identical
 // so existing saved settings persist seamlessly across modes and updates.
 export const SETTINGS_KEY = 'penrose-puzzle.jigsaw-settings';
 
-export const serializeSettings = (settings: JigsawSettings): string => JSON.stringify(settings);
+export const serializeSettings = (settings: AppSettings): string => JSON.stringify(settings);
 
 const isPictureStyle = (value: unknown): value is PictureStyle =>
   typeof value === 'string' && (PICTURE_STYLES as readonly string[]).includes(value);
@@ -68,10 +100,13 @@ const isPictureStyle = (value: unknown): value is PictureStyle =>
 const isPuzzleSize = (value: unknown): value is PuzzleSize =>
   typeof value === 'string' && Object.prototype.hasOwnProperty.call(PIECE_COUNTS, value);
 
+type BooleanSettingKey =
+  'showPicture' | 'showOutlines' | 'symmetric' | 'effects' | 'sound' | 'vertexDots' | 'matchingArcs';
+
 // Settings read back from storage. Anything missing, unreadable or of the
 // wrong type falls back to its default, field by field, and unknown fields
 // are dropped, so an old or damaged saved value never breaks the page.
-export const parseSettings = (raw: string | null): JigsawSettings => {
+export const parseSettings = (raw: string | null): AppSettings => {
   let saved: unknown = null;
   try {
     saved = raw === null ? null : JSON.parse(raw);
@@ -79,7 +114,7 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     saved = null;
   }
   const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: 'showPicture' | 'showOutlines' | 'symmetric' | 'effects' | 'sound') =>
+  const flag = (key: BooleanSettingKey) =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
   return {
     showPicture: flag('showPicture'),
@@ -88,6 +123,8 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     size: isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size,
     symmetric: flag('symmetric'),
     effects: flag('effects'),
-    sound: flag('sound')
+    sound: flag('sound'),
+    vertexDots: flag('vertexDots'),
+    matchingArcs: flag('matchingArcs')
   };
 };

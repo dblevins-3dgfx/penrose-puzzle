@@ -9,7 +9,7 @@ import { playSound } from './sound';
 
 interface Props {
   settings: JigsawSettings;
-  onChange: (settings: JigsawSettings) => void;
+  onChange: (patch: Partial<JigsawSettings>) => void;
   onChangeSize: (size: PuzzleSize) => void;
   onChangeSymmetric: (symmetric: boolean) => void;
   getDebugInfo: () => string;
@@ -139,7 +139,7 @@ export const JigsawSettingsDialog = ({
             checked={settings[key]}
             onChange={e => {
               const checked = e.target.checked;
-              onChange({ ...settings, [key]: checked });
+              onChange({ [key]: checked });
               if (key === 'sound' && checked) playSound('lock');
             }}
             className={toggleClass}
