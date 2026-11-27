@@ -50,7 +50,7 @@ test('formatDebugInfo formats Jigsaw state with rounded camera, seed, progress, 
   assert.match(out, /camera: zoom=2\.35, pan=\(-120\.4, 18\.8\), layoutScale=1\.235/);
   assert.match(out, /puzzle: size=small, seed=42, picture=subdivided/);
   assert.match(out, /progress: 11\/12 \(solved=false\), tray=1 all \/ 0 edges \(filter=all\)/);
-  assert.match(out, /settings: showPicture=false, showOutlines=true, symmetric=false, effects=true, sound=true/);
+  assert.match(out, /settings: showPicture=false, showOutlines=true, symmetric=true, effects=true, sound=true/);
   assert.match(out, /ua: Mozilla\/5\.0 \(iPhone/);
 });
 

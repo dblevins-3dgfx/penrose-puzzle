@@ -385,7 +385,7 @@ export const solvedTiling = (
   count: number,
   random: () => number,
   frameCenter: Point = FRAME_CENTER,
-  symmetric = false
+  symmetric = true
 ): Tile[] => {
   let chosen: Tile[];
   if (symmetric) {
@@ -521,7 +521,7 @@ export const seedFromQuery = (search: string): number | null => {
 };
 
 // A new puzzle of the given size on the default 800 x 600 board (pieces loose on board).
-export const newPuzzle = (size: PuzzleSize, seed: number, symmetric = false): Piece[] => {
+export const newPuzzle = (size: PuzzleSize, seed: number, symmetric = true): Piece[] => {
   const random = seededRandom(seed);
   return scatterPieces(solvedTiling(PIECE_COUNTS[size], random, FRAME_CENTER, symmetric), random);
 };
@@ -532,7 +532,7 @@ export const newPuzzleForViewport = (
   size: PuzzleSize,
   seed: number,
   viewport: BoardSize,
-  symmetric = false
+  symmetric = true
 ): { pieces: Piece[]; layout: ViewportLayout } => {
   const random = seededRandom(seed);
   const rawHomes = solvedTiling(PIECE_COUNTS[size], random, FRAME_CENTER, symmetric);
@@ -1009,7 +1009,7 @@ export const DEFAULT_SETTINGS: JigsawSettings = {
   showOutlines: true,
   picture: 'subdivided',
   size: 'medium',
-  symmetric: false,
+  symmetric: true,
   effects: true,
   sound: false
 };
