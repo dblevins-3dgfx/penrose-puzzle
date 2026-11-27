@@ -47,7 +47,6 @@ import { useBoardPointers, useTrayInteraction } from './useJigsawPointers';
 
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
-const noUndo = () => {};
 
 const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: number, pixelScale: number) => {
   const sunset = useMemo<Picture>(() => {
@@ -314,7 +313,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
     },
     [selectedId, updatePieces]
   );
-  useKeyboardControls(rotate, noUndo, active);
+  useKeyboardControls(rotate, undefined, active);
   useZoomKeys(zoomIn, zoomOut, resetZoom, active);
   useWheelRotation(canvasRef, rotate, zoomAt);
   usePreventSafariGesture(canvasRef);

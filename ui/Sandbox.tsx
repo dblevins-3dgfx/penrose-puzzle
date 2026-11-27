@@ -34,7 +34,7 @@ import { SandboxTray } from './SandboxTray';
 import { Toolbar } from './Toolbar';
 import { ZoomControls } from './ZoomControls';
 import { useBoardSize, useIsPortrait, usePreventSafariGesture } from './useBoardSize';
-import { useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
+import { isEditableTarget, useKeyboardControls, useWheelRotation, useZoomKeys } from './useControls';
 import { useSandboxRenderAndEffects } from './useSandboxEffects';
 import { useSandboxBoardPointers, useSandboxTrayInteraction } from './useSandboxPointers';
 
@@ -80,8 +80,7 @@ const useLooseTileKeys = (
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (isEditableTarget(e.target)) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         onDiscard();

@@ -8,24 +8,28 @@ import { WHEEL_NOTCH, wheelDeltaPixels, wheelSteps } from '../gestures';
 type Rotate = (steps: number) => void;
 type ZoomAt = (factor: number, focus: Point) => void;
 
-// Left / Right arrows or R / Shift+R rotate; Ctrl/Cmd+Z undoes the last tile.
+export const isEditableTarget = (target: EventTarget | null): boolean => {
+  const tag = (target as HTMLElement | null)?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+};
+
+const hasModifierKey = (e: KeyboardEvent): boolean => e.ctrlKey || e.metaKey || e.altKey;
+
+const isPrimaryUndo = (e: KeyboardEvent): boolean => (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z';
+
+// Left / Right arrows or R / Shift+R rotate; Ctrl/Cmd+Z undoes when `undo` is supplied.
 // Only listens while `enabled` is true so hidden mode tabs never intercept keys.
-export const useKeyboardControls = (rotate: Rotate, undo: () => void, enabled = true) => {
+export const useKeyboardControls = (rotate: Rotate, undo?: () => void, enabled = true) => {
   useEffect(() => {
     if (!enabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-      if (e.key === 'ArrowLeft') {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
-        rotate(-1);
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        rotate(1);
-      } else if (!inField && !e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'r') {
+        rotate(e.key === 'ArrowLeft' ? -1 : 1);
+      } else if (!isEditableTarget(e.target) && !hasModifierKey(e) && e.key.toLowerCase() === 'r') {
         e.preventDefault();
         rotate(e.shiftKey ? -1 : 1);
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      } else if (undo && isPrimaryUndo(e)) {
         e.preventDefault();
         undo();
       }
@@ -41,19 +45,15 @@ export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset
   useEffect(() => {
     if (!enabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === '+' || e.key === '=') {
-        e.preventDefault();
-        onZoomIn();
-      } else if (e.key === '-') {
-        e.preventDefault();
-        onZoomOut();
-      } else if (e.key === '0') {
-        e.preventDefault();
-        onReset();
-      }
+      if (hasModifierKey(e) || isEditableTarget(e.target)) return;
+      const action =
+        e.key === '+' || e.key === '=' ? onZoomIn
+          : e.key === '-' ? onZoomOut
+            : e.key === '0' ? onReset
+              : null;
+      if (!action) return;
+      e.preventDefault();
+      action();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
