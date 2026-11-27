@@ -31,9 +31,8 @@ import {
 import type { JigsawSettings, PictureStyle, PuzzleSize } from '../settings';
 import { formatDebugInfo } from '../debugInfo';
 import { collectDebugEnvironment } from './collectDebugEnv';
-import { makeDefaultPicture } from './defaultPicture';
 import type { Picture } from './jigsawDraw';
-import { makePenrosePicture } from './penrosePictureDraw';
+import { PICTURE_REGISTRY } from './pictureRegistry';
 import { JigsawHelp } from './JigsawHelp';
 import { JigsawSettingsDialog } from './JigsawSettingsDialog';
 import { JigsawToolbar } from './JigsawToolbar';
@@ -49,16 +48,11 @@ const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoin
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: number, pixelScale: number) => {
-  const sunset = useMemo<Picture>(() => {
-    const image = makeDefaultPicture();
-    return { image, width: image.width, height: image.height };
-  }, []);
   const [custom, setCustom] = useState<Picture | null>(null);
-  const picture = useMemo<Picture>(() => {
-    if (custom) return custom;
-    if (style === 'sunset') return sunset;
-    return makePenrosePicture(style, homes, seed, pixelScale);
-  }, [custom, style, sunset, homes, seed, pixelScale]);
+  const picture = useMemo<Picture>(
+    () => custom ?? PICTURE_REGISTRY[style].render({ homes, seed, pixelScale }),
+    [custom, style, homes, seed, pixelScale]
+  );
 
   const chooseFile = (file: File) => {
     const url = URL.createObjectURL(file);

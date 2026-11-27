@@ -122,9 +122,14 @@ export const independentTiling = (
   return placed;
 };
 
-export const pictureTiles = (style: PenrosePictureStyle, homes: readonly Tile[], seed: number): TilingTile[] => {
-  if (homes.length === 0) return [];
-  if (style === 'matching') return matchingTiling(homes);
-  if (style === 'subdivided') return subdividedTiling(homes, SUBDIVIDE_DEPTH);
-  return independentTiling(boundsOf(homes), seed);
+export const PENROSE_TILING_GENERATORS: Record<
+  PenrosePictureStyle,
+  (homes: readonly Tile[], seed: number) => TilingTile[]
+> = {
+  matching: homes => matchingTiling(homes),
+  subdivided: homes => subdividedTiling(homes, SUBDIVIDE_DEPTH),
+  independent: (homes, seed) => independentTiling(boundsOf(homes), seed)
 };
+
+export const pictureTiles = (style: PenrosePictureStyle, homes: readonly Tile[], seed: number): TilingTile[] =>
+  homes.length === 0 ? [] : PENROSE_TILING_GENERATORS[style](homes, seed);
