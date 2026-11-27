@@ -2,7 +2,7 @@
 
 Every rule in `penrose-puzzle-spec.md` should have a unit test (`*.test.ts` beside the module, run with `npm test`) that fails if the rule breaks. This file lists the rules that don't, and why. Keep it current: a pull request that adds or changes a spec rule either tests it or adds a row here, and one that adds a test for a rule listed here removes its row.
 
-The tests only reach plain modules without React: `rules.ts`, `jigsaw.ts`, `camera.ts`, `gestures.ts`, `settings.ts`, `penrosePicture.ts`, and `debugInfo.ts`. The React code (`penrose-puzzle.tsx` and `ui/`) needs a browser to run, so a rule that lives there is untested. The fix is usually to move the decision into a plain function and have the component call it.
+The tests only reach plain modules without React: `rules.ts`, `jigsaw.ts`, `camera.ts`, `gestures.ts`, `settings.ts`, `penroseTiling.ts`, `penrosePicture.ts`, and `debugInfo.ts`. The React code (`penrose-puzzle.tsx` and `ui/`) needs a browser to run, so a rule that lives there is untested. The fix is usually to move the decision into a plain function and have the component call it.
 
 ## Untested rules
 

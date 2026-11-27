@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BOARD_H, BOARD_W, PHI, TILE_SIZE, edgesOf, getVertices, isLegalPlacement, isOutsidePlayfield, pointInTile, sameEdge, tilesOverlap, type Tile } from './rules';
 import { TAP_MAX_MOVE } from './gestures';
+import { generatePatch, tileFromVertices } from './penroseTiling';
 import { PIECE_COUNTS, PUZZLE_SIZES } from './settings';
 import {
   FRAME_CENTER,
@@ -19,7 +20,6 @@ import {
   orderedBorderLoops,
   dropPiece,
   drawLayers,
-  generatePatch,
   isBorderComplete,
   isEdgePiece,
   isGroupSelected,
@@ -48,7 +48,6 @@ import {
   shareEdge,
   solvedTiling,
   soundCueFor,
-  tileFromVertices,
   transformPoint,
   type Piece
 } from './jigsaw';
