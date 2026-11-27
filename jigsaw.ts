@@ -86,6 +86,20 @@ const sun = (radius: number): Half[] => {
   return halves;
 };
 
+// Star of five darts (ten half-darts) around the origin, tips at the center.
+const star = (radius: number): Half[] => {
+  const halves: Half[] = [];
+  const d = (36 * Math.PI) / 180;
+  for (let k = 0; k < 5; k++) {
+    const a = (k * 72 * Math.PI) / 180;
+    const apex = { x: (radius / PHI) * Math.cos(a), y: (radius / PHI) * Math.sin(a) };
+    for (const s of [a + d, a - d]) {
+      halves.push(['dart', apex, { x: 0, y: 0 }, { x: radius * Math.cos(s), y: radius * Math.sin(s) }]);
+    }
+  }
+  return halves;
+};
+
 const pointKey = (p: Point) => `${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
 
 // A whole tile as this game stores it: its type, centroid and the angle of
@@ -121,8 +135,8 @@ const joinHalves = (halves: Half[]): Tile[] => {
 
 // A patch of the tiling around the origin, with long edges TILE_SIZE,
 // covering a disc of radius about TILE_SIZE * PHI ** depth.
-export const generatePatch = (depth: number): Tile[] => {
-  let halves = sun(TILE_SIZE * PHI ** depth);
+export const generatePatch = (depth: number, seedShape: 'sun' | 'star' = 'sun'): Tile[] => {
+  let halves = (seedShape === 'star' ? star : sun)(TILE_SIZE * PHI ** depth);
   for (let i = 0; i < depth; i++) halves = deflate(halves);
   return joinHalves(halves);
 };
@@ -226,14 +240,164 @@ export const computeViewportLayout = (
   return { board, scale, frameCenter };
 };
 
-// The solved puzzle: `count` pieces from a random part of the tiling, at a
-// random one of its ten orientations, centered on `frameCenter`.
-export const solvedTiling = (count: number, random: () => number, frameCenter: Point = FRAME_CENTER): Tile[] => {
-  const patch = generatePatch(6);
-  // A random spot away from the sun at the patch center, so puzzles differ
-  const r = TILE_SIZE * 6 * Math.sqrt(random());
-  const a = random() * 2 * Math.PI;
-  const chosen = choosePieces(patch, { x: r * Math.cos(a), y: r * Math.sin(a) }, count);
+const rotOrigin = (p: Point, deg: number): Point => {
+  const a = (deg * Math.PI) / 180;
+  return { x: p.x * Math.cos(a) - p.y * Math.sin(a), y: p.x * Math.sin(a) + p.y * Math.cos(a) };
+};
+
+const sameCentroid = (a: Point, b: Point): boolean => Math.hypot(a.x - b.x, a.y - b.y) < 1.5;
+
+// Groups tiles in a D5-symmetric patch around (0, 0) into complete 5-tile
+// (on-axis) and 10-tile (off-axis mirror pair) dihedral symmetry orbits.
+const groupD5Orbits = (tiles: readonly Tile[]): Tile[][] => {
+  const used = Array.from({ length: tiles.length }, () => false);
+  const orbits: Tile[][] = [];
+  for (let i = 0; i < tiles.length; i++) {
+    if (used[i]) continue;
+    const t = tiles[i];
+    const targets: Point[] = [];
+    for (let k = 0; k < 5; k++) {
+      const r = rotOrigin(t, k * 72);
+      targets.push(r, { x: r.x, y: -r.y });
+    }
+    const members: Tile[] = [];
+    for (let j = i; j < tiles.length; j++) {
+      if (!used[j] && tiles[j].type === t.type && targets.some(pt => sameCentroid(tiles[j], pt))) {
+        used[j] = true;
+        members.push(tiles[j]);
+      }
+    }
+    if (members.length === 5 || members.length === 10) orbits.push(members);
+  }
+  return orbits;
+};
+
+// Groups tiles in a patch symmetric across y = 0 into complete bilateral
+// mirror orbits (size 1 on the axis, size 2 mirror pairs).
+const groupD1Orbits = (tiles: readonly Tile[]): Tile[][] => {
+  const used = Array.from({ length: tiles.length }, () => false);
+  const orbits: Tile[][] = [];
+  for (let i = 0; i < tiles.length; i++) {
+    if (used[i]) continue;
+    used[i] = true;
+    const t = tiles[i];
+    const mirror = { x: t.x, y: -t.y };
+    if (sameCentroid(t, mirror)) {
+      orbits.push([t]);
+      continue;
+    }
+    const j = tiles.findIndex((u, idx) => !used[idx] && u.type === t.type && sameCentroid(u, mirror));
+    if (j >= 0) {
+      used[j] = true;
+      orbits.push([t, tiles[j]]);
+    }
+  }
+  return orbits;
+};
+
+const orbitAdjacency = (orbits: readonly Tile[][]): number[][] => {
+  const repEdges = orbits.map(o => edgesOf(o[0]));
+  const allEdges = orbits.map(o => o.flatMap(edgesOf));
+  return orbits.map((_, i) => {
+    const list: number[] = [];
+    for (let j = 0; j < orbits.length; j++) {
+      if (i !== j && repEdges[i].some(e => allEdges[j].some(f => sameEdge(e, f)))) list.push(j);
+    }
+    return list;
+  });
+};
+
+// Bounded randomized search selecting edge-connected complete symmetry orbits
+// totaling exactly `count` tiles (keeps compact mandala/mirror outlines while
+// varying frontier choices per seed).
+const pickExactOrbits = (
+  orbits: readonly Tile[][],
+  startIdx: number,
+  count: number,
+  random: () => number
+): Tile[] => {
+  if (startIdx < 0 || startIdx >= orbits.length) return [];
+  const adj = orbitAdjacency(orbits);
+  const chosen = new Set<number>([startIdx]);
+  let total = orbits[startIdx].length;
+  let attempts = 0;
+
+  const dfs = (): boolean => {
+    if (total === count) return true;
+    if (++attempts > 300) return false;
+    const rem = count - total;
+    const frontier = new Set<number>();
+    for (const u of chosen) {
+      for (const v of adj[u]) {
+        if (!chosen.has(v) && orbits[v].length <= rem) frontier.add(v);
+      }
+    }
+    const sorted = [...frontier].sort((a, b) => a - b);
+    const head = sorted.slice(0, 4);
+    for (let i = head.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [head[i], head[j]] = [head[j], head[i]];
+    }
+    for (const next of [...head, ...sorted.slice(4)]) {
+      chosen.add(next);
+      total += orbits[next].length;
+      if (dfs()) return true;
+      chosen.delete(next);
+      total -= orbits[next].length;
+    }
+    return false;
+  };
+
+  dfs();
+  return [...chosen].flatMap(i => orbits[i]);
+};
+
+// Chooses `count` tiles forming a symmetric connected patch: exact 5-fold
+// dihedral (D5) mandala when `count` is a multiple of 5, or exact bilateral
+// mirror (D1) layout otherwise, falling back to `choosePieces` if needed.
+export const chooseSymmetricPieces = (
+  patch: readonly Tile[],
+  count: number,
+  random: () => number
+): Tile[] => {
+  const reach = TILE_SIZE * (3 + Math.sqrt(count));
+  if (count % 5 === 0) {
+    const orbits = groupD5Orbits(patch.filter(t => Math.hypot(t.x, t.y) <= reach))
+      .sort((a, b) => Math.hypot(a[0].x, a[0].y) - Math.hypot(b[0].x, b[0].y));
+    const exact = pickExactOrbits(orbits, 0, count, random);
+    if (exact.length === count) return exact;
+  } else {
+    const cx = (random() - 0.5) * TILE_SIZE * 6;
+    const dist = (t: Tile) => Math.hypot(t.x - cx, t.y);
+    const orbits = groupD1Orbits(patch.filter(t => dist(t) <= reach))
+      .sort((a, b) => dist(a[0]) - dist(b[0]));
+    const startIdx = orbits.findIndex(o => o.length === 1 || shareEdge(o[0], o[1]));
+    const exact = pickExactOrbits(orbits, startIdx, count, random);
+    if (exact.length === count) return exact;
+  }
+  return choosePieces(patch, { x: 0, y: 0 }, count);
+};
+
+// The solved puzzle: `count` pieces from the tiling, at a random one of its
+// ten orientations, centered on `frameCenter`. When `symmetric` is true, picks
+// an exact D5 mandala (multiples of 5) or D1 mirror layout from a sun or star.
+export const solvedTiling = (
+  count: number,
+  random: () => number,
+  frameCenter: Point = FRAME_CENTER,
+  symmetric = true
+): Tile[] => {
+  let chosen: Tile[];
+  if (symmetric) {
+    const patch = generatePatch(6, random() < 0.5 ? 'sun' : 'star');
+    chosen = chooseSymmetricPieces(patch, count, random);
+  } else {
+    const patch = generatePatch(6);
+    // A random spot away from the sun at the patch center, so puzzles differ
+    const r = TILE_SIZE * 6 * Math.sqrt(random());
+    const a = random() * 2 * Math.PI;
+    chosen = choosePieces(patch, { x: r * Math.cos(a), y: r * Math.sin(a) }, count);
+  }
 
   const steps = Math.floor(random() * 10);
   const turned = chosen.map(t => turnAndMove(t, steps, 0, 0));
@@ -357,9 +521,9 @@ export const seedFromQuery = (search: string): number | null => {
 };
 
 // A new puzzle of the given size on the default 800 x 600 board (pieces loose on board).
-export const newPuzzle = (size: PuzzleSize, seed: number): Piece[] => {
+export const newPuzzle = (size: PuzzleSize, seed: number, symmetric = true): Piece[] => {
   const random = seededRandom(seed);
-  return scatterPieces(solvedTiling(PIECE_COUNTS[size], random), random);
+  return scatterPieces(solvedTiling(PIECE_COUNTS[size], random, FRAME_CENTER, symmetric), random);
 };
 
 // A new puzzle sized and centered for the given CSS pixel viewport, with all
@@ -367,10 +531,11 @@ export const newPuzzle = (size: PuzzleSize, seed: number): Piece[] => {
 export const newPuzzleForViewport = (
   size: PuzzleSize,
   seed: number,
-  viewport: BoardSize
+  viewport: BoardSize,
+  symmetric = true
 ): { pieces: Piece[]; layout: ViewportLayout } => {
   const random = seededRandom(seed);
-  const rawHomes = solvedTiling(PIECE_COUNTS[size], random);
+  const rawHomes = solvedTiling(PIECE_COUNTS[size], random, FRAME_CENTER, symmetric);
   const box = boundsOf(rawHomes);
   const layout = computeViewportLayout(box, rawHomes.length, viewport);
   const dx = layout.frameCenter.x - (box.x + box.w / 2);
@@ -831,6 +996,8 @@ export interface JigsawSettings {
   picture: PictureStyle;
   // Piece count preset for new puzzles
   size: PuzzleSize;
+  // Prefer symmetric (5-fold mandala or bilateral mirror) puzzle layouts
+  symmetric: boolean;
   // Celebratory canvas visual effects (sparks, glows, shimmer, confetti)
   effects: boolean;
   // Synthesized Web Audio feedback on snap, lock, border complete, and solve
@@ -842,6 +1009,7 @@ export const DEFAULT_SETTINGS: JigsawSettings = {
   showOutlines: true,
   picture: 'subdivided',
   size: 'medium',
+  symmetric: true,
   effects: true,
   sound: false
 };
@@ -868,7 +1036,7 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     saved = null;
   }
   const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: 'showPicture' | 'showOutlines' | 'effects' | 'sound') =>
+  const flag = (key: 'showPicture' | 'showOutlines' | 'symmetric' | 'effects' | 'sound') =>
     typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
   const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
   const size = isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size;
@@ -877,6 +1045,7 @@ export const parseSettings = (raw: string | null): JigsawSettings => {
     showOutlines: flag('showOutlines'),
     picture,
     size,
+    symmetric: flag('symmetric'),
     effects: flag('effects'),
     sound: flag('sound')
   };

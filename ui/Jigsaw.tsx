@@ -77,15 +77,22 @@ const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: num
 interface PuzzleState {
   size: PuzzleSize;
   seed: number;
+  symmetric: boolean;
   baseHomes: Piece['home'][];
   pieces: Piece[];
   layout: ViewportLayout;
   trayFilter: TrayFilter;
 }
 
-const makePuzzleState = (size: PuzzleSize, seed: number, width: number, height: number): PuzzleState => {
-  const { pieces, layout } = newPuzzleForViewport(size, seed, { width, height });
-  return { size, seed, baseHomes: pieces.map(p => p.home), pieces, layout, trayFilter: 'all' };
+const makePuzzleState = (
+  size: PuzzleSize,
+  seed: number,
+  width: number,
+  height: number,
+  symmetric: boolean
+): PuzzleState => {
+  const { pieces, layout } = newPuzzleForViewport(size, seed, { width, height }, symmetric);
+  return { size, seed, symmetric, baseHomes: pieces.map(p => p.home), pieces, layout, trayFilter: 'all' };
 };
 
 const FIT_TRANSITION_MS = 650;
@@ -200,6 +207,28 @@ const buildJigsawDebugInfo = (
   });
 };
 
+const usePuzzleViewportSync = (
+  measured: boolean,
+  vpWidth: number,
+  vpHeight: number,
+  setPuzzle: Dispatch<SetStateAction<PuzzleState>>,
+  setCamera: Dispatch<SetStateAction<Camera>>,
+  clampToViewport: (vp: { width: number; height: number }) => void
+) => {
+  const initializedViewport = useRef(false);
+  useEffect(() => {
+    if (!measured) return;
+    if (!initializedViewport.current) {
+      initializedViewport.current = true;
+      setPuzzle(prev => makePuzzleState(prev.size, prev.seed, vpWidth, vpHeight, prev.symmetric));
+      setCamera(DEFAULT_CAMERA);
+      return;
+    }
+    setPuzzle(prev => ({ ...prev, ...repositionForViewport(prev.pieces, { width: vpWidth, height: vpHeight }) }));
+    clampToViewport({ width: vpWidth, height: vpHeight });
+  }, [measured, vpWidth, vpHeight, setPuzzle, setCamera, clampToViewport]);
+};
+
 interface JigsawProps {
   modeSwitch: ReactNode;
   active: boolean;
@@ -216,14 +245,13 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
   const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
-    makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight)
+    makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight, settings.symmetric)
   );
   const { size, pieces, layout, trayFilter } = puzzle;
   const { camera, setCamera, clampToViewport, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
     viewport,
     settings.effects
   );
-  const initializedViewport = useRef(false);
 
   const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(
     settings.picture,
@@ -236,23 +264,13 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
-  useEffect(() => {
-    if (!measured) return;
-    if (!initializedViewport.current) {
-      initializedViewport.current = true;
-      setPuzzle(prev => makePuzzleState(prev.size, prev.seed, vpWidth, vpHeight));
-      setCamera(DEFAULT_CAMERA);
-      return;
-    }
-    setPuzzle(prev => ({ ...prev, ...repositionForViewport(prev.pieces, { width: vpWidth, height: vpHeight }) }));
-    clampToViewport({ width: vpWidth, height: vpHeight });
-  }, [measured, vpWidth, vpHeight, setCamera, clampToViewport]);
+  usePuzzleViewportSync(measured, vpWidth, vpHeight, setPuzzle, setCamera, clampToViewport);
 
   const { placed, total } = progress(pieces);
   const solved = isSolved(pieces);
 
-  const startPuzzle = (s: PuzzleSize) => {
-    setPuzzle(makePuzzleState(s, newSeed(), vpWidth, vpHeight));
+  const startPuzzle = (s: PuzzleSize, sym = settings.symmetric) => {
+    setPuzzle(makePuzzleState(s, newSeed(), vpWidth, vpHeight, sym));
     resetZoom();
     setSelectedId(null);
   };
@@ -263,7 +281,12 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
 
   const changeSize = (s: PuzzleSize) => {
     setSettings(prev => ({ ...prev, size: s }));
-    if (s !== size) startPuzzle(s);
+    if (s !== size) startPuzzle(s, settings.symmetric);
+  };
+
+  const changeSymmetric = (sym: boolean) => {
+    setSettings(prev => ({ ...prev, symmetric: sym }));
+    if (sym !== puzzle.symmetric) startPuzzle(size, sym);
   };
 
   const selectPicture = (style: PictureStyle) => {
@@ -306,7 +329,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
     () => ({ pieces, picture, settings, selectedId, board: layout.board }),
     [pieces, picture, settings, selectedId, layout.board]
   );
-  const puzzleKey = `${puzzle.seed}:${puzzle.size}`;
+  const puzzleKey = `${puzzle.seed}:${puzzle.size}:${puzzle.symmetric}`;
   const { borderToast } = useJigsawRenderAndEffects(
     canvasRef, view, puzzleKey, vpWidth, vpHeight, dpr, layout.scale, camera, animateToFit
   );
@@ -365,6 +388,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
           settings={settings}
           onChange={setSettings}
           onChangeSize={changeSize}
+          onChangeSymmetric={changeSymmetric}
           getDebugInfo={() => buildJigsawDebugInfo(puzzle, isCustom ? 'custom' : settings.picture, settings, camera, trayFilter, viewport, isPortrait, dpr)}
           onClose={closeSettings}
         />
