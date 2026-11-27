@@ -28,12 +28,7 @@ const PenrosePuzzle = () => {
   return (
     <>
       <div className={mode === 'jigsaw' ? 'w-full h-dvh' : 'hidden'}>
-        <Jigsaw
-          modeSwitch={modeSwitch}
-          active={mode === 'jigsaw'}
-          settings={settings}
-          onChangeSettings={setSettings}
-        />
+        <Jigsaw modeSwitch={modeSwitch} active={mode === 'jigsaw'} settings={settings} onChangeSettings={setSettings} />
       </div>
       {visitedSandbox && (
         <div className={mode === 'sandbox' ? 'w-full h-dvh' : 'hidden'}>

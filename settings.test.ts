@@ -1,12 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  DEFAULT_SETTINGS,
-  PUZZLE_SIZES,
-  parseSettings,
-  serializeSettings,
-  stepPuzzleSize
-} from './settings';
+import { DEFAULT_SETTINGS, PUZZLE_SIZES, parseSettings, serializeSettings, stepPuzzleSize } from './settings';
 
 test('by default the picture is hidden, tile outlines, symmetric layout, and effects are on, picture is subdivided, size is medium, and sound is off', () => {
   assert.deepEqual(DEFAULT_SETTINGS, {
@@ -23,10 +17,42 @@ test('by default the picture is hidden, tile outlines, symmetric layout, and eff
 test('saved settings are read back as they were saved', () => {
   const cases = [
     DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, symmetric: true, effects: false, sound: true },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, symmetric: false, effects: true, sound: false },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'xl' as const, symmetric: true, effects: false, sound: false },
-    { showPicture: false, showOutlines: false, picture: 'subdivided' as const, size: 'giant' as const, symmetric: true, effects: true, sound: true }
+    {
+      showPicture: true,
+      showOutlines: false,
+      picture: 'matching' as const,
+      size: 'small' as const,
+      symmetric: true,
+      effects: false,
+      sound: true
+    },
+    {
+      showPicture: false,
+      showOutlines: true,
+      picture: 'independent' as const,
+      size: 'large' as const,
+      symmetric: false,
+      effects: true,
+      sound: false
+    },
+    {
+      showPicture: true,
+      showOutlines: true,
+      picture: 'sunset' as const,
+      size: 'xl' as const,
+      symmetric: true,
+      effects: false,
+      sound: false
+    },
+    {
+      showPicture: false,
+      showOutlines: false,
+      picture: 'subdivided' as const,
+      size: 'giant' as const,
+      symmetric: true,
+      effects: true,
+      sound: true
+    }
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
@@ -63,14 +89,24 @@ test('a missing or wrongly typed setting falls back to its default; unknown ones
     effects: true,
     sound: false
   });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": false, "effects": false, "sound": true}'), {
-    showPicture: false,
-    showOutlines: false,
-    picture: 'sunset',
-    size: 'large',
-    symmetric: false,
-    effects: false,
-    sound: true
-  });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
+  assert.deepEqual(
+    parseSettings(
+      '{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": false, "effects": false, "sound": true}'
+    ),
+    {
+      showPicture: false,
+      showOutlines: false,
+      picture: 'sunset',
+      size: 'large',
+      symmetric: false,
+      effects: false,
+      sound: true
+    }
+  );
+  assert.deepEqual(
+    parseSettings(
+      '{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "volume": 11}'
+    ),
+    DEFAULT_SETTINGS
+  );
 });

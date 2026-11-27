@@ -28,12 +28,8 @@ export const trayDragAction = (isTouch: boolean, isPortrait: boolean, dx: number
 // True when releasing a tray item should pop a tile/piece onto the board.
 // Cancelled pointers (e.g. iOS Safari taking over for native tray scrolling)
 // never pop accidentally.
-export const isTrayTap = (
-  lifted: boolean,
-  scrolled: boolean,
-  cancelled: boolean,
-  moveDistPx: number
-): boolean => !lifted && !scrolled && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
+export const isTrayTap = (lifted: boolean, scrolled: boolean, cancelled: boolean, moveDistPx: number): boolean =>
+  !lifted && !scrolled && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
 
 // Wheel deltas in pixels: line mode counts 16 px a line, page mode 400 px.
 export const wheelDeltaPixels = (deltaY: number, deltaMode: number): number =>

@@ -48,7 +48,9 @@ const near = (actual: number, expected: number, msg?: string) =>
 
 // Interior angle at vertex i of a polygon (degrees), measured inside it.
 const interiorAngle = (vs: Point[], i: number) => {
-  const prev = vs[(i + 3) % 4], cur = vs[i], next = vs[(i + 1) % 4];
+  const prev = vs[(i + 3) % 4],
+    cur = vs[i],
+    next = vs[(i + 1) % 4];
   const a1 = Math.atan2(prev.y - cur.y, prev.x - cur.x);
   const a2 = Math.atan2(next.y - cur.y, next.x - cur.x);
   let d = ((a1 - a2) * 180) / Math.PI;
@@ -296,14 +298,16 @@ test('an in-bounds snap wins over a closer snap blocked by the board edge', () =
 
 // Does tile t have an edge lying exactly on edge e?
 const liesOn = (t: Tile, e: { a: Point; b: Point }) =>
-  edgesOf(t).some(f => (dist(f.a, e.a) < 1e-6 && dist(f.b, e.b) < 1e-6) || (dist(f.a, e.b) < 1e-6 && dist(f.b, e.a) < 1e-6));
+  edgesOf(t).some(
+    f => (dist(f.a, e.a) < 1e-6 && dist(f.b, e.b) < 1e-6) || (dist(f.a, e.b) < 1e-6 && dist(f.b, e.a) < 1e-6)
+  );
 
 // A point just outside the middle of a kite edge, on the empty side
 const outsideMiddleOf = (tile: Tile, e: { a: Point; b: Point }, by = 10): Point => {
   const c = { x: tile.x, y: tile.y };
   const m = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 };
   const len = dist(m, c);
-  return { x: m.x + (m.x - c.x) / len * by, y: m.y + (m.y - c.y) / len * by };
+  return { x: m.x + ((m.x - c.x) / len) * by, y: m.y + ((m.y - c.y) / len) * by };
 };
 
 test('free edges are the edges no other tile shares', () => {
@@ -313,7 +317,8 @@ test('free edges are the edges no other tile shares', () => {
 });
 
 test('distance to an edge is measured to its nearest point', () => {
-  const a = { x: 0, y: 0 }, b = { x: 10, y: 0 };
+  const a = { x: 0, y: 0 },
+    b = { x: 10, y: 0 };
   near(distanceToSegment({ x: 5, y: 3 }, a, b), 3);
   near(distanceToSegment({ x: -4, y: 3 }, a, b), 5, 'beyond an end, to that end');
   near(distanceToSegment({ x: 13, y: 4 }, a, b), 5);
@@ -418,9 +423,14 @@ test('an edge shared with matching colors is a connected edge', () => {
   const edges = findConnectedEdges([kite, kiteNeighbor]);
   assert.equal(edges.length, 1);
   const vs = getVertices(kite);
-  const ends = [{ x: edges[0].x1, y: edges[0].y1 }, { x: edges[0].x2, y: edges[0].y2 }];
-  assert.ok(ends.some(p => dist(p, vs[0]) < 1e-6) && ends.some(p => dist(p, vs[1]) < 1e-6),
-    'it is the kite\'s O-B edge');
+  const ends = [
+    { x: edges[0].x1, y: edges[0].y1 },
+    { x: edges[0].x2, y: edges[0].y2 }
+  ];
+  assert.ok(
+    ends.some(p => dist(p, vs[0]) < 1e-6) && ends.some(p => dist(p, vs[1]) < 1e-6),
+    "it is the kite's O-B edge"
+  );
 });
 
 test('an edge shared with clashing colors is not a connected edge', () => {
@@ -482,7 +492,11 @@ test('nextMeasuredSize ignores hidden 0x0 measurements and preserves reference w
   const measured = nextMeasuredSize(initial, { width: 390.4, height: 591.6 }, 3);
   assert.deepEqual(measured, { width: 390, height: 592, dpr: 3, measured: true });
   assert.equal(nextMeasuredSize(measured, { width: 390, height: 592 }, 3), measured, 'unchanged measurement keeps ref');
-  assert.equal(nextMeasuredSize(measured, { width: 0, height: 0 }, 3), measured, 'hiding an active tab preserves its size');
+  assert.equal(
+    nextMeasuredSize(measured, { width: 0, height: 0 }, 3),
+    measured,
+    'hiding an active tab preserves its size'
+  );
 
   const rotated = nextMeasuredSize(measured, { width: 700, height: 340 }, 3);
   assert.deepEqual(rotated, { width: 700, height: 340, dpr: 3, measured: true });

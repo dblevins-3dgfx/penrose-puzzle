@@ -48,17 +48,23 @@ export const useTrayInteraction = (
   useCallback(
     (id: number, startEvent: PointerEvent<HTMLButtonElement>) => {
       if (startEvent.button !== 0) return;
-      const startX = startEvent.clientX, startY = startEvent.clientY;
+      const startX = startEvent.clientX,
+        startY = startEvent.clientY;
       const isTouch = startEvent.pointerType === 'touch';
-      let lifted = false, scrolled = false;
+      let lifted = false,
+        scrolled = false;
 
       const onMove = (e: globalThis.PointerEvent) => {
         const canvas = canvasRef.current;
         if (!canvas || scrolled) return;
-        const dx = e.clientX - startX, dy = e.clientY - startY;
+        const dx = e.clientX - startX,
+          dy = e.clientY - startY;
         if (!lifted) {
           const action = trayDragAction(isTouch, isPortrait, dx, dy);
-          if (action === 'scroll') { scrolled = true; return; }
+          if (action === 'scroll') {
+            scrolled = true;
+            return;
+          }
           if (action === 'wait') return;
           lifted = true;
           const pt = clientToBoard(canvas, e.clientX, e.clientY, layout.scale, camera);
@@ -100,7 +106,18 @@ export const useTrayInteraction = (
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
     },
-    [canvasRef, trayRef, layout.scale, layout.board, viewport.width, viewport.height, camera, isPortrait, updatePieces, onSelect]
+    [
+      canvasRef,
+      trayRef,
+      layout.scale,
+      layout.board,
+      viewport.width,
+      viewport.height,
+      camera,
+      isPortrait,
+      updatePieces,
+      onSelect
+    ]
   );
 
 // Handles board canvas pointer events: loose piece drag, tap-to-rotate (first
@@ -127,7 +144,14 @@ export const useBoardPointers = (
     maxMove: number;
     wasSelected: boolean;
   } | null>(null);
-  const pan = useRef<{ pointerId: number; startX: number; startY: number; x: number; y: number; maxMove: number } | null>(null);
+  const pan = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    x: number;
+    y: number;
+    maxMove: number;
+  } | null>(null);
   const touches = useRef<Map<number, Point>>(new Map());
   const pinch = useRef<PinchMetrics | null>(null);
 
@@ -154,7 +178,14 @@ export const useBoardPointers = (
     const p = clientToBoard(e.currentTarget, e.clientX, e.clientY, layout.scale, camera);
     const i = pieceAt(pieces, p);
     if (i < 0) {
-      pan.current = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY, maxMove: 0 };
+      pan.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        x: e.clientX,
+        y: e.clientY,
+        maxMove: 0
+      };
       return;
     }
     const piece = pieces[i];
@@ -175,7 +206,11 @@ export const useBoardPointers = (
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2 && pinch.current) {
-        const { next, dx, dy, factor, focus } = stepPinch(pinch.current, [...touches.current.values()], e.currentTarget);
+        const { next, dx, dy, factor, focus } = stepPinch(
+          pinch.current,
+          [...touches.current.values()],
+          e.currentTarget
+        );
         pinch.current = next;
         setCamera(c => zoomCameraAt(panCamera(c, dx, dy, viewport), factor, focus, viewport));
         return;
@@ -183,7 +218,8 @@ export const useBoardPointers = (
     }
 
     if (pan.current && pan.current.pointerId === e.pointerId) {
-      const dx = e.clientX - pan.current.x, dy = e.clientY - pan.current.y;
+      const dx = e.clientX - pan.current.x,
+        dy = e.clientY - pan.current.y;
       const moved = Math.hypot(e.clientX - pan.current.startX, e.clientY - pan.current.startY);
       pan.current = { ...pan.current, x: e.clientX, y: e.clientY, maxMove: Math.max(pan.current.maxMove, moved) };
       setCamera(c => panCamera(c, dx, dy, viewport));

@@ -55,8 +55,8 @@ const drawEdgeTicks = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
     const dy = v1.x - v2.x;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
     ctx.beginPath();
-    ctx.moveTo(midX - dx / len * 3, midY - dy / len * 3);
-    ctx.lineTo(midX + dx / len * 3, midY + dy / len * 3);
+    ctx.moveTo(midX - (dx / len) * 3, midY - (dy / len) * 3);
+    ctx.lineTo(midX + (dx / len) * 3, midY + (dy / len) * 3);
     ctx.stroke();
   });
 };

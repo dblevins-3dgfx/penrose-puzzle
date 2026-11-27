@@ -33,10 +33,17 @@ export const deflateHalves = (halves: readonly Half[]): Half[] =>
     if (type === 'kite') {
       const P = lerp(apex, axisEnd, 1 / PHI);
       const Q = lerp(side, apex, 1 / PHI);
-      return [['kite', side, P, axisEnd], ['kite', side, P, Q], ['dart', Q, apex, P]];
+      return [
+        ['kite', side, P, axisEnd],
+        ['kite', side, P, Q],
+        ['dart', Q, apex, P]
+      ];
     }
     const P = lerp(axisEnd, side, 1 / PHI);
-    return [['kite', axisEnd, apex, P], ['dart', P, side, apex]];
+    return [
+      ['kite', axisEnd, apex, P],
+      ['dart', P, side, apex]
+    ];
   });
 
 export const deflateNTimes = (halves: readonly Half[], depth: number): Half[] => {
@@ -77,16 +84,24 @@ export const starHalves = (radius: number): Half[] => {
 export const splitTile = (tile: Tile): Half[] => {
   const [v0, v1, v2, v3] = getVertices(tile);
   if (tile.type === 'kite') {
-    return [['kite', v0, v2, v1], ['kite', v0, v2, v3]];
+    return [
+      ['kite', v0, v2, v1],
+      ['kite', v0, v2, v3]
+    ];
   }
-  return [['dart', v2, v0, v1], ['dart', v2, v0, v3]];
+  return [
+    ['dart', v2, v0, v1],
+    ['dart', v2, v0, v3]
+  ];
 };
 
 const reflectAcross = (p: Point, a: Point, b: Point): Point => {
-  const dx = b.x - a.x, dy = b.y - a.y;
+  const dx = b.x - a.x,
+    dy = b.y - a.y;
   const len2 = dx * dx + dy * dy || 1;
   const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
-  const fx = a.x + t * dx, fy = a.y + t * dy;
+  const fx = a.x + t * dx,
+    fy = a.y + t * dy;
   return { x: 2 * fx - p.x, y: 2 * fy - p.y };
 };
 
@@ -117,9 +132,11 @@ export const joinToTiling = (halves: readonly Half[], longEdge: number, complete
     if (pair.length < 2 && !completeBoundary) continue;
     const [type, apex, axisEnd, s1] = pair[0];
     const s2 = pair.length >= 2 ? pair[1][3] : reflectAcross(s1, apex, axisEnd);
-    tiles.push(type === 'kite'
-      ? orientedTile('kite', apex, axisEnd, s1, s2, longEdge)
-      : orientedTile('dart', axisEnd, apex, s1, s2, longEdge));
+    tiles.push(
+      type === 'kite'
+        ? orientedTile('kite', apex, axisEnd, s1, s2, longEdge)
+        : orientedTile('dart', axisEnd, apex, s1, s2, longEdge)
+    );
   }
   return tiles;
 };
@@ -129,7 +146,7 @@ export const joinToTiling = (halves: readonly Half[], longEdge: number, complete
 export const tileFromVertices = (type: TileType, verts: readonly Point[]): Tile => {
   const c = centroidOf(verts);
   const angle = (Math.atan2(verts[2].y - verts[0].y, verts[2].x - verts[0].x) * 180) / Math.PI;
-  const rotation = ((Math.round(angle / ROTATION_STEP) * ROTATION_STEP) % 360 + 360) % 360;
+  const rotation = (((Math.round(angle / ROTATION_STEP) * ROTATION_STEP) % 360) + 360) % 360;
   return { type, x: c.x, y: c.y, rotation };
 };
 

@@ -44,7 +44,8 @@ const drawSky = (ctx: CanvasRenderingContext2D) => {
   // Stars in the dark top
   ctx.fillStyle = '#fef9c3';
   for (let i = 0; i < 40; i++) {
-    const x = (i * 137) % SIZE, y = (i * 53) % 120;
+    const x = (i * 137) % SIZE,
+      y = (i * 53) % 120;
     ctx.fillRect(x, y, 2, 2);
   }
 
@@ -61,7 +62,14 @@ const drawSky = (ctx: CanvasRenderingContext2D) => {
 
   // Clouds
   ctx.fillStyle = 'rgba(253, 186, 116, 0.85)';
-  for (const [x, y, r] of [[120, 150, 30], [160, 140, 40], [205, 152, 28], [430, 200, 24], [465, 192, 34], [500, 204, 22]]) {
+  for (const [x, y, r] of [
+    [120, 150, 30],
+    [160, 140, 40],
+    [205, 152, 28],
+    [430, 200, 24],
+    [465, 192, 34],
+    [500, 204, 22]
+  ]) {
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -92,12 +100,18 @@ const drawShore = (ctx: CanvasRenderingContext2D) => {
   ctx.quadraticCurveTo(300, 560, 330, SIZE);
   ctx.closePath();
   ctx.fill();
-  [[40, 470, 110], [95, 480, 90], [150, 500, 75], [200, 530, 60]].forEach(([x, y, h]) => tree(ctx, x, y, h));
+  [
+    [40, 470, 110],
+    [95, 480, 90],
+    [150, 500, 75],
+    [200, 530, 60]
+  ].forEach(([x, y, h]) => tree(ctx, x, y, h));
 
   // Flowers in the grass
   const colors = ['#f472b6', '#facc15', '#f8fafc', '#fb7185'];
   for (let i = 0; i < 36; i++) {
-    const x = 10 + ((i * 47) % 260), y = 530 + ((i * 31) % 65);
+    const x = 10 + ((i * 47) % 260),
+      y = 530 + ((i * 31) % 65);
     if (x > 300 - (y - 520)) continue;
     ctx.fillStyle = colors[i % colors.length];
     ctx.beginPath();
@@ -138,8 +152,34 @@ export const makeDefaultPicture = (): HTMLCanvasElement => {
   if (!ctx) return canvas;
 
   drawSky(ctx);
-  mountains(ctx, 360, [[60, 250], [130, 300], [210, 210], [300, 320], [360, 260], [450, 330], [540, 230], [600, 290]], '#4c1d95');
-  mountains(ctx, 390, [[80, 320], [170, 350], [250, 300], [330, 370], [420, 340], [520, 360]], '#312e81');
+  mountains(
+    ctx,
+    360,
+    [
+      [60, 250],
+      [130, 300],
+      [210, 210],
+      [300, 320],
+      [360, 260],
+      [450, 330],
+      [540, 230],
+      [600, 290]
+    ],
+    '#4c1d95'
+  );
+  mountains(
+    ctx,
+    390,
+    [
+      [80, 320],
+      [170, 350],
+      [250, 300],
+      [330, 370],
+      [420, 340],
+      [520, 360]
+    ],
+    '#312e81'
+  );
   drawLake(ctx);
   drawShore(ctx);
   return canvas;

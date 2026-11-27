@@ -3,11 +3,7 @@
 import type { BoardSize } from '../rules';
 import type { DebugEnvironment } from '../debugInfo';
 
-export const collectDebugEnvironment = (
-  boardSize: BoardSize,
-  isPortrait: boolean,
-  dpr: number
-): DebugEnvironment => {
+export const collectDebugEnvironment = (boardSize: BoardSize, isPortrait: boolean, dpr: number): DebugEnvironment => {
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
     (window.navigator as Navigator & { standalone?: boolean }).standalone === true;

@@ -3,12 +3,7 @@
 // frames render once per React update with zero idle overhead.
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { Camera } from '../camera';
-import {
-  detectCelebrations,
-  orderedBorderLoops,
-  soundCueFor,
-  type Piece
-} from '../jigsaw';
+import { detectCelebrations, orderedBorderLoops, soundCueFor, type Piece } from '../jigsaw';
 import { drawJigsaw, type JigsawView } from './jigsawDraw';
 import { playSound } from './sound';
 import {
@@ -96,9 +91,12 @@ export const useJigsawRenderAndEffects = (
   }, [puzzleKey, view.pieces, view.settings.effects, view.settings.sound, vpWidth, vpHeight, onSolve]);
 
   // Cleanup toast timer on unmount.
-  useEffect(() => () => {
-    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    },
+    []
+  );
 
   // Paint the board immediately and animate at 60fps only while effects are active.
   useEffect(() => {

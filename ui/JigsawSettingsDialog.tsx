@@ -25,10 +25,26 @@ const SIZE_LABELS: Record<PuzzleSize, string> = {
 };
 
 const SWITCHES: { key: 'showPicture' | 'showOutlines' | 'effects' | 'sound'; label: string; detail: string }[] = [
-  { key: 'showPicture', label: 'Show picture', detail: 'Show the whole picture faintly inside the outline, like the picture on the box' },
-  { key: 'showOutlines', label: 'Show tile outlines', detail: 'Draw the edges of every piece and of the tiles in the outline' },
-  { key: 'effects', label: 'Visual effects', detail: 'Show sparks, glows, border shimmer, and confetti when pieces snap, lock, or finish' },
-  { key: 'sound', label: 'Sound effects', detail: 'Play subtle synthesized chimes when pieces snap, lock, complete the border, or finish the puzzle' }
+  {
+    key: 'showPicture',
+    label: 'Show picture',
+    detail: 'Show the whole picture faintly inside the outline, like the picture on the box'
+  },
+  {
+    key: 'showOutlines',
+    label: 'Show tile outlines',
+    detail: 'Draw the edges of every piece and of the tiles in the outline'
+  },
+  {
+    key: 'effects',
+    label: 'Visual effects',
+    detail: 'Show sparks, glows, border shimmer, and confetti when pieces snap, lock, or finish'
+  },
+  {
+    key: 'sound',
+    label: 'Sound effects',
+    detail: 'Play subtle synthesized chimes when pieces snap, lock, complete the border, or finish the puzzle'
+  }
 ];
 
 const toggleClass =

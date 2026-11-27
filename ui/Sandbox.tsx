@@ -71,12 +71,7 @@ const useSandboxCamera = (viewport: { width: number; height: number }, measured:
   return { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom };
 };
 
-const useLooseTileKeys = (
-  enabled: boolean,
-  canConfirm: boolean,
-  onConfirm: () => void,
-  onDiscard: () => void
-) => {
+const useLooseTileKeys = (enabled: boolean, canConfirm: boolean, onConfirm: () => void, onDiscard: () => void) => {
   useEffect(() => {
     if (!enabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -122,24 +117,12 @@ interface SandboxProps {
   onChangeSettings: (patch: Partial<SharedSettings>) => void;
 }
 
-export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: SandboxProps) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const trayRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const isPortrait = useIsPortrait();
-  const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
-  const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
-
-  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useSandboxCamera(viewport, measured);
-
+const useSandboxBoardState = () => {
   const [tiles, setTiles] = useState<Tile[]>([]);
   const [loose, setLoose] = useState<Tile | null>(null);
   const [defaultRotation, setDefaultRotation] = useState(0);
   const [autoRotate, setAutoRotate] = useState(false);
   const [autoChoice, setAutoChoice] = useState(0);
-  const [dropHighlight, setDropHighlight] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
   const counts = useMemo(() => countTiles(tiles), [tiles]);
   const preview = useMemo(
@@ -147,15 +130,12 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
     [loose, tiles, autoRotate, autoChoice]
   );
 
-  const place = useCallback(
-    (tile: Tile) => {
-      setTiles(prev => (isLegalPlacement(prev, tile, false, SANDBOX_WORLD) ? [...prev, tile] : prev));
-      setLoose(null);
-      setDefaultRotation(tile.rotation);
-      setAutoChoice(0);
-    },
-    []
-  );
+  const place = useCallback((tile: Tile) => {
+    setTiles(prev => (isLegalPlacement(prev, tile, false, SANDBOX_WORLD) ? [...prev, tile] : prev));
+    setLoose(null);
+    setDefaultRotation(tile.rotation);
+    setAutoChoice(0);
+  }, []);
 
   const confirmLoose = useCallback(() => {
     if (preview?.valid) place(preview.tile);
@@ -194,6 +174,62 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
     setAutoRotate(a => !a);
     setAutoChoice(0);
   }, []);
+
+  const trayState = useMemo(
+    () => ({ tiles, autoRotate, autoChoice, defaultRotation }),
+    [tiles, autoRotate, autoChoice, defaultRotation]
+  );
+
+  return {
+    tiles,
+    loose,
+    setLoose,
+    autoRotate,
+    autoChoice,
+    counts,
+    preview,
+    trayState,
+    place,
+    confirmLoose,
+    discardLoose,
+    rotate,
+    spawnTap,
+    undo,
+    clearBoard,
+    toggleAutoRotate
+  };
+};
+
+export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: SandboxProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isPortrait = useIsPortrait();
+  const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
+  const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
+
+  const { camera, setCamera, zoomAt, zoomIn, zoomOut, resetZoom } = useSandboxCamera(viewport, measured);
+  const {
+    tiles,
+    loose,
+    setLoose,
+    autoRotate,
+    autoChoice,
+    counts,
+    preview,
+    trayState,
+    place,
+    confirmLoose,
+    discardLoose,
+    rotate,
+    spawnTap,
+    undo,
+    clearBoard,
+    toggleAutoRotate
+  } = useSandboxBoardState();
+  const [dropHighlight, setDropHighlight] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const closeHelp = useCallback(() => setShowHelp(false), []);
   const closeSettings = useCallback(() => setShowSettings(false), []);
 
@@ -203,19 +239,44 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
   useWheelRotation(canvasRef, rotate, zoomAt);
   usePreventSafariGesture(canvasRef);
 
-  const trayState = useMemo(
-    () => ({ tiles, autoRotate, autoChoice, defaultRotation }),
-    [tiles, autoRotate, autoChoice, defaultRotation]
-  );
   const handleStartFromTray = useSandboxTrayInteraction(
-    canvasRef, trayRef, viewport, camera, isPortrait, trayState, setLoose, spawnTap, place, setDropHighlight
+    canvasRef,
+    trayRef,
+    viewport,
+    camera,
+    isPortrait,
+    trayState,
+    setLoose,
+    spawnTap,
+    place,
+    setDropHighlight
   );
   const boardHandlers = useSandboxBoardPointers(
-    trayRef, tiles, loose, preview, autoRotate, autoChoice, viewport, camera, setCamera, setLoose, place, rotate, setDropHighlight
+    trayRef,
+    tiles,
+    loose,
+    preview,
+    autoRotate,
+    autoChoice,
+    viewport,
+    camera,
+    setCamera,
+    setLoose,
+    place,
+    rotate,
+    setDropHighlight
   );
 
   useSandboxRenderAndEffects(
-    canvasRef, tiles, preview, vpWidth, vpHeight, dpr, camera, settings.effects, settings.sound
+    canvasRef,
+    tiles,
+    preview,
+    vpWidth,
+    vpHeight,
+    dpr,
+    camera,
+    settings.effects,
+    settings.sound
   );
 
   return (
@@ -257,18 +318,32 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
             onReset={resetZoom}
           />
           {loose && (
-            <RotateControls isPortrait={isPortrait} onRotate={rotate} onConfirm={confirmLoose} canConfirm={!!preview?.valid} onDiscard={discardLoose} />
+            <RotateControls
+              isPortrait={isPortrait}
+              onRotate={rotate}
+              onConfirm={confirmLoose}
+              canConfirm={!!preview?.valid}
+              onDiscard={discardLoose}
+            />
           )}
         </div>
 
-        <SandboxTray trayRef={trayRef} activeType={loose?.type ?? null} isPortrait={isPortrait} dropHighlight={dropHighlight} onStartFromTray={handleStartFromTray} />
+        <SandboxTray
+          trayRef={trayRef}
+          activeType={loose?.type ?? null}
+          isPortrait={isPortrait}
+          dropHighlight={dropHighlight}
+          onStartFromTray={handleStartFromTray}
+        />
       </div>
 
       {showSettings && (
         <SandboxSettingsDialog
           settings={settings}
           onChange={setSettings}
-          getDebugInfo={() => buildSandboxDebugInfo(counts, autoRotate, loose !== null, settings, camera, viewport, isPortrait, dpr)}
+          getDebugInfo={() =>
+            buildSandboxDebugInfo(counts, autoRotate, loose !== null, settings, camera, viewport, isPortrait, dpr)
+          }
           onClose={closeSettings}
         />
       )}

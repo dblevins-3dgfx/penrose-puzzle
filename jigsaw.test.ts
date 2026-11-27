@@ -1,6 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOARD_H, BOARD_W, PHI, TILE_SIZE, edgesOf, getVertices, isLegalPlacement, isOutsidePlayfield, pointInTile, sameEdge, tilesOverlap, type Tile } from './rules';
+import {
+  BOARD_H,
+  BOARD_W,
+  PHI,
+  TILE_SIZE,
+  edgesOf,
+  getVertices,
+  isLegalPlacement,
+  isOutsidePlayfield,
+  pointInTile,
+  sameEdge,
+  tilesOverlap,
+  type Tile
+} from './rules';
 import { TAP_MAX_MOVE } from './gestures';
 import { generatePatch, tileFromVertices } from './penroseTiling';
 import { PIECE_COUNTS, PUZZLE_SIZES } from './settings';
@@ -117,10 +130,15 @@ test('the chosen pieces are one connected group, nearest the center first', () =
   const center = { x: 100, y: -50 };
   const chosen = choosePieces(patch, center, 20);
   assert.equal(chosen.length, 20);
-  const nearest = [...patch].sort((s, t) => Math.hypot(s.x - center.x, s.y - center.y) - Math.hypot(t.x - center.x, t.y - center.y))[0];
+  const nearest = [...patch].sort(
+    (s, t) => Math.hypot(s.x - center.x, s.y - center.y) - Math.hypot(t.x - center.x, t.y - center.y)
+  )[0];
   assert.deepEqual(chosen[0], nearest);
   chosen.slice(1).forEach((t, i) => {
-    assert.ok(chosen.slice(0, i + 1).some(c => shareEdge(c, t)), 'each piece touches an earlier one along an edge');
+    assert.ok(
+      chosen.slice(0, i + 1).some(c => shareEdge(c, t)),
+      'each piece touches an earlier one along an edge'
+    );
   });
 });
 
@@ -136,7 +154,10 @@ test('a nearer tile that does not connect to the group is skipped', () => {
 
 test('the whole puzzle is turned to a random one of the ten orientations', () => {
   // Fixed random numbers: same spot in the tiling, different turn
-  const sequence = (...values: number[]) => () => values.shift() ?? 0;
+  const sequence =
+    (...values: number[]) =>
+    () =>
+      values.shift() ?? 0;
   const plain = solvedTiling(12, sequence(0, 0, 0), FRAME_CENTER, false);
   const turned = solvedTiling(12, sequence(0, 0, 0.35), FRAME_CENTER, false);
   turned.forEach((t, i) => assert.equal(t.rotation, (plain[i].rotation + 3 * 36) % 360));
@@ -180,10 +201,14 @@ test('border edges are the edges of the solved puzzle no other piece shares', ()
   const all = homes.map(t => getVertices(t));
   homes.forEach((t, i) => {
     edgesOfTile(t).forEach(([a, b], k) => {
-      const shared = all.some((vs, j) => j !== i && vs.some((p, q) => {
-        const r = vs[(q + 1) % 4];
-        return (dist(p, a) < 1e-6 && dist(r, b) < 1e-6) || (dist(p, b) < 1e-6 && dist(r, a) < 1e-6);
-      }));
+      const shared = all.some(
+        (vs, j) =>
+          j !== i &&
+          vs.some((p, q) => {
+            const r = vs[(q + 1) % 4];
+            return (dist(p, a) < 1e-6 && dist(r, b) < 1e-6) || (dist(p, b) < 1e-6 && dist(r, a) < 1e-6);
+          })
+      );
       assert.equal(borders[i].includes(k), !shared, `tile ${i} edge ${k}`);
     });
   });
@@ -193,10 +218,12 @@ test('the border edges join up into closed loops around the puzzle', () => {
   const homes = solvedTiling(40, seededRandom(2));
   const ends = new Map<string, number>();
   const key = (p: { x: number; y: number }) => `${Math.round(p.x)},${Math.round(p.y)}`;
-  borderEdges(homes).forEach((ks, i) => ks.forEach(k => {
-    const [a, b] = edgesOfTile(homes[i])[k];
-    for (const p of [a, b]) ends.set(key(p), (ends.get(key(p)) ?? 0) + 1);
-  }));
+  borderEdges(homes).forEach((ks, i) =>
+    ks.forEach(k => {
+      const [a, b] = edgesOfTile(homes[i])[k];
+      for (const p of [a, b]) ends.set(key(p), (ends.get(key(p)) ?? 0) + 1);
+    })
+  );
   assert.ok(ends.size > 10);
   for (const [p, n] of ends) assert.equal(n % 2, 0, `border corner ${p}`);
 });
@@ -209,7 +236,11 @@ test('a puzzle has both edge pieces and interior pieces, and every piece knows w
     const borders = borderEdges(pieces.map(p => p.home));
     pieces.forEach((p, i) => assert.deepEqual(p.border, borders[i]));
   }
-  assert.deepEqual(borderEdges([{ type: 'kite', x: 0, y: 0, rotation: 0 }]), [[0, 1, 2, 3]], 'a lone tile is all border');
+  assert.deepEqual(
+    borderEdges([{ type: 'kite', x: 0, y: 0, rotation: 0 }]),
+    [[0, 1, 2, 3]],
+    'a lone tile is all border'
+  );
 });
 
 // ---------------------------------------------------------------------
@@ -222,7 +253,8 @@ test('scatter spots stay on the board and clear of the solved puzzle', () => {
   assert.ok(spots.length > 20);
   for (const s of spots) {
     assert.ok(s.x >= 40 && s.x <= BOARD_W - 40 && s.y >= 40 && s.y <= BOARD_H - 40);
-    const inFrame = s.x > frame.x - 40 && s.x < frame.x + frame.w + 40 && s.y > frame.y - 40 && s.y < frame.y + frame.h + 40;
+    const inFrame =
+      s.x > frame.x - 40 && s.x < frame.x + frame.w + 40 && s.y > frame.y - 40 && s.y < frame.y + frame.h + 40;
     assert.ok(!inFrame, `spot ${s.x},${s.y}`);
   }
 });
@@ -233,7 +265,10 @@ for (const size of ['small', 'medium', 'large'] as const) {
     assert.equal(pieces.length, PIECE_COUNTS[size]);
     assert.deepEqual(progress(pieces), { placed: 0, total: PIECE_COUNTS[size] });
     assert.equal(isSolved(pieces), false);
-    assert.deepEqual(pieces.map(p => p.id).sort((a, b) => a - b), [...Array(pieces.length).keys()]);
+    assert.deepEqual(
+      pieces.map(p => p.id).sort((a, b) => a - b),
+      [...Array(pieces.length).keys()]
+    );
     for (const p of pieces) {
       assert.equal(p.locked, false);
       assert.equal(p.rotation % 36, 0);
@@ -287,9 +322,20 @@ test('picking up takes the topmost loose piece under the pointer', () => {
 
 test('a picked-up piece is drawn on top, with the rest of its group', () => {
   const ps = [kitePiece({ id: 0 }), kitePiece({ id: 1 }), kitePiece({ id: 2 })];
-  assert.deepEqual(bringToFront(ps, 0).map(p => p.id), [1, 2, 0]);
-  const grouped = [kitePiece({ id: 0, group: 5 }), kitePiece({ id: 1 }), kitePiece({ id: 2, group: 5 }), kitePiece({ id: 3 })];
-  assert.deepEqual(bringToFront(grouped, 2).map(p => p.id), [1, 3, 0, 2]);
+  assert.deepEqual(
+    bringToFront(ps, 0).map(p => p.id),
+    [1, 2, 0]
+  );
+  const grouped = [
+    kitePiece({ id: 0, group: 5 }),
+    kitePiece({ id: 1 }),
+    kitePiece({ id: 2, group: 5 }),
+    kitePiece({ id: 3 })
+  ];
+  assert.deepEqual(
+    bringToFront(grouped, 2).map(p => p.id),
+    [1, 3, 0, 2]
+  );
 });
 
 test('pieces are drawn in layers: locked pieces first, then each loose group by its topmost piece', () => {
@@ -300,8 +346,15 @@ test('pieces are drawn in layers: locked pieces first, then each loose group by 
     kitePiece({ id: 3, group: 0 }),
     kitePiece({ id: 4, locked: true })
   ];
-  assert.deepEqual(drawLayers(ps).map(layer => layer.map(p => p.id)), [[1, 4], [2], [0, 3]]);
-  assert.deepEqual(drawLayers([kitePiece({ id: 5 })]).map(l => l.map(p => p.id)), [[5]], 'no empty layer when nothing is locked');
+  assert.deepEqual(
+    drawLayers(ps).map(layer => layer.map(p => p.id)),
+    [[1, 4], [2], [0, 3]]
+  );
+  assert.deepEqual(
+    drawLayers([kitePiece({ id: 5 })]).map(l => l.map(p => p.id)),
+    [[5]],
+    'no empty layer when nothing is locked'
+  );
 });
 
 test('every piece starts in a group of its own', () => {
@@ -321,8 +374,16 @@ test('a piece dropped at the wrong angle or too far away stays loose', () => {
   assert.equal(dropPiece(kitePiece({ x: 300, y: 300, rotation: 108 })).locked, false);
   const far = kitePiece({ x: 300 + LOCK_RADIUS + 1, y: 300, rotation: 72 });
   assert.deepEqual(dropPiece(far), far);
-  assert.equal(dropPiece(kitePiece({ x: 300 + LOCK_RADIUS, y: 300, rotation: 72 })).locked, true, 'the radius is inclusive');
-  assert.equal(dropPiece(kitePiece({ x: 300, y: 300, rotation: 72 + 360 })).locked, true, 'a full turn is the same angle');
+  assert.equal(
+    dropPiece(kitePiece({ x: 300 + LOCK_RADIUS, y: 300, rotation: 72 })).locked,
+    true,
+    'the radius is inclusive'
+  );
+  assert.equal(
+    dropPiece(kitePiece({ x: 300, y: 300, rotation: 72 + 360 })).locked,
+    true,
+    'a full turn is the same angle'
+  );
 });
 
 test('dragging moves a loose piece but keeps its center on the board', () => {
@@ -337,7 +398,11 @@ test('dragging moves the whole group, stopping when any of its pieces reaches th
   const b = kitePiece({ id: 1, x: 160, y: 300, group: 0 });
   const c = kitePiece({ id: 2, x: 400, y: 400 });
   const moved = moveGroup([a, b, c], 1, -150, 0);
-  assert.deepEqual(moved.map(p => p.x), [0, 60, 400], 'stops when the first piece reaches x = 0');
+  assert.deepEqual(
+    moved.map(p => p.x),
+    [0, 60, 400],
+    'stops when the first piece reaches x = 0'
+  );
 });
 
 test('a locked piece cannot be moved or turned', () => {
@@ -377,8 +442,14 @@ const [m, n, k] = (() => {
   throw new Error('no neighbors found');
 })();
 // Piece `piece` turned `turn` degrees from home, centered at (x, y)
-const placed = (piece: Piece, x: number, y: number, turn: number, group = piece.id): Piece =>
-  ({ ...piece, x, y, rotation: (piece.home.rotation + turn) % 360, group, locked: false });
+const placed = (piece: Piece, x: number, y: number, turn: number, group = piece.id): Piece => ({
+  ...piece,
+  x,
+  y,
+  rotation: (piece.home.rotation + turn) % 360,
+  group,
+  locked: false
+});
 
 test('a piece sits against its neighbor as in the solved puzzle, whatever the angle', () => {
   for (const turn of [0, 36, 144, 288]) {
@@ -386,7 +457,9 @@ test('a piece sits against its neighbor as in the solved puzzle, whatever the an
     const at = placeBeside(nn, m);
     const mm = placed(m, at.x, at.y, turn);
     // Their shared edge lines up: the pieces touch along a full edge
-    const shared = getVertices(pieceTile(mm)).filter(v => getVertices(pieceTile(nn)).some(w => Math.hypot(v.x - w.x, v.y - w.y) < 1e-6));
+    const shared = getVertices(pieceTile(mm)).filter(v =>
+      getVertices(pieceTile(nn)).some(w => Math.hypot(v.x - w.x, v.y - w.y) < 1e-6)
+    );
     assert.equal(shared.length, 2, `turn ${turn}`);
     assert.equal(turnOf(mm), turn);
   }
@@ -441,8 +514,13 @@ test('one snap can bring another neighbor into reach, and it joins too', () => {
   const mHome = placed(m, 500, 450, 36);
   const nn = placed(n, 0, 0, 36);
   const kk = placed(k, 0, 0, 36);
-  const nAt = placeBeside(mHome, nn), kAt = placeBeside(mHome, kk);
-  const pieces = [{ ...nn, ...nAt }, { ...kk, ...kAt }, { ...mHome, x: mHome.x + 5 }];
+  const nAt = placeBeside(mHome, nn),
+    kAt = placeBeside(mHome, kk);
+  const pieces = [
+    { ...nn, ...nAt },
+    { ...kk, ...kAt },
+    { ...mHome, x: mHome.x + 5 }
+  ];
   const settled = settleGroup(pieces, m.id);
   assert.equal(new Set(settled.map(p => p.group)).size, 1);
   near(settled[2].x, mHome.x);
@@ -473,7 +551,9 @@ test('the puzzle is solved when every piece is locked', () => {
 });
 
 test('solving a whole puzzle by dropping every piece on its home', () => {
-  const pieces = newPuzzle('small', 11).map(p => dropPiece({ ...p, x: p.home.x + 5, y: p.home.y, rotation: p.home.rotation }));
+  const pieces = newPuzzle('small', 11).map(p =>
+    dropPiece({ ...p, x: p.home.x + 5, y: p.home.y, rotation: p.home.rotation })
+  );
   assert.equal(isSolved(pieces), true);
 });
 
@@ -618,7 +698,13 @@ test('popSpotOnBoard stays inside the board and fans out multiple tapped pieces'
 test('only a single ungrouped loose on-board piece can be returned to the tray', () => {
   const pieces = newPuzzle('small', 5);
   const single = pieces[0];
-  const locked = { ...pieces[1], x: pieces[1].home.x, y: pieces[1].home.y, rotation: pieces[1].home.rotation, locked: true };
+  const locked = {
+    ...pieces[1],
+    x: pieces[1].home.x,
+    y: pieces[1].home.y,
+    rotation: pieces[1].home.rotation,
+    locked: true
+  };
   const inTray = { ...pieces[2], inTray: true };
   const grpA = { ...pieces[3], group: 99 };
   const grpB = { ...pieces[4], group: 99 };
@@ -642,7 +728,13 @@ test('board hit-testing, moving, rotating, and snapping ignore pieces still in t
   // Put `a` on the board at its home offset by 5 (wrong angle so it doesn't lock),
   // while neighbor `b` stays in the tray right at the matching neighbor spot.
   const onBoardA: Piece = { ...a, inTray: false, x: a.home.x, y: a.home.y, rotation: (a.home.rotation + 36) % 360 };
-  const trayB: Piece = { ...b, inTray: true, x: placeBeside(onBoardA, b).x, y: placeBeside(onBoardA, b).y, rotation: (b.home.rotation + 36) % 360 };
+  const trayB: Piece = {
+    ...b,
+    inTray: true,
+    x: placeBeside(onBoardA, b).x,
+    y: placeBeside(onBoardA, b).y,
+    rotation: (b.home.rotation + 36) % 360
+  };
   const list = [onBoardA, trayB];
 
   assert.equal(pieceAt(list, { x: trayB.x, y: trayB.y }), -1, 'tray piece cannot be picked up on the board');
@@ -654,7 +746,13 @@ test('board hit-testing, moving, rotating, and snapping ignore pieces still in t
 
 test('clampLoosePieces brings off-board groups inside rigidly and leaves locked and tray pieces alone', () => {
   const pieces = newPuzzle('small', 5);
-  const locked = { ...pieces[0], x: pieces[0].home.x, y: pieces[0].home.y, rotation: pieces[0].home.rotation, locked: true };
+  const locked = {
+    ...pieces[0],
+    x: pieces[0].home.x,
+    y: pieces[0].home.y,
+    rotation: pieces[0].home.rotation,
+    locked: true
+  };
   // Two pieces snapped into one group, pushed past the right and bottom edges
   const gA = { ...pieces[1], x: 650, y: 420, group: 99, locked: false };
   const gB = { ...pieces[2], x: 690, y: 450, group: 99, locked: false };
@@ -675,8 +773,10 @@ test('repositionForViewport keeps locked pieces at home, keeps tray pieces in tr
   const { pieces } = newPuzzleForViewport('small', 8, { width: 1264, height: 840 });
   // Lock piece 0 at its home, take piece 1 onto the board far to the right, leave the rest in tray
   const inProgress = pieces.map((p, i) =>
-    i === 0 ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false }
-      : i === 1 ? { ...p, x: 950, y: 40, inTray: false }
+    i === 0
+      ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false }
+      : i === 1
+        ? { ...p, x: 950, y: 40, inTray: false }
         : p
   );
 
@@ -689,7 +789,10 @@ test('repositionForViewport keeps locked pieces at home, keeps tray pieces in tr
   assert.equal(looseOnBoard.inTray, false);
   assert.ok(looseOnBoard.x >= 0 && looseOnBoard.x <= layout.board.width, 'clamped loose x inside portrait board');
   assert.ok(looseOnBoard.y >= 0 && looseOnBoard.y <= layout.board.height, 'clamped loose y inside portrait board');
-  assert.ok(resized.slice(2).every(p => p.inTray), 'remaining pieces stay in tray');
+  assert.ok(
+    resized.slice(2).every(p => p.inTray),
+    'remaining pieces stay in tray'
+  );
 });
 
 test('moveGroup respects custom board bounds', () => {
@@ -750,7 +853,9 @@ test('detectCelebrations reports newly locked pieces, border completion, and puz
   // Locking a multi-piece group (two edge pieces) triggers only newlyLockedIds
   const step1 = lockIds(pieces, new Set([edges[0].id, edges[1].id]));
   assert.deepEqual(detectCelebrations(pieces, step1), {
-    newlyLockedIds: [edges[0].id, edges[1].id].sort((a, b) => step1.findIndex(p => p.id === a) - step1.findIndex(p => p.id === b)),
+    newlyLockedIds: [edges[0].id, edges[1].id].sort(
+      (a, b) => step1.findIndex(p => p.id === a) - step1.findIndex(p => p.id === b)
+    ),
     joinedSeams: [],
     borderCompleted: false,
     puzzleSolved: false
@@ -814,9 +919,23 @@ test('detectCelebrations reports newly joined shared seams on loose snaps and ig
 
   // Turn A 36° off home so none of them lock into home
   const turn = 36;
-  const placedA: Piece = { ...a, x: 400, y: 300, rotation: (a.home.rotation + turn) % 360, locked: false, inTray: false };
+  const placedA: Piece = {
+    ...a,
+    x: 400,
+    y: 300,
+    rotation: (a.home.rotation + turn) % 360,
+    locked: false,
+    inTray: false
+  };
   const spotB = placeBeside(placedA, b);
-  const nearB: Piece = { ...b, x: spotB.x + 6, y: spotB.y - 4, rotation: (b.home.rotation + turn) % 360, locked: false, inTray: false };
+  const nearB: Piece = {
+    ...b,
+    x: spotB.x + 6,
+    y: spotB.y - 4,
+    rotation: (b.home.rotation + turn) % 360,
+    locked: false,
+    inTray: false
+  };
   const farC: Piece = { ...c, x: 100, y: 100, rotation: (c.home.rotation + turn) % 360, locked: false, inTray: false };
 
   const beforeSingle = pieces.map(p => (p.id === a.id ? placedA : p.id === b.id ? nearB : p.id === c.id ? farC : p));
@@ -832,7 +951,10 @@ test('detectCelebrations reports newly joined shared seams on loose snaps and ig
   const p2 = afterSingle.find(p => p.id === seam.partnerId)!;
   assert.equal(p1.group, p2.group);
   const seamEdge = edgesOf(pieceTile(p1))[seam.edgeIndex];
-  assert.ok(edgesOf(pieceTile(p2)).some(f => sameEdge(seamEdge, f)), 'edgeIndex points to the shared edge');
+  assert.ok(
+    edgesOf(pieceTile(p2)).some(f => sameEdge(seamEdge, f)),
+    'edgeIndex points to the shared edge'
+  );
 
   // Dragging the already-merged group does not re-trigger joinedSeams
   const dragged = moveGroup(afterSingle, a.id, 15, -10);
@@ -864,12 +986,30 @@ test('detectCelebrations reports newly joined shared seams on loose snaps and ig
 test('soundCueFor picks the single highest-priority sound cue for celebratory events', () => {
   const seam = { pieceId: 0, partnerId: 1, edgeIndex: 0 };
   assert.equal(soundCueFor({ newlyLockedIds: [], joinedSeams: [], borderCompleted: false, puzzleSolved: false }), null);
-  assert.equal(soundCueFor({ newlyLockedIds: [], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }), 'snap');
-  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: false }), 'lock');
-  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }), 'lock');
-  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: true, puzzleSolved: false }), 'border');
-  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: true }), 'solve');
-  assert.equal(soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: true, puzzleSolved: true }), 'solve');
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }),
+    'snap'
+  );
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: false }),
+    'lock'
+  );
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: false, puzzleSolved: false }),
+    'lock'
+  );
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: true, puzzleSolved: false }),
+    'border'
+  );
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [1], joinedSeams: [], borderCompleted: false, puzzleSolved: true }),
+    'solve'
+  );
+  assert.equal(
+    soundCueFor({ newlyLockedIds: [1], joinedSeams: [seam], borderCompleted: true, puzzleSolved: true }),
+    'solve'
+  );
 });
 
 test('orderedBorderLoops chains every puzzle border segment into closed edge loops', () => {
@@ -907,7 +1047,8 @@ const isRotationSymmetric72 = (tiles: readonly Tile[]): boolean => {
   const cy = tiles.reduce((s, t) => s + t.y, 0) / tiles.length;
   const a = (72 * Math.PI) / 180;
   return tiles.every(t => {
-    const dx = t.x - cx, dy = t.y - cy;
+    const dx = t.x - cx,
+      dy = t.y - cy;
     const rx = cx + dx * Math.cos(a) - dy * Math.sin(a);
     const ry = cy + dx * Math.sin(a) + dy * Math.cos(a);
     return tiles.some(u => u.type === t.type && Math.hypot(u.x - rx, u.y - ry) < 1.5);
@@ -920,9 +1061,11 @@ const hasMirrorSymmetry = (tiles: readonly Tile[]): boolean => {
   // Check all 10 Penrose mirror axes (multiples of 18°) passing through the centroid
   for (let k = 0; k < 10; k++) {
     const a = (k * 18 * Math.PI) / 180;
-    const ux = Math.cos(a), uy = Math.sin(a);
+    const ux = Math.cos(a),
+      uy = Math.sin(a);
     const ok = tiles.every(t => {
-      const dx = t.x - cx, dy = t.y - cy;
+      const dx = t.x - cx,
+        dy = t.y - cy;
       const dot = dx * ux + dy * uy;
       const mx = cx + 2 * dot * ux - dx;
       const my = cy + 2 * dot * uy - dy;

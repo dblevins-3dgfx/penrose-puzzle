@@ -17,7 +17,12 @@ const tracePolygon = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
 };
 
 // The picture drawn over the solved puzzle's box, clipped to `tiles`.
-const drawPictureIn = (ctx: CanvasRenderingContext2D, picture: Picture, tiles: Tile[], rect: ReturnType<typeof coverRect>) => {
+const drawPictureIn = (
+  ctx: CanvasRenderingContext2D,
+  picture: Picture,
+  tiles: Tile[],
+  rect: ReturnType<typeof coverRect>
+) => {
   ctx.save();
   ctx.beginPath();
   tiles.forEach(t => tracePolygon(ctx, getVertices(t)));
@@ -47,7 +52,12 @@ const drawFrame = (ctx: CanvasRenderingContext2D, homes: Tile[], showOutlines: b
 // no seams show between them. Every piece in a layer shares one transform:
 // locked pieces are all at home, and a group moves rigidly.
 // Loose pieces cast a soft shadow.
-const drawLayer = (ctx: CanvasRenderingContext2D, layer: Piece[], picture: Picture, rect: ReturnType<typeof coverRect>) => {
+const drawLayer = (
+  ctx: CanvasRenderingContext2D,
+  layer: Piece[],
+  picture: Picture,
+  rect: ReturnType<typeof coverRect>
+) => {
   if (!layer[0].locked) {
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
@@ -144,7 +154,10 @@ export interface JigsawView {
   board?: BoardSize;
 }
 
-export const drawJigsaw = (ctx: CanvasRenderingContext2D, { pieces, picture, settings, selectedId, board = DEFAULT_BOARD }: JigsawView) => {
+export const drawJigsaw = (
+  ctx: CanvasRenderingContext2D,
+  { pieces, picture, settings, selectedId, board = DEFAULT_BOARD }: JigsawView
+) => {
   ctx.clearRect(0, 0, board.width, board.height);
   if (pieces.length === 0) return;
   const homes = pieces.map(p => p.home);

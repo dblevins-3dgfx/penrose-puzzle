@@ -51,18 +51,24 @@ export const useSandboxTrayInteraction = (
   return useCallback(
     (type: TileType, startEvent: PointerEvent<HTMLButtonElement>) => {
       if (startEvent.button !== 0) return;
-      const startX = startEvent.clientX, startY = startEvent.clientY;
+      const startX = startEvent.clientX,
+        startY = startEvent.clientY;
       const isTouch = startEvent.pointerType === 'touch';
-      let lifted = false, scrolled = false;
+      let lifted = false,
+        scrolled = false;
       let latest: Tile | null = null;
 
       const onMove = (e: globalThis.PointerEvent) => {
         const canvas = canvasRef.current;
         if (!canvas || scrolled) return;
-        const dx = e.clientX - startX, dy = e.clientY - startY;
+        const dx = e.clientX - startX,
+          dy = e.clientY - startY;
         if (!lifted) {
           const action = trayDragAction(isTouch, isPortrait, dx, dy);
-          if (action === 'scroll') { scrolled = true; return; }
+          if (action === 'scroll') {
+            scrolled = true;
+            return;
+          }
           if (action === 'wait') return;
           lifted = true;
         }
@@ -108,7 +114,18 @@ export const useSandboxTrayInteraction = (
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
     },
-    [canvasRef, trayRef, viewport.width, viewport.height, camera, isPortrait, onSetLoose, onSpawnTap, onPlace, onDropHighlight]
+    [
+      canvasRef,
+      trayRef,
+      viewport.width,
+      viewport.height,
+      camera,
+      isPortrait,
+      onSetLoose,
+      onSpawnTap,
+      onPlace,
+      onDropHighlight
+    ]
   );
 };
 
@@ -174,7 +191,11 @@ export const useSandboxBoardPointers = (
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2 && pinch.current) {
-        const { next, dx, dy, factor, focus } = stepPinch(pinch.current, [...touches.current.values()], e.currentTarget);
+        const { next, dx, dy, factor, focus } = stepPinch(
+          pinch.current,
+          [...touches.current.values()],
+          e.currentTarget
+        );
         pinch.current = next;
         setCamera(c => zoomSandboxCameraAt(panSandboxCamera(c, dx, dy, viewport), factor, focus, viewport));
         return;
@@ -182,7 +203,8 @@ export const useSandboxBoardPointers = (
     }
 
     if (pan.current && pan.current.pointerId === e.pointerId) {
-      const dx = e.clientX - pan.current.x, dy = e.clientY - pan.current.y;
+      const dx = e.clientX - pan.current.x,
+        dy = e.clientY - pan.current.y;
       pan.current = { ...pan.current, x: e.clientX, y: e.clientY };
       setCamera(c => panSandboxCamera(c, dx, dy, viewport));
       return;

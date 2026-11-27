@@ -47,10 +47,7 @@ export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset
     const handleKeyDown = (e: KeyboardEvent) => {
       if (hasModifierKey(e) || isEditableTarget(e.target)) return;
       const action =
-        e.key === '+' || e.key === '=' ? onZoomIn
-          : e.key === '-' ? onZoomOut
-            : e.key === '0' ? onReset
-              : null;
+        e.key === '+' || e.key === '=' ? onZoomIn : e.key === '-' ? onZoomOut : e.key === '0' ? onReset : null;
       if (!action) return;
       e.preventDefault();
       action();
@@ -67,11 +64,7 @@ export const useZoomKeys = (onZoomIn: () => void, onZoomOut: () => void, onReset
 // Ctrl/Cmd + wheel (including trackpad pinch-to-zoom) zooms around the cursor.
 const SWIPE_END_MS = 150;
 
-export const useWheelRotation = (
-  canvasRef: RefObject<HTMLCanvasElement | null>,
-  rotate: Rotate,
-  onZoom?: ZoomAt
-) => {
+export const useWheelRotation = (canvasRef: RefObject<HTMLCanvasElement | null>, rotate: Rotate, onZoom?: ZoomAt) => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -89,7 +82,9 @@ export const useWheelRotation = (
       const { steps, total } = wheelSteps(swipe.total, dy);
       if (Math.abs(dy) < WHEEL_NOTCH) {
         clearTimeout(swipe.timer);
-        swipe.timer = setTimeout(() => { swipe.total = 0; }, SWIPE_END_MS);
+        swipe.timer = setTimeout(() => {
+          swipe.total = 0;
+        }, SWIPE_END_MS);
       }
       swipe.total = total;
       if (steps) rotate(steps);
