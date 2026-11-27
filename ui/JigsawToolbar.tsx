@@ -2,7 +2,8 @@
 // Your picture, progress, Settings (which holds Puzzle size) and How to Play (spec 9).
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
 import { CircleHelp, ImagePlus, Settings, Shuffle, Sparkles } from 'lucide-react';
-import { PICTURE_STYLES, type PictureStyle } from '../settings';
+import type { PictureStyle } from '../settings';
+import { PICTURE_PROVIDERS } from './pictureRegistry';
 
 interface Props {
   modeSwitch: ReactNode;
@@ -16,13 +17,6 @@ interface Props {
   onOpenSettings: () => void;
   onOpenHelp: () => void;
 }
-
-const PICTURE_LABELS: Record<PictureStyle, string> = {
-  subdivided: 'Penrose (Subdivided)',
-  matching: 'Penrose (Matching)',
-  independent: 'Penrose (Independent)',
-  sunset: 'Sunset'
-};
 
 const control =
   'bg-slate-700 hover:bg-slate-600 active:bg-slate-600 text-white px-2.5 py-2 sm:py-1.5 min-h-9 sm:min-h-0 rounded-md text-sm flex items-center justify-center gap-1.5';
@@ -69,8 +63,8 @@ export const JigsawToolbar = (props: Props) => {
           aria-label="Puzzle picture"
           className={selectClass}
         >
-          {PICTURE_STYLES.map(p => (
-            <option key={p} value={p}>{PICTURE_LABELS[p]}</option>
+          {PICTURE_PROVIDERS.map(p => (
+            <option key={p.id} value={p.id}>{p.label}</option>
           ))}
           {props.picture === 'custom' && <option value="custom">Custom picture</option>}
         </select>
