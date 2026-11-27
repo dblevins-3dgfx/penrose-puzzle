@@ -4,14 +4,19 @@ import { PHI, TILE_SIZE, centroidOf, getVertices, toTriangles, trianglesOverlap,
 import { boundsOf, newPuzzle } from './jigsaw';
 import {
   INDEPENDENT_TILE_SIZE,
+  PENROSE_PALETTES,
   PENROSE_TILING_GENERATORS,
   SUBDIVIDE_DEPTH,
+  colorSchemeForSeed,
   independentTiling,
   matchingTiling,
   pictureTiles,
+  sampleGradientColor,
+  sampleTileColor,
   subdividedTiling,
   tileArcs,
   type CircularArc,
+  type RGB,
   type TilingTile
 } from './penrosePicture';
 import { PICTURE_STYLES } from './settings';
@@ -246,4 +251,86 @@ test('pictureTiles dispatches each Penrose picture style', () => {
   assert.equal(pictureTiles('subdivided', homes, 3)[0].longEdge, TILE_SIZE / PHI ** SUBDIVIDE_DEPTH);
   assert.equal(pictureTiles('independent', homes, 3)[0].longEdge, INDEPENDENT_TILE_SIZE);
   assert.deepEqual(pictureTiles('matching', [], 3), []);
+});
+
+// ---------------------------------------------------------------------
+// Seeded color palettes and asymmetric gradients
+// ---------------------------------------------------------------------
+
+const rgbDist = (a: RGB, b: RGB) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+test('every curated stained-glass palette has four well-separated mid-value colors', () => {
+  assert.ok(PENROSE_PALETTES.length >= 4);
+  for (const palette of PENROSE_PALETTES) {
+    assert.equal(palette.colors.length, 4);
+    for (let i = 0; i < 4; i++) {
+      const [r, g, b] = palette.colors[i];
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      assert.ok(
+        luma > 45 && luma < 210,
+        `${palette.id}[${i}] luma ${luma} stays readable with dark leads & bright arcs`
+      );
+      for (let j = i + 1; j < 4; j++) {
+        assert.ok(rgbDist(palette.colors[i], palette.colors[j]) > 80, `${palette.id} colors ${i} & ${j} are distinct`);
+      }
+    }
+  }
+});
+
+test('colorSchemeForSeed is deterministic per seed and varies palettes, orientations, and gradient geometries across seeds', () => {
+  assert.deepEqual(colorSchemeForSeed(42), colorSchemeForSeed(42));
+  const schemes = Array.from({ length: 40 }, (_, i) => colorSchemeForSeed(i + 1));
+  const palettes = new Set(schemes.map(s => s.paletteId));
+  const gradients = new Set(schemes.map(s => s.gradient));
+  const angles = new Set(schemes.map(s => Math.round(s.angle * 100)));
+
+  assert.ok(palettes.size >= 4, 'multiple curated palettes appear across seeds');
+  assert.deepEqual([...gradients].sort(), ['bilinear', 'conic'], 'both bilinear and conic geometries appear');
+  assert.ok(angles.size > 20, 'gradient orientation varies widely across seeds');
+});
+
+test('both bilinear and conic gradients break 5-fold rotational symmetry to give clear placement clues', () => {
+  const box = { x: 100, y: 100, w: 400, h: 400 };
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  const radius = 140;
+
+  let testedBilinear = 0;
+  let testedConic = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const scheme = colorSchemeForSeed(seed);
+    if (scheme.gradient === 'bilinear') testedBilinear++;
+    else testedConic++;
+
+    // Sample 5 points 72 degrees apart around the center (matching a D5 mandala's 5 petals)
+    const petals = Array.from({ length: 5 }, (_, k) => {
+      const a = (k * 72 * Math.PI) / 180;
+      return sampleGradientColor({ x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) }, box, scheme);
+    });
+    for (let i = 0; i < 5; i++) {
+      for (let j = i + 1; j < 5; j++) {
+        assert.ok(
+          rgbDist(petals[i], petals[j]) > 20,
+          `seed ${seed} (${scheme.gradient}/${scheme.paletteId}) distinguishes petals ${i} and ${j}`
+        );
+      }
+    }
+  }
+  assert.ok(testedBilinear > 0 && testedConic > 0);
+});
+
+test('sampleTileColor keeps RGB values valid and shades kites brighter than darts at the same position', () => {
+  const homes = newPuzzle('small', 11).map(p => p.home);
+  const box = boundsOf(homes);
+  const scheme = colorSchemeForSeed(11);
+  const tiles = matchingTiling(homes);
+  for (const t of tiles) {
+    const [r, g, b] = sampleTileColor(t, box, scheme);
+    assert.ok(r >= 0 && r <= 255 && g >= 0 && g <= 255 && b >= 0 && b <= 255);
+  }
+  const sameVerts = tiles[0].vertices;
+  const kiteCol = sampleTileColor({ type: 'kite', vertices: sameVerts, longEdge: TILE_SIZE }, box, scheme);
+  const dartCol = sampleTileColor({ type: 'dart', vertices: sameVerts, longEdge: TILE_SIZE }, box, scheme);
+  const luma = ([r, g, b]: RGB) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  assert.ok(luma(kiteCol) > luma(dartCol), 'kites render brighter than darts at the same spot');
 });
