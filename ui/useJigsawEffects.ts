@@ -12,17 +12,14 @@ import {
 import { drawJigsaw, type JigsawView } from './jigsawDraw';
 import { playSound } from './sound';
 import {
-  BORDER_DURATION_MS,
+  applyCelebrationEvents,
   BORDER_TOAST_MS,
-  createConfetti,
   drawScreenEffects,
   drawWorldEffects,
   emptyEffects,
   hasActiveEffects,
-  LOCK_DURATION_MS,
+  hasCelebrationEvents,
   pruneEffects,
-  SNAP_DURATION_MS,
-  SOLVE_DURATION_MS,
   type ActiveEffects
 } from './jigsawEffects';
 
@@ -57,9 +54,18 @@ export const useJigsawRenderAndEffects = (
       setBorderToast(false);
     };
 
+    const showBorderToast = () => {
+      clearToast();
+      setBorderToast(true);
+      toastTimerRef.current = window.setTimeout(() => {
+        setBorderToast(false);
+        toastTimerRef.current = null;
+      }, BORDER_TOAST_MS);
+    };
+
     const prev = prevRef.current;
+    prevRef.current = { key: puzzleKey, pieces: view.pieces };
     if (prev.key !== puzzleKey) {
-      prevRef.current = { key: puzzleKey, pieces: view.pieces };
       effectsRef.current = emptyEffects();
       clearToast();
       return;
@@ -71,41 +77,15 @@ export const useJigsawRenderAndEffects = (
     }
 
     const events = detectCelebrations(prev.pieces, view.pieces);
-    prevRef.current = { key: puzzleKey, pieces: view.pieces };
-    const hasEvents =
-      events.newlyLockedIds.length > 0 ||
-      events.joinedSeams.length > 0 ||
-      events.borderCompleted ||
-      events.puzzleSolved;
-    if (!hasEvents) return;
+    if (!hasCelebrationEvents(events)) return;
 
     if (view.settings.effects) {
-      const now = performance.now();
-      const next = pruneEffects(effectsRef.current, now);
-      if (events.joinedSeams.length > 0) {
-        next.snaps = [...next.snaps, { seams: events.joinedSeams, startTime: now, duration: SNAP_DURATION_MS }];
-      }
-      if (events.newlyLockedIds.length > 0) {
-        next.locks = [...next.locks, { pieceIds: events.newlyLockedIds, startTime: now, duration: LOCK_DURATION_MS }];
-      }
-      if (events.borderCompleted) {
-        next.border = { startTime: now, duration: BORDER_DURATION_MS };
-        setBorderToast(true);
-        if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = window.setTimeout(() => {
-          setBorderToast(false);
-          toastTimerRef.current = null;
-        }, BORDER_TOAST_MS);
-      }
-      if (events.puzzleSolved) {
-        next.solve = {
-          startTime: now,
-          duration: SOLVE_DURATION_MS,
-          confetti: createConfetti({ width: vpWidth, height: vpHeight })
-        };
-        clearToast();
-      }
-      effectsRef.current = next;
+      effectsRef.current = applyCelebrationEvents(effectsRef.current, events, performance.now(), {
+        width: vpWidth,
+        height: vpHeight
+      });
+      if (events.puzzleSolved) clearToast();
+      else if (events.borderCompleted) showBorderToast();
     }
 
     if (events.puzzleSolved) onSolve?.();

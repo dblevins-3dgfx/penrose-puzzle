@@ -5,7 +5,7 @@
 // 3. Puzzle finished: glossy sheen sweep across the completed picture + Penrose
 //    kite-and-dart confetti burst in the stained-glass palette.
 import { getVertices, type BoardSize, type Point, type TileType } from '../rules';
-import { boundsOf, pieceTile, type JoinedSeam, type Piece } from '../jigsaw';
+import { boundsOf, pieceTile, type CelebrationEvents, type JoinedSeam, type Piece } from '../jigsaw';
 
 export const SNAP_DURATION_MS = 420;
 export const LOCK_DURATION_MS = 600;
@@ -79,6 +79,34 @@ export const pruneEffects = (effects: ActiveEffects, now: number): ActiveEffects
   border: effects.border && now < effects.border.startTime + effects.border.duration ? effects.border : null,
   solve: effects.solve && now < effects.solve.startTime + effects.solve.duration ? effects.solve : null
 });
+
+export const hasCelebrationEvents = (events: CelebrationEvents): boolean =>
+  events.newlyLockedIds.length > 0 ||
+  events.joinedSeams.length > 0 ||
+  events.borderCompleted ||
+  events.puzzleSolved;
+
+export const applyCelebrationEvents = (
+  current: ActiveEffects,
+  events: CelebrationEvents,
+  now: number,
+  viewport: BoardSize
+): ActiveEffects => {
+  const next = pruneEffects(current, now);
+  if (events.joinedSeams.length > 0) {
+    next.snaps = [...next.snaps, { seams: events.joinedSeams, startTime: now, duration: SNAP_DURATION_MS }];
+  }
+  if (events.newlyLockedIds.length > 0) {
+    next.locks = [...next.locks, { pieceIds: events.newlyLockedIds, startTime: now, duration: LOCK_DURATION_MS }];
+  }
+  if (events.borderCompleted) {
+    next.border = { startTime: now, duration: BORDER_DURATION_MS };
+  }
+  if (events.puzzleSolved) {
+    next.solve = { startTime: now, duration: SOLVE_DURATION_MS, confetti: createConfetti(viewport) };
+  }
+  return next;
+};
 
 export const createConfetti = (viewport: BoardSize): ConfettiParticle[] => {
   const cx = viewport.width / 2;
