@@ -11,6 +11,7 @@ export const TAP_MAX_MOVE = 6;
 export const TRAY_TAP_MAX_MOVE = 8;
 
 export type TrayDragAction = 'wait' | 'scroll' | 'lift';
+export type TrayGesturePhase = 'pending' | 'scrolling' | 'lifted';
 
 // Decides whether pointer movement starting on a tray item should keep waiting,
 // yield to native tray scrolling (along the tray's scroll axis on touch), or
@@ -25,11 +26,26 @@ export const trayDragAction = (isTouch: boolean, isPortrait: boolean, dx: number
   return pullOut ? 'lift' : 'wait';
 };
 
+// Advances the tray gesture state machine. Once a gesture commits to
+// 'scrolling' or 'lifted', that phase is sticky until pointerup/cancel.
+export const nextTrayPhase = (
+  phase: TrayGesturePhase,
+  isTouch: boolean,
+  isPortrait: boolean,
+  dx: number,
+  dy: number
+): TrayGesturePhase => {
+  if (phase !== 'pending') return phase;
+  const action = trayDragAction(isTouch, isPortrait, dx, dy);
+  if (action === 'scroll') return 'scrolling';
+  return action === 'lift' ? 'lifted' : 'pending';
+};
+
 // True when releasing a tray item should pop a tile/piece onto the board.
 // Cancelled pointers (e.g. iOS Safari taking over for native tray scrolling)
 // never pop accidentally.
-export const isTrayTap = (lifted: boolean, scrolled: boolean, cancelled: boolean, moveDistPx: number): boolean =>
-  !lifted && !scrolled && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
+export const isTrayTap = (phase: TrayGesturePhase, cancelled: boolean, moveDistPx: number): boolean =>
+  phase === 'pending' && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
 
 // Wheel deltas in pixels: line mode counts 16 px a line, page mode 400 px.
 export const wheelDeltaPixels = (deltaY: number, deltaMode: number): number =>

@@ -8,10 +8,11 @@ interface Props {
   getDebugInfo: () => string;
 }
 
+type CopyStatus = 'idle' | 'copied' | 'failed';
+
 export const DebugInfoSection = ({ getDebugInfo }: Props) => {
-  const [copied, setCopied] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const [preview, setPreview] = useState<string | null>(null);
-  const [copyFailed, setCopyFailed] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   useEffect(
@@ -23,27 +24,27 @@ export const DebugInfoSection = ({ getDebugInfo }: Props) => {
 
   const handleCopy = async () => {
     const text = getDebugInfo();
-    setCopyFailed(false);
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
+      setCopyStatus('copied');
       if (preview !== null) setPreview(text);
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
       timerRef.current = window.setTimeout(() => {
-        setCopied(false);
+        setCopyStatus('idle');
         timerRef.current = null;
       }, 2000);
     } catch {
-      setCopied(false);
-      setCopyFailed(true);
+      setCopyStatus('failed');
       setPreview(text);
     }
   };
 
   const togglePreview = () => {
-    setCopyFailed(false);
+    if (copyStatus === 'failed') setCopyStatus('idle');
     setPreview(cur => (cur === null ? getDebugInfo() : null));
   };
+
+  const copied = copyStatus === 'copied';
 
   return (
     <div className="pt-3 border-t border-slate-700/80 space-y-2">
@@ -73,7 +74,7 @@ export const DebugInfoSection = ({ getDebugInfo }: Props) => {
         </div>
       </div>
 
-      {copyFailed && (
+      {copyStatus === 'failed' && (
         <p className="text-xs text-amber-300">Clipboard access is unavailable here — select and copy the text below.</p>
       )}
 

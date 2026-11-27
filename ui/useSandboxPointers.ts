@@ -15,9 +15,17 @@ import {
   type TileType
 } from '../rules';
 import { panSandboxCamera, sandboxScreenToWorld, zoomSandboxCameraAt, type Camera } from '../camera';
-import { isTrayTap, TAP_MAX_MOVE, trayDragAction } from '../gestures';
+import { isTrayTap, nextTrayPhase, TAP_MAX_MOVE, type TrayGesturePhase } from '../gestures';
 import type { Preview } from './draw';
-import { isInElement, pairMetrics, stepPinch, type PinchMetrics } from './pointerUtils';
+import {
+  IDLE_GESTURE,
+  isInElement,
+  pairMetrics,
+  startPanGesture,
+  stepPanGesture,
+  stepPinch,
+  type BoardGesture
+} from './pointerUtils';
 
 const clientToWorld = (canvas: HTMLCanvasElement, clientX: number, clientY: number, camera: Camera): Point => {
   const rect = canvas.getBoundingClientRect();
@@ -54,24 +62,14 @@ export const useSandboxTrayInteraction = (
       const startX = startEvent.clientX,
         startY = startEvent.clientY;
       const isTouch = startEvent.pointerType === 'touch';
-      let lifted = false,
-        scrolled = false;
+      let phase: TrayGesturePhase = 'pending';
       let latest: Tile | null = null;
 
       const onMove = (e: globalThis.PointerEvent) => {
         const canvas = canvasRef.current;
-        if (!canvas || scrolled) return;
-        const dx = e.clientX - startX,
-          dy = e.clientY - startY;
-        if (!lifted) {
-          const action = trayDragAction(isTouch, isPortrait, dx, dy);
-          if (action === 'scroll') {
-            scrolled = true;
-            return;
-          }
-          if (action === 'wait') return;
-          lifted = true;
-        }
+        if (!canvas || phase === 'scrolling') return;
+        phase = nextTrayPhase(phase, isTouch, isPortrait, e.clientX - startX, e.clientY - startY);
+        if (phase !== 'lifted') return;
         onDropHighlight(isInElement(trayRef.current, e.clientX, e.clientY));
         const pt = clampTileCenter(clientToWorld(canvas, e.clientX, e.clientY, camera));
         latest = { type, x: pt.x, y: pt.y, rotation: stateRef.current.defaultRotation };
@@ -83,7 +81,7 @@ export const useSandboxTrayInteraction = (
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onCancel);
         onDropHighlight(false);
-        if (lifted && latest) {
+        if (phase === 'lifted' && latest) {
           if (!cancelled && isInElement(trayRef.current, e.clientX, e.clientY)) {
             onSetLoose(null);
             return;
@@ -99,7 +97,7 @@ export const useSandboxTrayInteraction = (
           onSetLoose(latest);
           return;
         }
-        if (isTrayTap(lifted, scrolled, cancelled, Math.hypot(e.clientX - startX, e.clientY - startY))) {
+        if (isTrayTap(phase, cancelled, Math.hypot(e.clientX - startX, e.clientY - startY))) {
           const center = clampTileCenter(
             sandboxScreenToWorld({ x: viewport.width / 2, y: viewport.height / 2 }, camera)
           );
@@ -129,6 +127,15 @@ export const useSandboxTrayInteraction = (
   );
 };
 
+interface SandboxDrag {
+  dx: number;
+  dy: number;
+  startX: number;
+  startY: number;
+  maxMove: number;
+  latest: Tile;
+}
+
 export const useSandboxBoardPointers = (
   trayRef: RefObject<HTMLDivElement | null>,
   tiles: Tile[],
@@ -144,17 +151,8 @@ export const useSandboxBoardPointers = (
   onRotate: (steps: number) => void,
   onDropHighlight: (active: boolean) => void
 ) => {
-  const drag = useRef<{
-    dx: number;
-    dy: number;
-    startX: number;
-    startY: number;
-    maxMove: number;
-    latest: Tile;
-  } | null>(null);
-  const pan = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const gesture = useRef<BoardGesture<SandboxDrag>>(IDLE_GESTURE);
   const touches = useRef<Map<number, Point>>(new Map());
-  const pinch = useRef<PinchMetrics | null>(null);
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -163,10 +161,8 @@ export const useSandboxBoardPointers = (
     if (e.pointerType === 'touch') {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2) {
-        drag.current = null;
+        gesture.current = { mode: 'pinch', metrics: pairMetrics([...touches.current.values()] as [Point, Point]) };
         onDropHighlight(false);
-        pan.current = null;
-        pinch.current = pairMetrics([...touches.current.values()] as [Point, Point]);
         return;
       }
       if (touches.current.size > 2) return;
@@ -174,7 +170,8 @@ export const useSandboxBoardPointers = (
 
     const p = clientToWorld(e.currentTarget, e.clientX, e.clientY, camera);
     if (loose && preview && pointInTile(p, preview.tile)) {
-      drag.current = {
+      gesture.current = {
+        mode: 'drag',
         dx: p.x - preview.tile.x,
         dy: p.y - preview.tile.y,
         startX: e.clientX,
@@ -184,55 +181,57 @@ export const useSandboxBoardPointers = (
       };
       return;
     }
-    pan.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY };
+    gesture.current = startPanGesture(e.pointerId, e.clientX, e.clientY);
   };
 
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (touches.current.size === 2 && pinch.current) {
-        const { next, dx, dy, factor, focus } = stepPinch(
-          pinch.current,
-          [...touches.current.values()],
-          e.currentTarget
-        );
-        pinch.current = next;
-        setCamera(c => zoomSandboxCameraAt(panSandboxCamera(c, dx, dy, viewport), factor, focus, viewport));
-        return;
-      }
     }
 
-    if (pan.current && pan.current.pointerId === e.pointerId) {
-      const dx = e.clientX - pan.current.x,
-        dy = e.clientY - pan.current.y;
-      pan.current = { ...pan.current, x: e.clientX, y: e.clientY };
+    const g = gesture.current;
+    if (g.mode === 'pinch') {
+      if (touches.current.size !== 2) return;
+      const { next, dx, dy, factor, focus } = stepPinch(g.metrics, [...touches.current.values()], e.currentTarget);
+      gesture.current = { mode: 'pinch', metrics: next };
+      setCamera(c => zoomSandboxCameraAt(panSandboxCamera(c, dx, dy, viewport), factor, focus, viewport));
+      return;
+    }
+    if (g.mode === 'pan') {
+      if (g.pointerId !== e.pointerId) return;
+      const { next, dx, dy } = stepPanGesture(g, e.clientX, e.clientY);
+      gesture.current = next;
       setCamera(c => panSandboxCamera(c, dx, dy, viewport));
       return;
     }
+    if (g.mode !== 'drag') return;
 
-    const d = drag.current;
-    if (!d) return;
-    d.maxMove = Math.max(d.maxMove, Math.hypot(e.clientX - d.startX, e.clientY - d.startY));
-    if (d.maxMove <= TAP_MAX_MOVE) return;
+    g.maxMove = Math.max(g.maxMove, Math.hypot(e.clientX - g.startX, e.clientY - g.startY));
+    if (g.maxMove <= TAP_MAX_MOVE) return;
     onDropHighlight(isInElement(trayRef.current, e.clientX, e.clientY));
     const p = clientToWorld(e.currentTarget, e.clientX, e.clientY, camera);
-    const pos = clampTileCenter({ x: p.x - d.dx, y: p.y - d.dy });
-    d.latest = { ...d.latest, x: pos.x, y: pos.y };
-    onSetLoose(d.latest);
+    const pos = clampTileCenter({ x: p.x - g.dx, y: p.y - g.dy });
+    g.latest = { ...g.latest, x: pos.x, y: pos.y };
+    onSetLoose(g.latest);
   };
 
   const onPointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch') {
-      touches.current.delete(e.pointerId);
-      if (touches.current.size < 2) pinch.current = null;
-    }
-    if (pan.current && pan.current.pointerId === e.pointerId) pan.current = null;
+    if (e.pointerType === 'touch') touches.current.delete(e.pointerId);
 
-    const d = drag.current;
-    if (!d) return;
-    drag.current = null;
+    const g = gesture.current;
+    if (g.mode === 'pinch') {
+      if (touches.current.size < 2) gesture.current = IDLE_GESTURE;
+      return;
+    }
+    if (g.mode === 'pan') {
+      if (g.pointerId === e.pointerId) gesture.current = IDLE_GESTURE;
+      return;
+    }
+    if (g.mode !== 'drag') return;
+
+    gesture.current = IDLE_GESTURE;
     onDropHighlight(false);
-    if (d.maxMove <= TAP_MAX_MOVE) {
+    if (g.maxMove <= TAP_MAX_MOVE) {
       onRotate(e.shiftKey ? -1 : 1);
       return;
     }
@@ -240,7 +239,7 @@ export const useSandboxBoardPointers = (
       onSetLoose(null);
       return;
     }
-    const resolved = resolveSandboxTile(tiles, d.latest, autoRotate, autoChoice, SANDBOX_WORLD);
+    const resolved = resolveSandboxTile(tiles, g.latest, autoRotate, autoChoice, SANDBOX_WORLD);
     if (resolved.valid) onPlace(resolved.tile);
   };
 

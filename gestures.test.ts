@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TRAY_TAP_MAX_MOVE, WHEEL_NOTCH, isTrayTap, trayDragAction, wheelDeltaPixels, wheelSteps } from './gestures';
+import {
+  TRAY_TAP_MAX_MOVE,
+  WHEEL_NOTCH,
+  isTrayTap,
+  nextTrayPhase,
+  trayDragAction,
+  wheelDeltaPixels,
+  wheelSteps
+} from './gestures';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} vs ${b}`);
 
@@ -22,17 +30,20 @@ test('trayDragAction distinguishes touch scroll vs drag-out in portrait and land
   assert.equal(trayDragAction(true, false, -15, 3), 'lift');
   assert.equal(trayDragAction(true, false, 15, 0), 'wait', 'dragging rightward does not lift');
 
-  // Tap-to-pop fires only on clean un-cancelled, un-scrolled, un-lifted taps within TRAY_TAP_MAX_MOVE
-  assert.equal(isTrayTap(false, false, false, 0), true);
-  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE), true);
-  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE + 0.5), false);
-  assert.equal(
-    isTrayTap(false, false, true, 2),
-    false,
-    'pointercancel (e.g. Safari scroll handoff) never pops a piece'
-  );
-  assert.equal(isTrayTap(false, true, false, 2), false);
-  assert.equal(isTrayTap(true, false, false, 2), false);
+  // State transitions: pending commits to scrolling or lifted, and committed phases are sticky
+  assert.equal(nextTrayPhase('pending', true, true, 14, 2), 'scrolling');
+  assert.equal(nextTrayPhase('scrolling', true, true, 2, -20), 'scrolling', 'scrolling never switches to lifted');
+  assert.equal(nextTrayPhase('pending', true, true, 2, -15), 'lifted');
+  assert.equal(nextTrayPhase('lifted', true, true, 20, 0), 'lifted', 'lifted never switches to scrolling');
+  assert.equal(nextTrayPhase('pending', true, true, 5, -8), 'pending');
+
+  // Tap-to-pop fires only on clean un-cancelled pending taps within TRAY_TAP_MAX_MOVE
+  assert.equal(isTrayTap('pending', false, 0), true);
+  assert.equal(isTrayTap('pending', false, TRAY_TAP_MAX_MOVE), true);
+  assert.equal(isTrayTap('pending', false, TRAY_TAP_MAX_MOVE + 0.5), false);
+  assert.equal(isTrayTap('pending', true, 2), false, 'pointercancel (e.g. Safari scroll handoff) never pops a piece');
+  assert.equal(isTrayTap('scrolling', false, 2), false);
+  assert.equal(isTrayTap('lifted', false, 2), false);
 });
 
 test('wheel deltas in lines and pages convert to pixels', () => {

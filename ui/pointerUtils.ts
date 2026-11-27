@@ -1,5 +1,5 @@
-// Shared DOM pointer & two-finger touch pinch helpers used by both Jigsaw and
-// Sandbox board/tray pointer hooks (spec 8 & 9).
+// Shared DOM pointer, board gesture state types, and two-finger touch pinch
+// helpers used by both Jigsaw and Sandbox pointer hooks (spec 8 & 9).
 import type { Point } from '../rules';
 
 export const isInElement = (el: HTMLElement | null, clientX: number, clientY: number): boolean => {
@@ -12,6 +12,46 @@ export interface PinchMetrics {
   dist: number;
   mid: Point;
 }
+
+export interface PanGesture {
+  mode: 'pan';
+  pointerId: number;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  maxMove: number;
+}
+
+export interface PinchGesture {
+  mode: 'pinch';
+  metrics: PinchMetrics;
+}
+
+export type BoardGesture<D> = { mode: 'idle' } | PanGesture | PinchGesture | ({ mode: 'drag' } & D);
+
+export const IDLE_GESTURE = { mode: 'idle' } as const;
+
+export const startPanGesture = (pointerId: number, x: number, y: number): PanGesture => ({
+  mode: 'pan',
+  pointerId,
+  startX: x,
+  startY: y,
+  x,
+  y,
+  maxMove: 0
+});
+
+export const stepPanGesture = (pan: PanGesture, x: number, y: number): { next: PanGesture; dx: number; dy: number } => {
+  const dx = x - pan.x;
+  const dy = y - pan.y;
+  const moved = Math.hypot(x - pan.startX, y - pan.startY);
+  return {
+    next: { ...pan, x, y, maxMove: Math.max(pan.maxMove, moved) },
+    dx,
+    dy
+  };
+};
 
 export const pairMetrics = (pts: [Point, Point]): PinchMetrics => {
   const [a, b] = pts;
