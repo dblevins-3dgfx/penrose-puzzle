@@ -2,7 +2,7 @@
 // Plain module with no React or DOM calls so it can be unit-tested in debugInfo.test.ts.
 import type { BoardSize } from './rules';
 import type { Camera } from './camera';
-import type { JigsawSettings, PuzzleSize, SharedSettings } from './settings';
+import type { JigsawSettings, PuzzleSize, SandboxSettings } from './settings';
 import type { TrayFilter } from './jigsaw';
 
 export interface DebugEnvironment {
@@ -38,7 +38,7 @@ export interface JigsawDebugSnapshot {
 export interface SandboxDebugSnapshot {
   mode: 'sandbox';
   env: DebugEnvironment;
-  settings: SharedSettings;
+  settings: SandboxSettings;
   camera: Camera;
   kites: number;
   darts: number;
@@ -85,7 +85,7 @@ export const formatDebugInfo = (snapshot: DebugSnapshot): string => {
     lines.push(
       `camera: zoom=${round(camera.zoom)}, pan=(${round(camera.panX, 1)}, ${round(camera.panY, 1)})`,
       `sandbox: kites=${snapshot.kites}, darts=${snapshot.darts}, autoRotate=${snapshot.autoRotate}, looseTile=${snapshot.hasLooseTile}`,
-      `settings: effects=${s.effects}, sound=${s.sound}`
+      `settings: vertexDots=${s.vertexDots}, matchingArcs=${s.matchingArcs}, effects=${s.effects}, sound=${s.sound}`
     );
   }
 

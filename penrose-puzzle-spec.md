@@ -21,7 +21,7 @@ The project began as a copy of the original version of Penrogo, a two-player ter
 | Rendering | HTML5 Canvas 2D, sized to fill the available viewport below the slim top bar (scaled by `devicePixelRatio` for HiDPI crispness) |
 | Styling | Tailwind CSS v4 utility classes |
 | Icons | lucide-react (`RotateCw`, `Undo2`, `Trash2`, `Magnet`, `CircleHelp`, `X`; jigsaw: `Shuffle`, `ImagePlus`, `Settings`, `ZoomIn`, `ZoomOut`) |
-| Persistence | The jigsaw's settings in the browser's local storage (section 9); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
+| Persistence | App settings (Jigsaw and Sandbox) in the browser's local storage (sections 8 and 9); everything else in memory only. A picture the player chooses is read in the browser and never uploaded |
 
 ## 3. Tile Geometry
 
@@ -105,9 +105,9 @@ An optional mode, switched on and off with the **Auto-rotate** button (off when 
    - Tapping a Kite or Dart card in the tray spawns a loose tile at the center of the current view (or switches the active loose tile's type).
    - Once placed, tiles stay locked on the board; the placed rotation is remembered as the default angle for the next tile.
 3. **Undo** removes the most recently placed tile (repeatable back to an empty board). **Clear** removes every placed tile and any loose tile, and resets the default rotation to 0. Both are disabled while no tiles are placed.
-4. The header shows how many kites and darts are on the board, plus **Settings** (Visual effects and Sound effects, shared with Jigsaw in `localStorage`) and **How to Play**.
+4. The header shows how many kites and darts are on the board, plus **Settings** (**Vertex dots**, **Matching arcs**, and the shared **Visual effects** and **Sound effects**, persisted in `localStorage`) and **How to Play**.
 
-Placed tiles are not saved: reloading the page starts with an empty board (only the shared Visual effects / Sound effects settings persist).
+Placed tiles are not saved: reloading the page starts with an empty board (only the persisted Settings survive reload).
 
 ## 7. Visual Feedback
 
@@ -115,8 +115,9 @@ Placed tiles are not saved: reloading the page starts with an empty board (only 
 |---|---|
 | World sheet & grid | White `1600 x 1200` playfield sheet with a light 40 px grid and subtle slate border, set against a soft slate backdrop when zoomed out |
 | Tile fill | Kites amber, darts indigo, semi-transparent, each with a darker outline of its own color |
-| Edge ticks | Small tick marks at each edge midpoint (decorative only; not part of the rules) |
-| Vertex colors | Each vertex is drawn as a 5 px dot: black dot with white ring, or white dot with black ring, showing the matching color. Shown on placed tiles, loose tiles, and tray thumbnails |
+| Edge ticks | Small tick marks at each edge midpoint (decorative only; not part of the rules). Shown by default and hidden whenever **Matching arcs** is enabled for a cleaner look |
+| Vertex dots | Optional (**Vertex dots**, on by default in Sandbox Settings). When enabled, each vertex is drawn as a 5 px dot: black dot with white ring, or white dot with black ring, showing the matching color. Shown on placed tiles, loose tiles, and tray thumbnails |
+| Matching arcs | Optional (**Matching arcs**, off by default in Sandbox Settings; independent of **Vertex dots**, so players can choose dots only, arcs only, both, or neither). When enabled, each kite and dart shows Conway's two-family circular matching arcs clipped cleanly inside the tile with dark casings: warm gold primary arcs meeting across long edges (kite `O` radius `L / phi`, dart `M` radius `L / phi^2`) and aqua cyan secondary arcs meeting across short edges (kite `C` radius `L / phi^2`, dart `A'` radius `L / phi^3`). Shown on placed tiles, loose tiles, and tray thumbnails |
 | Loose tile | Casts a soft drop shadow, drawn semi-transparent at its snapped position or auto-rotate fit (section 5b), with a solid green outline when legal or a dashed red outline when blocked |
 | Connected edges | Edges shared by two placed tiles, with colors agreeing at both endpoints, are stroked green (4 px, round caps) |
 | Placement effects & sound | When **Visual effects** is on (default), locking a tile plays a brief warm golden outline glow and outward corner sparkles (600 ms) plus a crisp aqua-white seam spark along each newly connected edge (420 ms; calm glows under `prefers-reduced-motion`). When **Sound effects** is on (off by default), locking a tile plays a warm synthesized chime |
@@ -138,7 +139,7 @@ Sandbox and Jigsaw share the same unified pointer, touch, and keyboard interacti
 | `Enter` / `Space` / `Escape` | Place a legal loose tile (`Enter` / `Space`) or put away a loose tile (`Escape`, when no overlay is open) |
 | Auto-rotate button | Switch auto-rotate (section 5b) on or off; shown green while on |
 | `Ctrl/Cmd + Z`, Undo / Clear | See section 6 |
-| Settings button | Opens Sandbox Settings (**Visual effects** and **Sound effects**, shared with Jigsaw and persisted in `localStorage`, plus a local-only **Copy debug info** diagnostics section with a Show/Hide preview and selectable fallback if clipboard access is blocked) |
+| Settings button | Opens Sandbox Settings (**Vertex dots** on by default, **Matching arcs** off by default, plus **Visual effects** and **Sound effects** shared with Jigsaw, all persisted in `localStorage`, plus a local-only **Copy debug info** diagnostics section with a Show/Hide preview and selectable fallback if clipboard access is blocked) |
 
 Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-action: none` (plus iOS `gesturestart`/`gesturechange` prevention) on the gameplay canvas, `touch-action: manipulation` on buttons and form controls, `overscroll-behavior: none` on the page root, `-webkit-touch-callout: none` / `user-select: none` on the game chrome (while keeping overlay text selectable), and a backing store scaled by `devicePixelRatio`. The page uses `viewport-fit=cover`, fills the dynamic visible window (`h-dvh`, synced with `ResizeObserver`, `visualViewport`, and `orientationchange` as mobile browser toolbars expand or collapse), and applies `env(safe-area-inset-*)` padding on the top bar, piece tray, floating controls, and overlays so no control is obscured by iPhone notches, Dynamic Island, or the Home Indicator. On small screens (`< 640px`), the title hides to keep the top bar compact and touch targets stay generous (`min-h-9` / `p-2`+). The app provides a web app manifest (`public/manifest.webmanifest`), `apple-mobile-web-app-capable` metadata, and Penrose sun icons (`public/apple-touch-icon.png`, `public/icon-192.png`, `public/icon-512.png`, `public/icon.svg`) for standalone launch from the iPhone Home Screen. The rules are on a separate **How to Play** screen, a full-screen overlay (`z-50`) closed with its X button, a tap outside it, or Escape; the board keeps its state underneath.
 
@@ -203,7 +204,7 @@ Implementation notes: pointer events (`pointerdown/move/up/leave`), `touch-actio
 
 ### Saved settings
 
-- The jigsaw's settings are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided", "size": "medium", "symmetric": true, "effects": true, "sound": false}`), every time one changes, and read when the jigsaw opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
+- Settings for both Jigsaw and Sandbox are saved in the browser's local storage under the key `penrose-puzzle.jigsaw-settings`, as JSON (`{"showPicture": false, "showOutlines": true, "picture": "subdivided", "size": "medium", "symmetric": true, "effects": true, "sound": false, "vertexDots": true, "matchingArcs": false}`), every time one changes, and read when the app opens. They are kept per browser and per site address: the live site and each pull-request preview share one origin (`dblevins-3dgfx.github.io`), so they share the saved settings.
 - Reading is forgiving: if nothing is saved, the value isn't valid JSON or isn't an object, the defaults are used; a missing or invalid setting (non-boolean toggle, unknown `picture`, or unknown `size`) takes its default; unknown fields are ignored.
 - If the browser blocks storage (for example some private-browsing modes), settings still work but are not saved.
 

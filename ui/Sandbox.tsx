@@ -24,7 +24,7 @@ import {
   zoomSandboxCameraAt,
   type Camera
 } from '../camera';
-import type { SharedSettings } from '../settings';
+import type { SandboxSettings } from '../settings';
 import { formatDebugInfo } from '../debugInfo';
 import { collectDebugEnvironment } from './collectDebugEnv';
 import { HelpOverlay } from './HelpOverlay';
@@ -93,7 +93,7 @@ const buildSandboxDebugInfo = (
   counts: { kite: number; dart: number },
   autoRotate: boolean,
   hasLooseTile: boolean,
-  settings: SharedSettings,
+  settings: SandboxSettings,
   camera: Camera,
   viewport: { width: number; height: number },
   isPortrait: boolean,
@@ -113,8 +113,8 @@ const buildSandboxDebugInfo = (
 interface SandboxProps {
   modeSwitch: ReactNode;
   active: boolean;
-  settings: SharedSettings;
-  onChangeSettings: (patch: Partial<SharedSettings>) => void;
+  settings: SandboxSettings;
+  onChangeSettings: (patch: Partial<SandboxSettings>) => void;
 }
 
 const useSandboxBoardState = () => {
@@ -265,17 +265,7 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
     setDropHighlight
   );
 
-  useSandboxRenderAndEffects(
-    canvasRef,
-    tiles,
-    preview,
-    vpWidth,
-    vpHeight,
-    dpr,
-    camera,
-    settings.effects,
-    settings.sound
-  );
+  useSandboxRenderAndEffects(canvasRef, tiles, preview, vpWidth, vpHeight, dpr, camera, settings);
 
   return (
     <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col game-shell">
@@ -329,6 +319,8 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
         <SandboxTray
           trayRef={trayRef}
           activeType={loose?.type ?? null}
+          vertexDots={settings.vertexDots}
+          matchingArcs={settings.matchingArcs}
           isPortrait={isPortrait}
           dropHighlight={dropHighlight}
           onStartFromTray={handleStartFromTray}

@@ -1,11 +1,11 @@
 // Shared browser-persisted settings hook used by both Jigsaw and Sandbox
-// (stored under penrose-puzzle.jigsaw-settings so Visual effects and Sound
-// effects stay in sync across modes).
+// (stored under penrose-puzzle.jigsaw-settings so settings persist seamlessly
+// across modes and updates).
 import { useEffect, useState } from 'react';
-import { parseSettings, serializeSettings, SETTINGS_KEY, type JigsawSettings } from '../settings';
+import { parseSettings, serializeSettings, SETTINGS_KEY, type AppSettings } from '../settings';
 
 export const useSharedSettings = () => {
-  const [settings, setSettings] = useState<JigsawSettings>(() => {
+  const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       return parseSettings(window.localStorage.getItem(SETTINGS_KEY));
     } catch {

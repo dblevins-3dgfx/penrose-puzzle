@@ -1,12 +1,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PHI, TILE_SIZE, centroidOf, getVertices, toTriangles, trianglesOverlap, type Point } from './rules';
+import {
+  PHI,
+  TILE_SIZE,
+  autoRotatePlacement,
+  centroidOf,
+  getVertices,
+  toTriangles,
+  trianglesOverlap,
+  type Point,
+  type Tile
+} from './rules';
 import { boundsOf, newPuzzle } from './jigsaw';
 import {
   INDEPENDENT_TILE_SIZE,
   PENROSE_PALETTES,
   PENROSE_TILING_GENERATORS,
   SUBDIVIDE_DEPTH,
+  arcsForTile,
   colorSchemeForSeed,
   independentTiling,
   matchingTiling,
@@ -168,6 +179,33 @@ test('kite and dart arcs sweep their exact interior angles and meet their own ed
     near(distToSeg(midS, v0, v2), 0);
     near(dist(midP, midS), 0, 1e-6, 'golden-ratio arcs meet tangentially on the axis');
   }
+});
+
+test('arcsForTile produces matching Conway arcs for Sandbox tiles and joins smoothly across legal placements', () => {
+  const seed: Tile = { type: 'kite', x: 400, y: 300, rotation: 36 };
+  const [kiteP, kiteS] = arcsForTile(seed);
+  near(kiteP.radius, TILE_SIZE / PHI);
+  near(kiteS.radius, TILE_SIZE / (PHI * PHI));
+
+  const dart: Tile = { type: 'dart', x: 400, y: 300, rotation: 270 };
+  const [dartP, dartS] = arcsForTile(dart);
+  near(dartP.radius, TILE_SIZE / (PHI * PHI));
+  near(dartS.radius, TILE_SIZE / (PHI * PHI * PHI));
+
+  // Place a legal kite and dart adjacent to the seed tile using Sandbox auto-rotate
+  const verts = getVertices(seed);
+  const longEdgeMid = { x: (verts[0].x + verts[1].x) / 2, y: (verts[0].y + verts[1].y) / 2 };
+  const shortEdgeMid = { x: (verts[1].x + verts[2].x) / 2, y: (verts[1].y + verts[2].y) / 2 };
+  const neighborKite = autoRotatePlacement([seed], 'kite', longEdgeMid, 0);
+  const neighborDart = autoRotatePlacement([seed], 'dart', shortEdgeMid, 0);
+  assert.ok(neighborKite && neighborDart, 'found legal Sandbox neighbors on long and short edges');
+
+  const placed = [seed, neighborKite.tile, neighborDart.tile];
+  checkArcContinuity(matchingTiling(placed));
+  // arcsForTile matches tileArcs on the equivalent TilingTile
+  placed.forEach((tile, i) => {
+    assert.deepEqual(arcsForTile(tile), tileArcs(matchingTiling(placed)[i]));
+  });
 });
 
 // ---------------------------------------------------------------------

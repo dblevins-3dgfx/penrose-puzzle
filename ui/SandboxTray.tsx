@@ -9,6 +9,8 @@ import { drawSandboxTileThumb } from './draw';
 interface Props {
   trayRef: RefObject<HTMLDivElement | null>;
   activeType: TileType | null;
+  vertexDots: boolean;
+  matchingArcs: boolean;
   isPortrait: boolean;
   dropHighlight: boolean;
   onStartFromTray: (type: TileType, e: PointerEvent<HTMLButtonElement>) => void;
@@ -21,11 +23,15 @@ const TileCard = memo(
   ({
     type,
     active,
+    vertexDots,
+    matchingArcs,
     isPortrait,
     onStart
   }: {
     type: TileType;
     active: boolean;
+    vertexDots: boolean;
+    matchingArcs: boolean;
     isPortrait: boolean;
     onStart: (type: TileType, e: PointerEvent<HTMLButtonElement>) => void;
   }) => {
@@ -42,8 +48,8 @@ const TileCard = memo(
         canvas.height = px;
       }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawSandboxTileThumb(ctx, type, THUMB_SIZE);
-    }, [type]);
+      drawSandboxTileThumb(ctx, type, THUMB_SIZE, { vertexDots, matchingArcs });
+    }, [type, vertexDots, matchingArcs]);
 
     return (
       <button
@@ -62,7 +68,15 @@ const TileCard = memo(
   }
 );
 
-export const SandboxTray = ({ trayRef, activeType, isPortrait, dropHighlight, onStartFromTray }: Props) => {
+export const SandboxTray = ({
+  trayRef,
+  activeType,
+  vertexDots,
+  matchingArcs,
+  isPortrait,
+  dropHighlight,
+  onStartFromTray
+}: Props) => {
   const containerClass = isPortrait
     ? 'shrink-0 border-t border-slate-700/70 flex flex-col'
     : 'w-[calc(7rem+env(safe-area-inset-right))] lg:w-[calc(7.5rem+env(safe-area-inset-right))] shrink-0 border-l border-slate-700/70 flex flex-col';
@@ -103,6 +117,8 @@ export const SandboxTray = ({ trayRef, activeType, isPortrait, dropHighlight, on
             key={type}
             type={type}
             active={activeType === type}
+            vertexDots={vertexDots}
+            matchingArcs={matchingArcs}
             isPortrait={isPortrait}
             onStart={onStartFromTray}
           />

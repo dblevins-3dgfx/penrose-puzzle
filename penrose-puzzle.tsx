@@ -2,7 +2,7 @@
 // switched in the header. Both modes stay mounted once visited so switching
 // tabs preserves each mode's board state, camera, and settings cleanly.
 import { useCallback, useState } from 'react';
-import type { SharedSettings } from './settings';
+import type { AppSettings } from './settings';
 import { Jigsaw } from './ui/Jigsaw';
 import { ModeSwitch, type Mode } from './ui/ModeSwitch';
 import { Sandbox } from './ui/Sandbox';
@@ -13,8 +13,8 @@ const PenrosePuzzle = () => {
   const [visitedSandbox, setVisitedSandbox] = useState(false);
   const [settings, setSettings] = useSharedSettings();
 
-  const patchSharedSettings = useCallback(
-    (patch: Partial<SharedSettings>) => setSettings(prev => ({ ...prev, ...patch })),
+  const patchSettings = useCallback(
+    (patch: Partial<AppSettings>) => setSettings(prev => ({ ...prev, ...patch })),
     [setSettings]
   );
 
@@ -28,7 +28,12 @@ const PenrosePuzzle = () => {
   return (
     <>
       <div className={mode === 'jigsaw' ? 'w-full h-dvh' : 'hidden'}>
-        <Jigsaw modeSwitch={modeSwitch} active={mode === 'jigsaw'} settings={settings} onChangeSettings={setSettings} />
+        <Jigsaw
+          modeSwitch={modeSwitch}
+          active={mode === 'jigsaw'}
+          settings={settings}
+          onChangeSettings={patchSettings}
+        />
       </div>
       {visitedSandbox && (
         <div className={mode === 'sandbox' ? 'w-full h-dvh' : 'hidden'}>
@@ -36,7 +41,7 @@ const PenrosePuzzle = () => {
             modeSwitch={modeSwitch}
             active={mode === 'sandbox'}
             settings={settings}
-            onChangeSettings={patchSharedSettings}
+            onChangeSettings={patchSettings}
           />
         </div>
       )}

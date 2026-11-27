@@ -3,6 +3,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { connectedEdgesForTile, SANDBOX_WORLD, type Tile } from '../rules';
 import type { Camera } from '../camera';
+import type { SandboxSettings } from '../settings';
 import { drawBoard, type Preview } from './draw';
 import { playSound } from './sound';
 import {
@@ -23,9 +24,9 @@ export const useSandboxRenderAndEffects = (
   vpHeight: number,
   dpr: number,
   camera: Camera,
-  effectsEnabled: boolean,
-  soundEnabled: boolean
+  settings: SandboxSettings
 ) => {
+  const { effects: effectsEnabled, sound: soundEnabled, vertexDots, matchingArcs } = settings;
   const effectsRef = useRef<SandboxPlacementEffect[]>([]);
   const prevTilesRef = useRef<Tile[]>(tiles);
 
@@ -60,6 +61,7 @@ export const useSandboxRenderAndEffects = (
       canvas.height = backingH;
     }
 
+    const indicators = { vertexDots, matchingArcs };
     let rafId: number | null = null;
     const paint = (now: number) => {
       const reduced = prefersReducedMotion();
@@ -72,7 +74,7 @@ export const useSandboxRenderAndEffects = (
 
       const s = camera.zoom * dpr;
       ctx.setTransform(s, 0, 0, s, camera.panX * dpr, camera.panY * dpr);
-      drawBoard(ctx, tiles, preview, SANDBOX_WORLD);
+      drawBoard(ctx, tiles, preview, SANDBOX_WORLD, indicators);
       if (active) {
         drawSandboxEffects(ctx, effectsRef.current, now, reduced);
         rafId = window.requestAnimationFrame(paint);
@@ -85,5 +87,5 @@ export const useSandboxRenderAndEffects = (
     return () => {
       if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
-  }, [canvasRef, tiles, preview, vpWidth, vpHeight, dpr, camera, effectsEnabled]);
+  }, [canvasRef, tiles, preview, vpWidth, vpHeight, dpr, camera, effectsEnabled, vertexDots, matchingArcs]);
 };

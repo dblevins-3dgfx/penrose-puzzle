@@ -70,7 +70,10 @@ export const HelpOverlay = ({ isTouchDevice, onClose }: Props) => (
       <li>
         Place the first tile anywhere on the board; each tile after that must share a full edge with tiles already down
       </li>
-      <li>Where tiles meet, the corner dots must match: black on black, white on white</li>
+      <li>
+        Where tiles meet, the matching labels must agree: black dot on black dot, white on white (or matching gold/aqua
+        circular arcs when enabled in Settings)
+      </li>
       <li>
         <strong>Rotate &amp; adjust:</strong> dropping on an invalid spot leaves the tile loose so you can adjust it.{' '}
         {isTouchDevice
@@ -91,7 +94,7 @@ export const HelpOverlay = ({ isTouchDevice, onClose }: Props) => (
       </li>
       <li>
         {isTouchDevice ? 'Undo' : 'Undo (or Ctrl/Cmd+Z)'} removes the last placed tile; Clear empties the board. Toggle
-        visual and sound effects in Settings.
+        vertex dots, matching arcs, visual effects, and sound effects in Settings.
       </li>
     </ul>
   </Overlay>
