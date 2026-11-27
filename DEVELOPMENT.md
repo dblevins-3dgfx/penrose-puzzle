@@ -14,7 +14,7 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 ## Checks
 
-- CI runs the full checks (typecheck, lint, tests, build) on pull requests (`.github/workflows/test.yml`), while `deploy.yml` runs `npm test` and the build on pushes to `main` and on pull requests. Run `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` yourself before pushing.
+- CI runs the full checks (formatting, typecheck, lint, tests, build) on pull requests (`.github/workflows/test.yml`), while `deploy.yml` runs `npm test` and the build on pushes to `main` and on pull requests. Run `npm run format:check`, `npm run typecheck`, `npm run lint`, `npm test` and `npm run build` yourself before pushing (or `npm run format` to apply Prettier formatting).
 - The tests are hand-written and there is no mutation testing. The habit so far is to break each new rule by hand (delete a condition, change a constant) and check that a test fails, then add a test for any break that passes unnoticed.
 
 ## Running and testing locally

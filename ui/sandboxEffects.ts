@@ -44,12 +44,7 @@ const drawSparkle = (ctx: CanvasRenderingContext2D, x: number, y: number, r: num
   ctx.restore();
 };
 
-const drawTileGlow = (
-  ctx: CanvasRenderingContext2D,
-  tile: Tile,
-  elapsed: number,
-  reducedMotion: boolean
-) => {
+const drawTileGlow = (ctx: CanvasRenderingContext2D, tile: Tile, elapsed: number, reducedMotion: boolean) => {
   const t = Math.max(0, Math.min(1, elapsed / SANDBOX_LOCK_MS));
   const easeOut = 1 - (1 - t) ** 3;
   const fade = 1 - easeOut;

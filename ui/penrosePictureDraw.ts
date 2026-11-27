@@ -3,23 +3,17 @@
 // All tiling and arc geometry comes from penrosePicture.ts; this only paints.
 import { centroidOf, type Tile } from '../rules';
 import { boundsOf, coverRect } from '../jigsaw';
-import {
-  pictureTiles,
-  tileArcs,
-  type CircularArc,
-  type PenrosePictureStyle,
-  type TilingTile
-} from '../penrosePicture';
+import { pictureTiles, tileArcs, type CircularArc, type PenrosePictureStyle, type TilingTile } from '../penrosePicture';
 import type { Picture } from './jigsawDraw';
 
 type RGB = [number, number, number];
 
 // Four harmonious jewel-tone corners for a smooth stained-glass wash across
 // the solved puzzle so pieces from different regions are easy to tell apart.
-const TOP_LEFT: RGB = [234, 152, 46];      // warm golden amber
-const TOP_RIGHT: RGB = [196, 61, 108];     // ruby rose
-const BOTTOM_LEFT: RGB = [28, 156, 152];   // peacock teal
-const BOTTOM_RIGHT: RGB = [66, 78, 184];   // royal sapphire
+const TOP_LEFT: RGB = [234, 152, 46]; // warm golden amber
+const TOP_RIGHT: RGB = [196, 61, 108]; // ruby rose
+const BOTTOM_LEFT: RGB = [28, 156, 152]; // peacock teal
+const BOTTOM_RIGHT: RGB = [66, 78, 184]; // royal sapphire
 
 const KITE_TINT: RGB = [255, 248, 232];
 const DART_SHADE: RGB = [15, 23, 42];
@@ -27,8 +21,8 @@ const DART_SHADE: RGB = [15, 23, 42];
 const BG_COLOR = '#0f172a';
 const LEAD_COLOR = 'rgba(15, 23, 42, 0.42)';
 const ARC_CASING = 'rgba(15, 23, 42, 0.78)';
-const PRIMARY_ARC_COLOR = '#fef08a';       // luminous warm gold (kite O, dart M)
-const SECONDARY_ARC_COLOR = '#67e8f9';     // crisp aqua cyan (kite C, dart A')
+const PRIMARY_ARC_COLOR = '#fef08a'; // luminous warm gold (kite O, dart M)
+const SECONDARY_ARC_COLOR = '#67e8f9'; // crisp aqua cyan (kite C, dart A')
 
 const RENDER_SCALE = 2;
 
@@ -66,10 +60,7 @@ const strokeArcs = (ctx: CanvasRenderingContext2D, arcs: CircularArc[], color: s
   ctx.lineCap = 'round';
   ctx.beginPath();
   for (const a of arcs) {
-    ctx.moveTo(
-      a.center.x + a.radius * Math.cos(a.startAngle),
-      a.center.y + a.radius * Math.sin(a.startAngle)
-    );
+    ctx.moveTo(a.center.x + a.radius * Math.cos(a.startAngle), a.center.y + a.radius * Math.sin(a.startAngle));
     ctx.arc(a.center.x, a.center.y, a.radius, a.startAngle, a.endAngle, a.anticlockwise);
   }
   ctx.stroke();

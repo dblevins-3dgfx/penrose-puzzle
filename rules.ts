@@ -66,9 +66,9 @@ export const centroidOf = (verts: readonly Point[]): Point => ({
 // (dart) along that axis. The result is shifted so the centroid sits at
 // (x, y), which keeps the tile centered under the cursor.
 export const getVertices = (tile: Tile): Point[] => {
-  const r = tile.rotation * Math.PI / 180;
+  const r = (tile.rotation * Math.PI) / 180;
   const long = TILE_SIZE;
-  const deg36 = 36 * Math.PI / 180;
+  const deg36 = (36 * Math.PI) / 180;
   const axis = tile.type === 'kite' ? long : long / PHI;
 
   const local = [
@@ -88,12 +88,17 @@ export const getVertexColors = (tile: Pick<Tile, 'type'>): readonly VertexColor[
 // Both the kite and the dart split cleanly into two triangles along the
 // diagonal from vertex 0 to vertex 2 (their axis of symmetry), which also
 // handles the dart's concave notch.
-export const toTriangles = (v: readonly Point[]): Point[][] => [[v[0], v[1], v[2]], [v[0], v[2], v[3]]];
+export const toTriangles = (v: readonly Point[]): Point[][] => [
+  [v[0], v[1], v[2]],
+  [v[0], v[2], v[3]]
+];
 
 // Is p inside the triangle (edges included)?
 const inTriangle = (p: Point, [a, b, c]: Point[]): boolean => {
   const side = (u: Point, v: Point) => (v.x - u.x) * (p.y - u.y) - (v.y - u.y) * (p.x - u.x);
-  const d1 = side(a, b), d2 = side(b, c), d3 = side(c, a);
+  const d1 = side(a, b),
+    d2 = side(b, c),
+    d3 = side(c, a);
   return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
 };
 
@@ -113,7 +118,11 @@ export const edgesOf = (tile: Tile): Edge[] => {
   const v = getVertices(tile);
   const c = getVertexColors(tile);
   return [0, 1, 2, 3].map(i => ({
-    a: v[i], b: v[(i + 1) % 4], colorA: c[i], colorB: c[(i + 1) % 4], label: EDGE_LENGTHS[i]
+    a: v[i],
+    b: v[(i + 1) % 4],
+    colorA: c[i],
+    colorB: c[(i + 1) % 4],
+    label: EDGE_LENGTHS[i]
   }));
 };
 
@@ -155,9 +164,8 @@ export const DEFAULT_BOARD: BoardSize = { width: BOARD_W, height: BOARD_H };
 // Rule 4: true if any vertex lies outside the playfield (0.5 px tolerance).
 export const isOutsidePlayfield = (verts: readonly Point[], board: BoardSize = DEFAULT_BOARD): boolean => {
   const EDGE_TOL = 0.5;
-  return verts.some(v =>
-    v.x < -EDGE_TOL || v.x > board.width + EDGE_TOL ||
-    v.y < -EDGE_TOL || v.y > board.height + EDGE_TOL
+  return verts.some(
+    v => v.x < -EDGE_TOL || v.x > board.width + EDGE_TOL || v.y < -EDGE_TOL || v.y > board.height + EDGE_TOL
   );
 };
 
@@ -184,11 +192,13 @@ export const checkVertexMatching = (candidate: Tile, allTiles: readonly Tile[]) 
 
 // True if point p lies on the interior of segment a-b (not at an endpoint).
 export const pointOnEdgeInterior = (p: Point, a: Point, b: Point): boolean => {
-  const abx = b.x - a.x, aby = b.y - a.y;
+  const abx = b.x - a.x,
+    aby = b.y - a.y;
   const len2 = abx * abx + aby * aby || 1;
   const t = ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2;
   if (t <= 0 || t >= 1) return false;
-  const px = a.x + t * abx, py = a.y + t * aby;
+  const px = a.x + t * abx,
+    py = a.y + t * aby;
   if (Math.hypot(p.x - px, p.y - py) > VERTEX_EPS) return false;
   return !samePoint(p, a) && !samePoint(p, b);
 };
@@ -228,16 +238,22 @@ export const checkEdgeContact = (candidate: Tile, allTiles: readonly Tile[]) => 
 export const trianglesOverlap = (t1: readonly Point[], t2: readonly Point[], tol: number): boolean => {
   for (const tri of [t1, t2]) {
     for (let i = 0; i < 3; i++) {
-      const p = tri[i], q = tri[(i + 1) % 3];
+      const p = tri[i],
+        q = tri[(i + 1) % 3];
       const n = normalize(-(q.y - p.y), q.x - p.x);
-      let min1 = Infinity, max1 = -Infinity, min2 = Infinity, max2 = -Infinity;
+      let min1 = Infinity,
+        max1 = -Infinity,
+        min2 = Infinity,
+        max2 = -Infinity;
       for (const v of t1) {
         const d = v.x * n.x + v.y * n.y;
-        min1 = Math.min(min1, d); max1 = Math.max(max1, d);
+        min1 = Math.min(min1, d);
+        max1 = Math.max(max1, d);
       }
       for (const v of t2) {
         const d = v.x * n.x + v.y * n.y;
-        min2 = Math.min(min2, d); max2 = Math.max(max2, d);
+        min2 = Math.min(min2, d);
+        max2 = Math.max(max2, d);
       }
       if (max1 <= min2 + tol || max2 <= min1 + tol) return false;
     }
@@ -316,7 +332,8 @@ export const snapPosition = (
   // Moving the candidate by (tx, ty) lays its edge c1-c2 on target edge
   // t1-t2. Returns the ranked position, or null if that is not a snap.
   const trySnap = (c1: Point, c2: Point, t1: Point, t2: Point, tc: Point) => {
-    const tx = t1.x - c1.x, ty = t1.y - c1.y;
+    const tx = t1.x - c1.x,
+      ty = t1.y - c1.y;
 
     // Both endpoints must land on the target edge (edge is parallel)
     if (Math.hypot(c2.x + tx - t2.x, c2.y + ty - t2.y) > 2) return null;
@@ -326,13 +343,17 @@ export const snapPosition = (
     if (best && dist >= best.rank) return null;
 
     // Tiles must sit on opposite sides of the shared edge
-    const ex = t2.x - t1.x, ey = t2.y - t1.y;
+    const ex = t2.x - t1.x,
+      ey = t2.y - t1.y;
     const sideExisting = ex * (tc.y - t1.y) - ey * (tc.x - t1.x);
     const sideCandidate = ex * (cc.y + ty - t1.y) - ey * (cc.x + tx - t1.x);
     if (sideExisting * sideCandidate >= 0) return null;
 
     const moved = { ...candidate, x: x + tx, y: y + ty };
-    const oob = isOutsidePlayfield(cv.map(v => ({ x: v.x + tx, y: v.y + ty })), board);
+    const oob = isOutsidePlayfield(
+      cv.map(v => ({ x: v.x + tx, y: v.y + ty })),
+      board
+    );
     if (!isLegalPlacement(allTiles, moved, oob, board)) return null;
 
     return { x: moved.x, y: moved.y, rank: dist + (oob ? 1000 : 0) };
@@ -342,7 +363,10 @@ export const snapPosition = (
     for (const ce of candidateEdges) {
       if (ce.label !== edge.label) continue;
       // The edges can coincide in either direction
-      for (const [t1, t2] of [[edge.a, edge.b], [edge.b, edge.a]]) {
+      for (const [t1, t2] of [
+        [edge.a, edge.b],
+        [edge.b, edge.a]
+      ]) {
         const snap = trySnap(ce.a, ce.b, t1, t2, tc);
         if (snap && (!best || snap.rank < best.rank)) best = snap;
       }
@@ -370,7 +394,8 @@ export const findOpenEdges = (allTiles: readonly Tile[]): Edge[] => {
 
 // Shortest distance from p to the segment a-b.
 export const distanceToSegment = (p: Point, a: Point, b: Point): number => {
-  const abx = b.x - a.x, aby = b.y - a.y;
+  const abx = b.x - a.x,
+    aby = b.y - a.y;
   const len2 = abx * abx + aby * aby;
   const t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2)) : 0;
   return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby));
@@ -388,8 +413,12 @@ export const fitsOnEdge = (
   for (let rotation = 0; rotation < 360; rotation += ROTATION_STEP) {
     for (const ce of edgesOf({ type, x: 0, y: 0, rotation })) {
       if (ce.label !== edge.label) continue;
-      for (const [t1, t2] of [[edge.a, edge.b], [edge.b, edge.a]]) {
-        const tx = t1.x - ce.a.x, ty = t1.y - ce.a.y;
+      for (const [t1, t2] of [
+        [edge.a, edge.b],
+        [edge.b, edge.a]
+      ]) {
+        const tx = t1.x - ce.a.x,
+          ty = t1.y - ce.a.y;
         if (!samePoint({ x: ce.b.x + tx, y: ce.b.y + ty }, t2)) continue;
         const tile = { type, x: tx, y: ty, rotation };
         const duplicate = fits.some(f => f.rotation === rotation && samePoint(f, tile));

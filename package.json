@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test *.test.ts",
-    "lint": "oxlint --deny-warnings --report-unused-disable-directives-severity=error"
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives-severity=error",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
@@ -23,6 +25,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.91.0",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

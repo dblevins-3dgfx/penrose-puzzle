@@ -87,8 +87,7 @@ export const Toolbar = (props: Props) => (
       <div className="text-slate-300 text-xs sm:text-sm whitespace-nowrap">
         <span className="text-amber-400 font-semibold">{props.kiteCount}</span>
         <span className="hidden sm:inline"> kites</span>
-        <span className="sm:hidden">K</span> ·{' '}
-        <span className="text-indigo-400 font-semibold">{props.dartCount}</span>
+        <span className="sm:hidden">K</span> · <span className="text-indigo-400 font-semibold">{props.dartCount}</span>
         <span className="hidden sm:inline"> darts</span>
         <span className="sm:hidden">D</span>
       </div>

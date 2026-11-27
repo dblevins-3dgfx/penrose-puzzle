@@ -78,8 +78,10 @@ export const choosePieces = (patch: readonly Tile[], center: Point, count: numbe
 // The smallest box around some tiles.
 export const boundsOf = (tiles: readonly Tile[]) => {
   const verts = tiles.flatMap(getVertices);
-  const xs = verts.map(v => v.x), ys = verts.map(v => v.y);
-  const x = Math.min(...xs), y = Math.min(...ys);
+  const xs = verts.map(v => v.x),
+    ys = verts.map(v => v.y);
+  const x = Math.min(...xs),
+    y = Math.min(...ys);
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 };
 
@@ -192,12 +194,7 @@ const orbitAdjacency = (orbits: readonly Tile[][]): number[][] => {
 // Bounded randomized search selecting edge-connected complete symmetry orbits
 // totaling exactly `count` tiles (keeps compact mandala/mirror outlines while
 // varying frontier choices per seed).
-const pickExactOrbits = (
-  orbits: readonly Tile[][],
-  startIdx: number,
-  count: number,
-  random: () => number
-): Tile[] => {
+const pickExactOrbits = (orbits: readonly Tile[][], startIdx: number, count: number, random: () => number): Tile[] => {
   if (startIdx < 0 || startIdx >= orbits.length) return [];
   const adj = orbitAdjacency(orbits);
   const chosen = new Set<number>([startIdx]);
@@ -237,22 +234,18 @@ const pickExactOrbits = (
 // Chooses `count` tiles forming a symmetric connected patch: exact 5-fold
 // dihedral (D5) mandala when `count` is a multiple of 5, or exact bilateral
 // mirror (D1) layout otherwise, falling back to `choosePieces` if needed.
-export const chooseSymmetricPieces = (
-  patch: readonly Tile[],
-  count: number,
-  random: () => number
-): Tile[] => {
+export const chooseSymmetricPieces = (patch: readonly Tile[], count: number, random: () => number): Tile[] => {
   const reach = TILE_SIZE * (3 + Math.sqrt(count));
   if (count % 5 === 0) {
-    const orbits = groupD5Orbits(patch.filter(t => Math.hypot(t.x, t.y) <= reach))
-      .sort((a, b) => Math.hypot(a[0].x, a[0].y) - Math.hypot(b[0].x, b[0].y));
+    const orbits = groupD5Orbits(patch.filter(t => Math.hypot(t.x, t.y) <= reach)).sort(
+      (a, b) => Math.hypot(a[0].x, a[0].y) - Math.hypot(b[0].x, b[0].y)
+    );
     const exact = pickExactOrbits(orbits, 0, count, random);
     if (exact.length === count) return exact;
   } else {
     const cx = (random() - 0.5) * TILE_SIZE * 6;
     const dist = (t: Tile) => Math.hypot(t.x - cx, t.y);
-    const orbits = groupD1Orbits(patch.filter(t => dist(t) <= reach))
-      .sort((a, b) => dist(a[0]) - dist(b[0]));
+    const orbits = groupD1Orbits(patch.filter(t => dist(t) <= reach)).sort((a, b) => dist(a[0]) - dist(b[0]));
     const startIdx = orbits.findIndex(o => o.length === 1 || shareEdge(o[0], o[1]));
     const exact = pickExactOrbits(orbits, startIdx, count, random);
     if (exact.length === count) return exact;
@@ -346,8 +339,10 @@ export const scatterSpots = (
     for (let x = SCATTER_MARGIN; x <= board.width - SCATTER_MARGIN; x += SCATTER_SPACING) {
       allSpots.push({ x, y });
       const nearFrame =
-        x > frame.x - SCATTER_MARGIN && x < frame.x + frame.w + SCATTER_MARGIN &&
-        y > frame.y - SCATTER_MARGIN && y < frame.y + frame.h + SCATTER_MARGIN;
+        x > frame.x - SCATTER_MARGIN &&
+        x < frame.x + frame.w + SCATTER_MARGIN &&
+        y > frame.y - SCATTER_MARGIN &&
+        y < frame.y + frame.h + SCATTER_MARGIN;
       if (!nearFrame) spots.push({ x, y });
     }
   }
@@ -461,12 +456,13 @@ export const pieceAt = (pieces: readonly Piece[], p: Point): number => {
 export const LOCK_RADIUS = 20;
 
 // How far a piece is turned from its home angle, in degrees [0, 360).
-export const turnOf = (p: Piece): number => ((p.rotation - p.home.rotation) % 360 + 360) % 360;
+export const turnOf = (p: Piece): number => (((p.rotation - p.home.rotation) % 360) + 360) % 360;
 
 // q turned by `degrees` (clockwise on screen) about `pivot`.
 const turnAbout = (q: Point, pivot: Point, degrees: number): Point => {
   const a = (degrees * Math.PI) / 180;
-  const dx = q.x - pivot.x, dy = q.y - pivot.y;
+  const dx = q.x - pivot.x,
+    dy = q.y - pivot.y;
   return { x: pivot.x + dx * Math.cos(a) - dy * Math.sin(a), y: pivot.y + dx * Math.sin(a) + dy * Math.cos(a) };
 };
 
@@ -533,7 +529,8 @@ export const clampLoosePieces = (pieces: readonly Piece[], board: BoardSize): Pi
 
   for (const g of looseGroups) {
     const members = pieces.filter(p => !p.locked && !p.inTray && p.group === g);
-    const xs = members.map(p => p.x), ys = members.map(p => p.y);
+    const xs = members.map(p => p.x),
+      ys = members.map(p => p.y);
     const dx = clampAxis(Math.min(...xs), Math.max(...xs), mx, board.width - mx);
     const dy = clampAxis(Math.min(...ys), Math.max(...ys), my, board.height - my);
     if (dx !== 0 || dy !== 0) shifts.set(g, { x: dx, y: dy });
@@ -554,7 +551,10 @@ export const repositionForViewport = (
   viewport: BoardSize
 ): { pieces: Piece[]; layout: ViewportLayout } => {
   if (pieces.length === 0) {
-    return { pieces: [], layout: { board: viewport, scale: 1, frameCenter: { x: viewport.width / 2, y: viewport.height / 2 } } };
+    return {
+      pieces: [],
+      layout: { board: viewport, scale: 1, frameCenter: { x: viewport.width / 2, y: viewport.height / 2 } }
+    };
   }
   const box = boundsOf(pieces.map(p => p.home));
   const layout = computeViewportLayout(box, pieces.length, viewport);
@@ -651,7 +651,9 @@ const nearestJoin = (pieces: readonly Piece[], group: number) => {
 };
 
 const lockGroup = (pieces: readonly Piece[], group: number): Piece[] =>
-  pieces.map(p => (p.group === group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false } : p));
+  pieces.map(p =>
+    p.group === group ? { ...p, x: p.home.x, y: p.home.y, rotation: p.home.rotation, locked: true, inTray: false } : p
+  );
 
 // A group just dropped or turned: locks into place if it is at its home
 // angle near its home (the whole group locks), and otherwise snaps against
@@ -682,11 +684,7 @@ export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
 
 // True if `pieceId` is a loose on-board piece belonging to the same group as
 // `selectedId` (so tapping any piece in an already-selected group rotates it).
-export const isGroupSelected = (
-  pieces: readonly Piece[],
-  selectedId: number | null,
-  pieceId: number
-): boolean => {
+export const isGroupSelected = (pieces: readonly Piece[], selectedId: number | null, pieceId: number): boolean => {
   if (selectedId === null) return false;
   const sel = pieces.find(p => p.id === selectedId);
   const target = pieces.find(p => p.id === pieceId);
@@ -835,7 +833,11 @@ export const soundCueFor = (events: CelebrationEvents): SoundCue | null => {
 // Traces the solved puzzle's outer border (and any hole borders) into ordered
 // closed vertex loops so visual effects can animate smoothly along the edge.
 export const orderedBorderLoops = (pieces: readonly Piece[]): Point[][] => {
-  interface Seg { a: Point; b: Point; used: boolean }
+  interface Seg {
+    a: Point;
+    b: Point;
+    used: boolean;
+  }
   const segments: Seg[] = [];
   for (const p of pieces) {
     if (p.border.length === 0) continue;
@@ -870,7 +872,8 @@ export const orderedBorderLoops = (pieces: readonly Piece[]): Point[][] => {
 // off evenly on both sides).
 export const coverRect = (imageW: number, imageH: number, box: { x: number; y: number; w: number; h: number }) => {
   const scale = Math.max(box.w / imageW, box.h / imageH);
-  const w = imageW * scale, h = imageH * scale;
+  const w = imageW * scale,
+    h = imageH * scale;
   return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
 };
 
@@ -878,7 +881,7 @@ export const coverRect = (imageW: number, imageH: number, box: { x: number; y: n
 // home to where the piece is now: translate to the piece, turn by the
 // difference in angle, translate back from home.
 export const pieceTransform = (p: Piece) => ({
-  angle: (((p.rotation - p.home.rotation) % 360 + 360) % 360) * Math.PI / 180,
+  angle: (((((p.rotation - p.home.rotation) % 360) + 360) % 360) * Math.PI) / 180,
   to: { x: p.x, y: p.y },
   from: { x: p.home.x, y: p.home.y }
 });
@@ -886,7 +889,8 @@ export const pieceTransform = (p: Piece) => ({
 // Applies pieceTransform to a point (for tests and hit-testing).
 export const transformPoint = (p: Piece, q: Point): Point => {
   const { angle, to, from } = pieceTransform(p);
-  const dx = q.x - from.x, dy = q.y - from.y;
+  const dx = q.x - from.x,
+    dy = q.y - from.y;
   return {
     x: to.x + dx * Math.cos(angle) - dy * Math.sin(angle),
     y: to.y + dx * Math.sin(angle) + dy * Math.cos(angle)

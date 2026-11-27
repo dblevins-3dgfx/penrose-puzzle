@@ -1,7 +1,16 @@
 // The jigsaw puzzle screen (spec 9). Every decision is made by jigsaw.ts;
 // this keeps the state, wires controls and pointer hooks, and lays out the
 // board alongside the scrollable piece tray.
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction
+} from 'react';
 import { Sparkles } from 'lucide-react';
 import type { Point } from '../rules';
 import {
@@ -222,6 +231,79 @@ const usePuzzleViewportSync = (
   }, [measured, vpWidth, vpHeight, setPuzzle, setCamera, clampToViewport]);
 };
 
+const computePictureRect = (picture: Picture, pieces: readonly Piece[]) =>
+  pieces.length
+    ? coverRect(picture.width, picture.height, boundsOf(pieces.map(p => p.home)))
+    : { x: 0, y: 0, w: 1, h: 1 };
+
+const useJigsawSession = (
+  settings: JigsawSettings,
+  setSettings: Dispatch<SetStateAction<JigsawSettings>>,
+  vpWidth: number,
+  vpHeight: number,
+  measured: boolean,
+  cam: ReturnType<typeof useBoardCamera>
+) => {
+  const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
+    makePuzzleState(
+      settings.size,
+      seedFromQuery(window.location.search) ?? newSeed(),
+      vpWidth,
+      vpHeight,
+      settings.symmetric
+    )
+  );
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  usePuzzleViewportSync(measured, vpWidth, vpHeight, setPuzzle, cam.setCamera, cam.clampToViewport);
+
+  const startPuzzle = (s: PuzzleSize, sym = settings.symmetric) => {
+    setPuzzle(makePuzzleState(s, newSeed(), vpWidth, vpHeight, sym));
+    cam.resetZoom();
+    setSelectedId(null);
+  };
+
+  const setTrayFilter = useCallback((filter: TrayFilter) => {
+    setPuzzle(prev => ({ ...prev, trayFilter: resolveTrayFilter(prev.pieces, filter) }));
+  }, []);
+
+  const changeSize = (s: PuzzleSize) => {
+    setSettings(prev => ({ ...prev, size: s }));
+    if (s !== puzzle.size) startPuzzle(s, settings.symmetric);
+  };
+
+  const changeSymmetric = (sym: boolean) => {
+    setSettings(prev => ({ ...prev, symmetric: sym }));
+    if (sym !== puzzle.symmetric) startPuzzle(puzzle.size, sym);
+  };
+
+  const updatePieces = useCallback((fn: (ps: Piece[]) => Piece[]) => {
+    setPuzzle(prev => {
+      const nextPieces = fn(prev.pieces);
+      return { ...prev, pieces: nextPieces, trayFilter: resolveTrayFilter(nextPieces, prev.trayFilter) };
+    });
+  }, []);
+
+  const rotate = useCallback(
+    (steps: number) => {
+      if (selectedId !== null) updatePieces(ps => rotateGroup(ps, selectedId, steps));
+    },
+    [selectedId, updatePieces]
+  );
+
+  return {
+    puzzle,
+    selectedId,
+    setSelectedId,
+    startPuzzle,
+    setTrayFilter,
+    changeSize,
+    changeSymmetric,
+    updatePieces,
+    rotate
+  };
+};
+
 interface JigsawProps {
   modeSwitch: ReactNode;
   active: boolean;
@@ -237,107 +319,89 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   const { width: vpWidth, height: vpHeight, dpr, measured } = useBoardSize(containerRef);
   const viewport = useMemo(() => ({ width: vpWidth, height: vpHeight }), [vpWidth, vpHeight]);
 
-  const [puzzle, setPuzzle] = useState<PuzzleState>(() =>
-    makePuzzleState(settings.size, seedFromQuery(window.location.search) ?? newSeed(), vpWidth, vpHeight, settings.symmetric)
-  );
+  const cam = useBoardCamera(viewport, settings.effects);
+  const session = useJigsawSession(settings, setSettings, vpWidth, vpHeight, measured, cam);
+  const { puzzle, selectedId } = session;
   const { size, pieces, layout, trayFilter } = puzzle;
-  const { camera, setCamera, clampToViewport, zoomAt, zoomIn, zoomOut, resetZoom, animateToFit } = useBoardCamera(
-    viewport,
-    settings.effects
-  );
 
-  const { picture, isCustom, clearCustom, chooseFile } = useJigsawPicture(
+  const pic = useJigsawPicture(
     settings.picture,
     puzzle.baseHomes,
     puzzle.seed,
-    Math.max(2, Math.min(4, Math.ceil(layout.scale * camera.zoom * dpr)))
+    Math.max(2, Math.min(4, Math.ceil(layout.scale * cam.camera.zoom * dpr)))
   );
   const [dropHighlight, setDropHighlight] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-
-  usePuzzleViewportSync(measured, vpWidth, vpHeight, setPuzzle, setCamera, clampToViewport);
 
   const { placed, total } = progress(pieces);
   const solved = isSolved(pieces);
 
-  const startPuzzle = (s: PuzzleSize, sym = settings.symmetric) => {
-    setPuzzle(makePuzzleState(s, newSeed(), vpWidth, vpHeight, sym));
-    resetZoom();
-    setSelectedId(null);
-  };
-
-  const setTrayFilter = useCallback((filter: TrayFilter) => {
-    setPuzzle(prev => ({ ...prev, trayFilter: resolveTrayFilter(prev.pieces, filter) }));
-  }, []);
-
-  const changeSize = (s: PuzzleSize) => {
-    setSettings(prev => ({ ...prev, size: s }));
-    if (s !== size) startPuzzle(s, settings.symmetric);
-  };
-
-  const changeSymmetric = (sym: boolean) => {
-    setSettings(prev => ({ ...prev, symmetric: sym }));
-    if (sym !== puzzle.symmetric) startPuzzle(size, sym);
-  };
-
   const selectPicture = (style: PictureStyle) => {
-    clearCustom();
+    pic.clearCustom();
     setSettings(s => ({ ...s, picture: style }));
   };
 
-  const updatePieces = useCallback((fn: (ps: Piece[]) => Piece[]) => {
-    setPuzzle(prev => {
-      const nextPieces = fn(prev.pieces);
-      return { ...prev, pieces: nextPieces, trayFilter: resolveTrayFilter(nextPieces, prev.trayFilter) };
-    });
-  }, []);
-
   const handleStartFromTray = useTrayInteraction(
-    canvasRef, trayRef, layout, viewport, camera, isPortrait, updatePieces, setSelectedId
+    canvasRef,
+    trayRef,
+    layout,
+    viewport,
+    cam.camera,
+    isPortrait,
+    session.updatePieces,
+    session.setSelectedId
   );
   const boardHandlers = useBoardPointers(
-    trayRef, pieces, selectedId, layout, viewport, camera, setCamera, updatePieces, setSelectedId, setDropHighlight
+    trayRef,
+    pieces,
+    selectedId,
+    layout,
+    viewport,
+    cam.camera,
+    cam.setCamera,
+    session.updatePieces,
+    session.setSelectedId,
+    setDropHighlight
   );
 
-  const rotate = useCallback(
-    (steps: number) => {
-      if (selectedId !== null) updatePieces(ps => rotateGroup(ps, selectedId, steps));
-    },
-    [selectedId, updatePieces]
-  );
-  useKeyboardControls(rotate, undefined, active);
-  useZoomKeys(zoomIn, zoomOut, resetZoom, active);
-  useWheelRotation(canvasRef, rotate, zoomAt);
+  useKeyboardControls(session.rotate, undefined, active);
+  useZoomKeys(cam.zoomIn, cam.zoomOut, cam.resetZoom, active);
+  useWheelRotation(canvasRef, session.rotate, cam.zoomAt);
   usePreventSafariGesture(canvasRef);
   const closeHelp = useCallback(() => setShowHelp(false), []);
   const closeSettings = useCallback(() => setShowSettings(false), []);
 
-  const pictureRect = useMemo(
-    () => (pieces.length ? coverRect(picture.width, picture.height, boundsOf(pieces.map(p => p.home))) : { x: 0, y: 0, w: 1, h: 1 }),
-    [pieces, picture.width, picture.height]
-  );
+  const pictureRect = useMemo(() => computePictureRect(pic.picture, pieces), [pic.picture, pieces]);
   const view = useMemo(
-    () => ({ pieces, picture, settings, selectedId, board: layout.board }),
-    [pieces, picture, settings, selectedId, layout.board]
+    () => ({ pieces, picture: pic.picture, settings, selectedId, board: layout.board }),
+    [pieces, pic.picture, settings, selectedId, layout.board]
   );
   const puzzleKey = `${puzzle.seed}:${puzzle.size}:${puzzle.symmetric}`;
   const { borderToast } = useJigsawRenderAndEffects(
-    canvasRef, view, puzzleKey, vpWidth, vpHeight, dpr, layout.scale, camera, animateToFit
+    canvasRef,
+    view,
+    puzzleKey,
+    vpWidth,
+    vpHeight,
+    dpr,
+    layout.scale,
+    cam.camera,
+    cam.animateToFit
   );
 
   const selectedPiece = pieces.find(p => p.id === selectedId);
   const canRotate = !!selectedPiece && !selectedPiece.locked && !selectedPiece.inTray;
+  const pictureLabel = pic.isCustom ? 'custom' : settings.picture;
 
   return (
     <div className="w-full h-dvh overflow-hidden bg-slate-900 flex flex-col game-shell">
       <JigsawToolbar
         modeSwitch={modeSwitch}
-        onNewPuzzle={() => startPuzzle(size)}
-        picture={isCustom ? 'custom' : settings.picture}
+        onNewPuzzle={() => session.startPuzzle(size)}
+        picture={pictureLabel}
         onPicture={selectPicture}
-        onChoosePicture={chooseFile}
+        onChoosePicture={pic.chooseFile}
         placed={placed}
         total={total}
         solved={solved}
@@ -357,19 +421,25 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
             style={{ touchAction: 'none' }}
             className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"
           />
-          <ZoomControls camera={camera} isPortrait={isPortrait} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
-          {canRotate && <RotateControls isPortrait={isPortrait} onRotate={rotate} />}
+          <ZoomControls
+            camera={cam.camera}
+            isPortrait={isPortrait}
+            onZoomIn={cam.zoomIn}
+            onZoomOut={cam.zoomOut}
+            onReset={cam.resetZoom}
+          />
+          {canRotate && <RotateControls isPortrait={isPortrait} onRotate={session.rotate} />}
           {borderToast && <BorderCompleteToast />}
         </div>
 
         <JigsawTray
           trayRef={trayRef}
           pieces={pieces}
-          picture={picture}
+          picture={pic.picture}
           pictureRect={pictureRect}
           showOutlines={settings.showOutlines}
           filter={trayFilter}
-          onFilter={setTrayFilter}
+          onFilter={session.setTrayFilter}
           isPortrait={isPortrait}
           dropHighlight={dropHighlight}
           onStartFromTray={handleStartFromTray}
@@ -380,9 +450,11 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
         <JigsawSettingsDialog
           settings={settings}
           onChange={setSettings}
-          onChangeSize={changeSize}
-          onChangeSymmetric={changeSymmetric}
-          getDebugInfo={() => buildJigsawDebugInfo(puzzle, isCustom ? 'custom' : settings.picture, settings, camera, trayFilter, viewport, isPortrait, dpr)}
+          onChangeSize={session.changeSize}
+          onChangeSymmetric={session.changeSymmetric}
+          getDebugInfo={() =>
+            buildJigsawDebugInfo(puzzle, pictureLabel, settings, cam.camera, trayFilter, viewport, isPortrait, dpr)
+          }
           onClose={closeSettings}
         />
       )}

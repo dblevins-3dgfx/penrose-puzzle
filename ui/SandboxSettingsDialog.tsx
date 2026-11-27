@@ -13,7 +13,11 @@ interface Props {
 }
 
 const SWITCHES: { key: keyof SharedSettings; label: string; detail: string }[] = [
-  { key: 'effects', label: 'Visual effects', detail: 'Show placement glow and edge sparks when a tile locks into place' },
+  {
+    key: 'effects',
+    label: 'Visual effects',
+    detail: 'Show placement glow and edge sparks when a tile locks into place'
+  },
   { key: 'sound', label: 'Sound effects', detail: 'Play a subtle synthesized chime when a tile locks into place' }
 ];
 

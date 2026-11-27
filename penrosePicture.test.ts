@@ -34,7 +34,8 @@ const arcPoint = (arc: CircularArc, angle: number): Point => ({
 
 // Distance from point p to segment a-b.
 const distToSeg = (p: Point, a: Point, b: Point) => {
-  const abx = b.x - a.x, aby = b.y - a.y;
+  const abx = b.x - a.x,
+    aby = b.y - a.y;
   const len2 = abx * abx + aby * aby || 1;
   const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2));
   return Math.hypot(p.x - (a.x + t * abx), p.y - (a.y + t * aby));
@@ -42,12 +43,13 @@ const distToSeg = (p: Point, a: Point, b: Point) => {
 
 const inTriangle = (p: Point, [a, b, c]: Point[]): boolean => {
   const side = (u: Point, v: Point) => (v.x - u.x) * (p.y - u.y) - (v.y - u.y) * (p.x - u.x);
-  const d1 = side(a, b), d2 = side(b, c), d3 = side(c, a);
+  const d1 = side(a, b),
+    d2 = side(b, c),
+    d3 = side(c, a);
   return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
 };
 
-const pointInTilingTile = (p: Point, t: TilingTile): boolean =>
-  toTriangles(t.vertices).some(tri => inTriangle(p, tri));
+const pointInTilingTile = (p: Point, t: TilingTile): boolean => toTriangles(t.vertices).some(tri => inTriangle(p, tri));
 
 const checkValidShapes = (tiles: TilingTile[], expectedLong: number) => {
   assert.ok(tiles.length > 0);
@@ -77,12 +79,15 @@ const arcHitsOnEdge = (arcs: [CircularArc, CircularArc], a: Point, b: Point) => 
 
 const checkPairArcs = (ti: TilingTile, tj: TilingTile): number => {
   const eps = 1e-4;
-  const arcsI = tileArcs(ti), arcsJ = tileArcs(tj);
+  const arcsI = tileArcs(ti),
+    arcsJ = tileArcs(tj);
   let count = 0;
   for (let ei = 0; ei < 4; ei++) {
-    const a1 = ti.vertices[ei], b1 = ti.vertices[(ei + 1) % 4];
+    const a1 = ti.vertices[ei],
+      b1 = ti.vertices[(ei + 1) % 4];
     for (let ej = 0; ej < 4; ej++) {
-      const a2 = tj.vertices[ej], b2 = tj.vertices[(ej + 1) % 4];
+      const a2 = tj.vertices[ej],
+        b2 = tj.vertices[(ej + 1) % 4];
       const shared = (dist(a1, a2) < eps && dist(b1, b2) < eps) || (dist(a1, b2) < eps && dist(b1, a2) < eps);
       if (!shared) continue;
       count++;
@@ -197,7 +202,10 @@ test('2-level subdivided tiling shrinks by phi^2, has no overlaps, covers every 
     const c = centroidOf(verts);
     const samples = [c, ...verts.map(v => ({ x: c.x + (v.x - c.x) * 0.85, y: c.y + (v.y - c.y) * 0.85 }))];
     for (const s of samples) {
-      assert.ok(tiles.some(t => pointInTilingTile(s, t)), 'subdivided tiling covers the whole piece including near borders');
+      assert.ok(
+        tiles.some(t => pointInTilingTile(s, t)),
+        'subdivided tiling covers the whole piece including near borders'
+      );
     }
   }
 });
@@ -222,7 +230,10 @@ test('independent tiling covers the puzzle box, is deterministic per seed, and h
   // Every puzzle piece centroid lies inside the independent tiling
   for (const h of homes) {
     const c = centroidOf(getVertices(h));
-    assert.ok(tilesA.some(t => pointInTilingTile(c, t)), 'independent tiling covers the puzzle');
+    assert.ok(
+      tilesA.some(t => pointInTilingTile(c, t)),
+      'independent tiling covers the puzzle'
+    );
   }
 });
 

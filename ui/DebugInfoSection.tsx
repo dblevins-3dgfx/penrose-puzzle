@@ -14,9 +14,12 @@ export const DebugInfoSection = ({ getDebugInfo }: Props) => {
   const [copyFailed, setCopyFailed] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    },
+    []
+  );
 
   const handleCopy = async () => {
     const text = getDebugInfo();
@@ -47,9 +50,7 @@ export const DebugInfoSection = ({ getDebugInfo }: Props) => {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <span className="block text-white font-semibold">Diagnostics</span>
-          <span className="block text-slate-400 text-sm">
-            Copy device, viewport, and board details for bug reports
-          </span>
+          <span className="block text-slate-400 text-sm">Copy device, viewport, and board details for bug reports</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -73,9 +74,7 @@ export const DebugInfoSection = ({ getDebugInfo }: Props) => {
       </div>
 
       {copyFailed && (
-        <p className="text-xs text-amber-300">
-          Clipboard access is unavailable here — select and copy the text below.
-        </p>
+        <p className="text-xs text-amber-300">Clipboard access is unavailable here — select and copy the text below.</p>
       )}
 
       {preview !== null && (

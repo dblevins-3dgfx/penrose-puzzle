@@ -81,10 +81,7 @@ export const pruneEffects = (effects: ActiveEffects, now: number): ActiveEffects
 });
 
 export const hasCelebrationEvents = (events: CelebrationEvents): boolean =>
-  events.newlyLockedIds.length > 0 ||
-  events.joinedSeams.length > 0 ||
-  events.borderCompleted ||
-  events.puzzleSolved;
+  events.newlyLockedIds.length > 0 || events.joinedSeams.length > 0 || events.borderCompleted || events.puzzleSolved;
 
 export const applyCelebrationEvents = (
   current: ActiveEffects,

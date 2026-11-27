@@ -11,5 +11,5 @@ export default defineConfig({
   base: process.env.BASE_PATH || '/',
   plugins: [react(), tailwindcss()],
   // Listen on the local network so phones or tablets can open the dev server
-  server: { host: true },
+  server: { host: true }
 });

@@ -102,9 +102,7 @@ export const zoomCameraAtBounds = (
 };
 
 export const isCameraNear = (a: Camera, b: Camera): boolean =>
-  Math.abs(a.zoom - b.zoom) < 1e-3 &&
-  Math.abs(a.panX - b.panX) < 0.5 &&
-  Math.abs(a.panY - b.panY) < 0.5;
+  Math.abs(a.zoom - b.zoom) < 1e-3 && Math.abs(a.panX - b.panX) < 0.5 && Math.abs(a.panY - b.panY) < 0.5;
 
 // Smoothly eases from one camera pose to another with ease-out cubic timing.
 // Interpolating zoom, panX and panY by the same factor moves every world point
@@ -187,11 +185,8 @@ export const sandboxScreenToWorld = (screen: Point, camera: Camera): Point => sc
 
 export const sandboxWorldToScreen = (worldPt: Point, camera: Camera): Point => worldToScreen(worldPt, 1, camera);
 
-export const clampSandboxCamera = (
-  camera: Camera,
-  viewport: BoardSize,
-  world: BoardSize = SANDBOX_WORLD
-): Camera => clampCameraBounds(camera, viewport, world, sandboxMinZoom(viewport, world), SANDBOX_MAX_ZOOM);
+export const clampSandboxCamera = (camera: Camera, viewport: BoardSize, world: BoardSize = SANDBOX_WORLD): Camera =>
+  clampCameraBounds(camera, viewport, world, sandboxMinZoom(viewport, world), SANDBOX_MAX_ZOOM);
 
 export const panSandboxCamera = (
   camera: Camera,
@@ -207,4 +202,5 @@ export const zoomSandboxCameraAt = (
   focus: Point,
   viewport: BoardSize,
   world: BoardSize = SANDBOX_WORLD
-): Camera => zoomCameraAtBounds(camera, factor, focus, viewport, world, sandboxMinZoom(viewport, world), SANDBOX_MAX_ZOOM);
+): Camera =>
+  zoomCameraAtBounds(camera, factor, focus, viewport, world, sandboxMinZoom(viewport, world), SANDBOX_MAX_ZOOM);

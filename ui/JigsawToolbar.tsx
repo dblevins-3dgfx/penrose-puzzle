@@ -64,12 +64,19 @@ export const JigsawToolbar = (props: Props) => {
           className={selectClass}
         >
           {PICTURE_PROVIDERS.map(p => (
-            <option key={p.id} value={p.id}>{p.label}</option>
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
           ))}
           {props.picture === 'custom' && <option value="custom">Custom picture</option>}
         </select>
 
-        <button onClick={() => fileInput.current?.click()} className={control} title="Use your own image" aria-label="Your picture">
+        <button
+          onClick={() => fileInput.current?.click()}
+          className={control}
+          title="Use your own image"
+          aria-label="Your picture"
+        >
           <ImagePlus size={16} />
           <span className="hidden md:inline">Your picture</span>
         </button>
@@ -93,8 +100,12 @@ export const JigsawToolbar = (props: Props) => {
             </>
           ) : (
             <>
-              <span className="hidden sm:inline">{props.placed} / {props.total} placed</span>
-              <span className="sm:hidden">{props.placed}/{props.total}</span>
+              <span className="hidden sm:inline">
+                {props.placed} / {props.total} placed
+              </span>
+              <span className="sm:hidden">
+                {props.placed}/{props.total}
+              </span>
             </>
           )}
         </div>

@@ -84,8 +84,15 @@ const transformPoint2D = (p: Point, cos: number, sin: number, dx: number, dy: nu
   y: p.x * sin + p.y * cos + dy
 });
 
-const tileIntersectsBox = (t: TilingTile, box: { x: number; y: number; w: number; h: number }, pad: number): boolean => {
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+const tileIntersectsBox = (
+  t: TilingTile,
+  box: { x: number; y: number; w: number; h: number },
+  pad: number
+): boolean => {
+  let minX = Infinity,
+    maxX = -Infinity,
+    minY = Infinity,
+    maxY = -Infinity;
   for (const v of t.vertices) {
     if (v.x < minX) minX = v.x;
     if (v.x > maxX) maxX = v.x;
@@ -97,17 +104,15 @@ const tileIntersectsBox = (t: TilingTile, box: { x: number; y: number; w: number
 
 // 3. Independent tiling: a separate Penrose tiling from a derived seed, at
 // INDEPENDENT_TILE_SIZE and an independent angle and offset, covering `box`.
-export const independentTiling = (
-  box: { x: number; y: number; w: number; h: number },
-  seed: number
-): TilingTile[] => {
+export const independentTiling = (box: { x: number; y: number; w: number; h: number }, seed: number): TilingTile[] => {
   const depth = 6;
   const halves = deflateNTimes(sunHalves(INDEPENDENT_TILE_SIZE * PHI ** depth), depth);
   const raw = joinToTiling(halves, INDEPENDENT_TILE_SIZE, false);
 
   const random = seededRandom((seed ^ 0x5f3759df) >>> 0);
   const angle = random() * 2 * Math.PI;
-  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const cos = Math.cos(angle),
+    sin = Math.sin(angle);
   const offsetR = INDEPENDENT_TILE_SIZE * 4 * Math.sqrt(random());
   const offsetA = random() * 2 * Math.PI;
   const cx = box.x + box.w / 2 - offsetR * Math.cos(offsetA);

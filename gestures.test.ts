@@ -1,13 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  TRAY_TAP_MAX_MOVE,
-  WHEEL_NOTCH,
-  isTrayTap,
-  trayDragAction,
-  wheelDeltaPixels,
-  wheelSteps
-} from './gestures';
+import { TRAY_TAP_MAX_MOVE, WHEEL_NOTCH, isTrayTap, trayDragAction, wheelDeltaPixels, wheelSteps } from './gestures';
 
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} vs ${b}`);
 
@@ -33,7 +26,11 @@ test('trayDragAction distinguishes touch scroll vs drag-out in portrait and land
   assert.equal(isTrayTap(false, false, false, 0), true);
   assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE), true);
   assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE + 0.5), false);
-  assert.equal(isTrayTap(false, false, true, 2), false, 'pointercancel (e.g. Safari scroll handoff) never pops a piece');
+  assert.equal(
+    isTrayTap(false, false, true, 2),
+    false,
+    'pointercancel (e.g. Safari scroll handoff) never pops a piece'
+  );
   assert.equal(isTrayTap(false, true, false, 2), false);
   assert.equal(isTrayTap(true, false, false, 2), false);
 });
