@@ -228,12 +228,10 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
     toggleAutoRotate
   } = useSandboxBoardState();
   const [dropHighlight, setDropHighlight] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const closeHelp = useCallback(() => setShowHelp(false), []);
-  const closeSettings = useCallback(() => setShowSettings(false), []);
+  const [overlay, setOverlay] = useState<'none' | 'settings' | 'help'>('none');
+  const closeOverlay = useCallback(() => setOverlay('none'), []);
 
-  useLooseTileKeys(active && !!loose && !showHelp && !showSettings, !!preview?.valid, confirmLoose, discardLoose);
+  useLooseTileKeys(active && !!loose && overlay === 'none', !!preview?.valid, confirmLoose, discardLoose);
   useKeyboardControls(rotate, undo, active);
   useZoomKeys(zoomIn, zoomOut, resetZoom, active);
   useWheelRotation(canvasRef, rotate, zoomAt);
@@ -290,8 +288,8 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
         onClear={clearBoard}
         kiteCount={counts.kite}
         dartCount={counts.dart}
-        onOpenSettings={() => setShowSettings(true)}
-        onOpenHelp={() => setShowHelp(true)}
+        onOpenSettings={() => setOverlay('settings')}
+        onOpenHelp={() => setOverlay('help')}
       />
 
       <div className={`flex-1 min-h-0 flex ${isPortrait ? 'flex-col' : 'flex-row'}`}>
@@ -337,18 +335,18 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
         />
       </div>
 
-      {showSettings && (
+      {overlay === 'settings' && (
         <SandboxSettingsDialog
           settings={settings}
           onChange={setSettings}
           getDebugInfo={() =>
             buildSandboxDebugInfo(counts, autoRotate, loose !== null, settings, camera, viewport, isPortrait, dpr)
           }
-          onClose={closeSettings}
+          onClose={closeOverlay}
         />
       )}
 
-      {showHelp && <HelpOverlay isTouchDevice={isTouchDevice} onClose={closeHelp} />}
+      {overlay === 'help' && <HelpOverlay isTouchDevice={isTouchDevice} onClose={closeOverlay} />}
     </div>
   );
 };

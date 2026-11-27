@@ -4,7 +4,7 @@
 import { useCallback, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 import type { BoardSize, Point } from '../rules';
 import { panCamera, screenToWorld, zoomCameraAt, type Camera } from '../camera';
-import { isTrayTap, TAP_MAX_MOVE, trayDragAction } from '../gestures';
+import { isTrayTap, nextTrayPhase, TAP_MAX_MOVE, type TrayGesturePhase } from '../gestures';
 import {
   bringToFront,
   canReturnToTray,
@@ -20,7 +20,15 @@ import {
   type Piece,
   type ViewportLayout
 } from '../jigsaw';
-import { isInElement, pairMetrics, stepPinch, type PinchMetrics } from './pointerUtils';
+import {
+  IDLE_GESTURE,
+  isInElement,
+  pairMetrics,
+  startPanGesture,
+  stepPanGesture,
+  stepPinch,
+  type BoardGesture
+} from './pointerUtils';
 
 const clientToBoard = (
   canvas: HTMLCanvasElement,
@@ -51,28 +59,20 @@ export const useTrayInteraction = (
       const startX = startEvent.clientX,
         startY = startEvent.clientY;
       const isTouch = startEvent.pointerType === 'touch';
-      let lifted = false,
-        scrolled = false;
+      let phase: TrayGesturePhase = 'pending';
 
       const onMove = (e: globalThis.PointerEvent) => {
         const canvas = canvasRef.current;
-        if (!canvas || scrolled) return;
-        const dx = e.clientX - startX,
-          dy = e.clientY - startY;
-        if (!lifted) {
-          const action = trayDragAction(isTouch, isPortrait, dx, dy);
-          if (action === 'scroll') {
-            scrolled = true;
-            return;
-          }
-          if (action === 'wait') return;
-          lifted = true;
-          const pt = clientToBoard(canvas, e.clientX, e.clientY, layout.scale, camera);
+        if (!canvas || phase === 'scrolling') return;
+        const prevPhase = phase;
+        phase = nextTrayPhase(phase, isTouch, isPortrait, e.clientX - startX, e.clientY - startY);
+        if (phase !== 'lifted') return;
+        const pt = clientToBoard(canvas, e.clientX, e.clientY, layout.scale, camera);
+        if (prevPhase === 'pending') {
           onSelect(id);
           updatePieces(ps => takeFromTray(ps, id, pt, layout.board));
           return;
         }
-        const pt = clientToBoard(canvas, e.clientX, e.clientY, layout.scale, camera);
         updatePieces(ps => {
           const piece = ps.find(q => q.id === id);
           return piece ? moveGroup(ps, id, pt.x - piece.x, pt.y - piece.y, layout.board) : ps;
@@ -83,7 +83,7 @@ export const useTrayInteraction = (
         window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         window.removeEventListener('pointercancel', onCancel);
-        if (lifted) {
+        if (phase === 'lifted') {
           if (!cancelled && isInElement(trayRef.current, e.clientX, e.clientY)) {
             onSelect(null);
             updatePieces(ps => returnToTray(ps, id));
@@ -92,7 +92,7 @@ export const useTrayInteraction = (
           }
           return;
         }
-        if (isTrayTap(lifted, scrolled, cancelled, Math.hypot(e.clientX - startX, e.clientY - startY))) {
+        if (isTrayTap(phase, cancelled, Math.hypot(e.clientX - startX, e.clientY - startY))) {
           const anchor = screenToWorld({ x: viewport.width / 2, y: viewport.height / 2 }, layout.scale, camera);
           onSelect(id);
           updatePieces(ps => takeFromTray(ps, id, popSpotOnBoard(ps, layout.board, anchor), layout.board));
@@ -120,6 +120,16 @@ export const useTrayInteraction = (
     ]
   );
 
+interface JigsawDrag {
+  id: number;
+  dx: number;
+  dy: number;
+  startX: number;
+  startY: number;
+  maxMove: number;
+  wasSelected: boolean;
+}
+
 // Handles board canvas pointer events: loose piece drag, tap-to-rotate (first
 // tap selects, subsequent tap rotates 36°), empty-board pan (or deselect on
 // quick tap), two-finger touch pinch-to-zoom/pan, and right-click rotation.
@@ -135,25 +145,8 @@ export const useBoardPointers = (
   onSelect: (id: number | null) => void,
   onDropHighlight: (active: boolean) => void
 ) => {
-  const drag = useRef<{
-    id: number;
-    dx: number;
-    dy: number;
-    startX: number;
-    startY: number;
-    maxMove: number;
-    wasSelected: boolean;
-  } | null>(null);
-  const pan = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    x: number;
-    y: number;
-    maxMove: number;
-  } | null>(null);
+  const gesture = useRef<BoardGesture<JigsawDrag>>(IDLE_GESTURE);
   const touches = useRef<Map<number, Point>>(new Map());
-  const pinch = useRef<PinchMetrics | null>(null);
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -162,14 +155,12 @@ export const useBoardPointers = (
     if (e.pointerType === 'touch') {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2) {
-        if (drag.current) {
-          const { id, maxMove } = drag.current;
-          drag.current = null;
+        const prev = gesture.current;
+        gesture.current = { mode: 'pinch', metrics: pairMetrics([...touches.current.values()] as [Point, Point]) };
+        if (prev.mode === 'drag') {
           onDropHighlight(false);
-          if (maxMove > TAP_MAX_MOVE) updatePieces(ps => settleGroup(ps, id));
+          if (prev.maxMove > TAP_MAX_MOVE) updatePieces(ps => settleGroup(ps, prev.id));
         }
-        pan.current = null;
-        pinch.current = pairMetrics([...touches.current.values()] as [Point, Point]);
         return;
       }
       if (touches.current.size > 2) return;
@@ -178,18 +169,12 @@ export const useBoardPointers = (
     const p = clientToBoard(e.currentTarget, e.clientX, e.clientY, layout.scale, camera);
     const i = pieceAt(pieces, p);
     if (i < 0) {
-      pan.current = {
-        pointerId: e.pointerId,
-        startX: e.clientX,
-        startY: e.clientY,
-        x: e.clientX,
-        y: e.clientY,
-        maxMove: 0
-      };
+      gesture.current = startPanGesture(e.pointerId, e.clientX, e.clientY);
       return;
     }
     const piece = pieces[i];
-    drag.current = {
+    gesture.current = {
+      mode: 'drag',
       id: piece.id,
       dx: p.x - piece.x,
       dy: p.y - piece.y,
@@ -205,64 +190,64 @@ export const useBoardPointers = (
   const onPointerMove = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (touches.current.size === 2 && pinch.current) {
-        const { next, dx, dy, factor, focus } = stepPinch(
-          pinch.current,
-          [...touches.current.values()],
-          e.currentTarget
-        );
-        pinch.current = next;
-        setCamera(c => zoomCameraAt(panCamera(c, dx, dy, viewport), factor, focus, viewport));
-        return;
-      }
     }
 
-    if (pan.current && pan.current.pointerId === e.pointerId) {
-      const dx = e.clientX - pan.current.x,
-        dy = e.clientY - pan.current.y;
-      const moved = Math.hypot(e.clientX - pan.current.startX, e.clientY - pan.current.startY);
-      pan.current = { ...pan.current, x: e.clientX, y: e.clientY, maxMove: Math.max(pan.current.maxMove, moved) };
+    const g = gesture.current;
+    if (g.mode === 'pinch') {
+      if (touches.current.size !== 2) return;
+      const { next, dx, dy, factor, focus } = stepPinch(g.metrics, [...touches.current.values()], e.currentTarget);
+      gesture.current = { mode: 'pinch', metrics: next };
+      setCamera(c => zoomCameraAt(panCamera(c, dx, dy, viewport), factor, focus, viewport));
+      return;
+    }
+    if (g.mode === 'pan') {
+      if (g.pointerId !== e.pointerId) return;
+      const { next, dx, dy } = stepPanGesture(g, e.clientX, e.clientY);
+      gesture.current = next;
       setCamera(c => panCamera(c, dx, dy, viewport));
       return;
     }
+    if (g.mode !== 'drag') return;
 
-    const d = drag.current;
-    if (!d) return;
-    d.maxMove = Math.max(d.maxMove, Math.hypot(e.clientX - d.startX, e.clientY - d.startY));
-    if (d.maxMove <= TAP_MAX_MOVE) return;
-    onDropHighlight(isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, d.id));
+    g.maxMove = Math.max(g.maxMove, Math.hypot(e.clientX - g.startX, e.clientY - g.startY));
+    if (g.maxMove <= TAP_MAX_MOVE) return;
+    onDropHighlight(isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, g.id));
     const p = clientToBoard(e.currentTarget, e.clientX, e.clientY, layout.scale, camera);
     updatePieces(ps => {
-      const piece = ps.find(q => q.id === d.id);
-      return piece ? moveGroup(ps, d.id, p.x - d.dx - piece.x, p.y - d.dy - piece.y, layout.board) : ps;
+      const piece = ps.find(q => q.id === g.id);
+      return piece ? moveGroup(ps, g.id, p.x - g.dx - piece.x, p.y - g.dy - piece.y, layout.board) : ps;
     });
   };
 
   const onPointerUp = (e: PointerEvent<HTMLCanvasElement>) => {
-    if (e.pointerType === 'touch') {
-      touches.current.delete(e.pointerId);
-      if (touches.current.size < 2) pinch.current = null;
+    if (e.pointerType === 'touch') touches.current.delete(e.pointerId);
+
+    const g = gesture.current;
+    if (g.mode === 'pinch') {
+      if (touches.current.size < 2) gesture.current = IDLE_GESTURE;
+      return;
     }
-    if (pan.current && pan.current.pointerId === e.pointerId) {
-      const tappedEmpty = pan.current.maxMove <= TAP_MAX_MOVE;
-      pan.current = null;
-      if (tappedEmpty) onSelect(null);
+    if (g.mode === 'pan') {
+      if (g.pointerId !== e.pointerId) return;
+      gesture.current = IDLE_GESTURE;
+      if (g.maxMove <= TAP_MAX_MOVE) onSelect(null);
+      return;
     }
-    const d = drag.current;
-    if (!d) return;
-    drag.current = null;
+    if (g.mode !== 'drag') return;
+
+    gesture.current = IDLE_GESTURE;
     onDropHighlight(false);
-    if (shouldTapRotate(d.wasSelected, d.maxMove)) {
-      updatePieces(ps => rotateGroup(ps, d.id, e.shiftKey ? -1 : 1));
+    if (shouldTapRotate(g.wasSelected, g.maxMove)) {
+      updatePieces(ps => rotateGroup(ps, g.id, e.shiftKey ? -1 : 1));
       return;
     }
-    if (d.maxMove <= TAP_MAX_MOVE) return;
-    if (isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, d.id)) {
+    if (g.maxMove <= TAP_MAX_MOVE) return;
+    if (isInElement(trayRef.current, e.clientX, e.clientY) && canReturnToTray(pieces, g.id)) {
       onSelect(null);
-      updatePieces(ps => returnToTray(ps, d.id));
+      updatePieces(ps => returnToTray(ps, g.id));
       return;
     }
-    updatePieces(ps => settleGroup(ps, d.id));
+    updatePieces(ps => settleGroup(ps, g.id));
   };
 
   const onContextMenu = (e: MouseEvent<HTMLCanvasElement>) => {

@@ -331,8 +331,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
     Math.max(2, Math.min(4, Math.ceil(layout.scale * cam.camera.zoom * dpr)))
   );
   const [dropHighlight, setDropHighlight] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
+  const [overlay, setOverlay] = useState<'none' | 'settings' | 'help'>('none');
 
   const { placed, total } = progress(pieces);
   const solved = isSolved(pieces);
@@ -369,8 +368,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
   useZoomKeys(cam.zoomIn, cam.zoomOut, cam.resetZoom, active);
   useWheelRotation(canvasRef, session.rotate, cam.zoomAt);
   usePreventSafariGesture(canvasRef);
-  const closeHelp = useCallback(() => setShowHelp(false), []);
-  const closeSettings = useCallback(() => setShowSettings(false), []);
+  const closeOverlay = useCallback(() => setOverlay('none'), []);
 
   const pictureRect = useMemo(() => computePictureRect(pic.picture, pieces), [pic.picture, pieces]);
   const view = useMemo(
@@ -405,8 +403,8 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
         placed={placed}
         total={total}
         solved={solved}
-        onOpenSettings={() => setShowSettings(true)}
-        onOpenHelp={() => setShowHelp(true)}
+        onOpenSettings={() => setOverlay('settings')}
+        onOpenHelp={() => setOverlay('help')}
       />
 
       <div className={`flex-1 min-h-0 flex ${isPortrait ? 'flex-col' : 'flex-row'}`}>
@@ -446,7 +444,7 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
         />
       </div>
 
-      {showSettings && (
+      {overlay === 'settings' && (
         <JigsawSettingsDialog
           settings={settings}
           onChange={setSettings}
@@ -455,11 +453,11 @@ export const Jigsaw = ({ modeSwitch, active, settings, onChangeSettings: setSett
           getDebugInfo={() =>
             buildJigsawDebugInfo(puzzle, pictureLabel, settings, cam.camera, trayFilter, viewport, isPortrait, dpr)
           }
-          onClose={closeSettings}
+          onClose={closeOverlay}
         />
       )}
 
-      {showHelp && <JigsawHelp isTouchDevice={isTouchDevice} onClose={closeHelp} />}
+      {overlay === 'help' && <JigsawHelp isTouchDevice={isTouchDevice} onClose={closeOverlay} />}
     </div>
   );
 };
