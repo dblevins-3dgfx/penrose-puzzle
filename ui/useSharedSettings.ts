@@ -2,7 +2,7 @@
 // (stored under penrose-puzzle.jigsaw-settings so Visual effects and Sound
 // effects stay in sync across modes).
 import { useEffect, useState } from 'react';
-import { parseSettings, serializeSettings, SETTINGS_KEY, type JigsawSettings } from '../jigsaw';
+import { parseSettings, serializeSettings, SETTINGS_KEY, type JigsawSettings } from '../settings';
 
 export const useSharedSettings = () => {
   const [settings, setSettings] = useState<JigsawSettings>(() => {

@@ -1,65 +1,46 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOARD_H, BOARD_W, PHI, TILE_SIZE, edgesOf, getVertices, isLegalPlacement, isOutsidePlayfield, sameEdge, tilesOverlap, type Tile } from './rules';
+import { BOARD_H, BOARD_W, PHI, TILE_SIZE, edgesOf, getVertices, isLegalPlacement, isOutsidePlayfield, pointInTile, sameEdge, tilesOverlap, type Tile } from './rules';
+import { TAP_MAX_MOVE } from './gestures';
+import { PIECE_COUNTS, PUZZLE_SIZES } from './settings';
 import {
   FRAME_CENTER,
   LOCK_RADIUS,
-  PIECE_COUNTS,
-  PUZZLE_SIZES,
   borderEdges,
   boundsOf,
   bringToFront,
   canReturnToTray,
   choosePieces,
   chooseSymmetricPieces,
-  clampCamera,
   clampLoosePieces,
   computeViewportLayout,
   coverRect,
-  DEFAULT_CAMERA,
-  DEFAULT_SETTINGS,
   detectCelebrations,
-  easeCamera,
-  MAX_ZOOM,
-  MIN_ZOOM,
   orderedBorderLoops,
-  parseSettings,
-  serializeSettings,
   dropPiece,
   drawLayers,
   generatePatch,
   isBorderComplete,
-  isCameraAtFit,
   isEdgePiece,
   isGroupSelected,
   isSolved,
-  isTrayTap,
   moveGroup,
   neighbors,
   newPuzzle,
   newPuzzleForViewport,
-  nextCameraOnResize,
-  panCamera,
   placeBeside,
   popSpotOnBoard,
   repositionForViewport,
   resolveTrayFilter,
   returnToTray,
   rotateGroup,
-  screenToWorld,
   settleGroup,
   shouldTapRotate,
   takeFromTray,
-  TAP_MAX_MOVE,
-  TRAY_TAP_MAX_MOVE,
-  trayDragAction,
   trayPieces,
   turnOf,
-  worldToScreen,
-  zoomCameraAt,
   pieceAt,
   pieceTile,
-  pointInTile,
   progress,
   scatterSpots,
   seededRandom,
@@ -67,7 +48,6 @@ import {
   shareEdge,
   solvedTiling,
   soundCueFor,
-  stepPuzzleSize,
   tileFromVertices,
   transformPoint,
   type Piece
@@ -527,77 +507,6 @@ test('each piece carries its part of the picture to wherever it is', () => {
   }
 });
 
-// ---------------------------------------------------------------------
-// Settings
-// ---------------------------------------------------------------------
-
-test('by default the picture is hidden, tile outlines, symmetric layout, and effects are on, picture is subdivided, size is medium, and sound is off', () => {
-  assert.deepEqual(DEFAULT_SETTINGS, {
-    showPicture: false,
-    showOutlines: true,
-    picture: 'subdivided',
-    size: 'medium',
-    symmetric: true,
-    effects: true,
-    sound: false
-  });
-});
-
-test('saved settings are read back as they were saved', () => {
-  const cases = [
-    DEFAULT_SETTINGS,
-    { showPicture: true, showOutlines: false, picture: 'matching' as const, size: 'small' as const, symmetric: true, effects: false, sound: true },
-    { showPicture: false, showOutlines: true, picture: 'independent' as const, size: 'large' as const, symmetric: false, effects: true, sound: false },
-    { showPicture: true, showOutlines: true, picture: 'sunset' as const, size: 'xl' as const, symmetric: true, effects: false, sound: false },
-    { showPicture: false, showOutlines: false, picture: 'subdivided' as const, size: 'giant' as const, symmetric: true, effects: true, sound: true }
-  ];
-  for (const settings of cases) {
-    assert.deepEqual(parseSettings(serializeSettings(settings)), settings);
-  }
-});
-
-test('stepPuzzleSize cycles through Small, Medium, Large, XL, Giant in both directions', () => {
-  assert.deepEqual(PUZZLE_SIZES, ['small', 'medium', 'large', 'xl', 'giant']);
-  assert.equal(stepPuzzleSize('small', 1), 'medium');
-  assert.equal(stepPuzzleSize('medium', 1), 'large');
-  assert.equal(stepPuzzleSize('large', 1), 'xl');
-  assert.equal(stepPuzzleSize('xl', 1), 'giant');
-  assert.equal(stepPuzzleSize('giant', 1), 'small', 'wraps forward from Giant to Small');
-  assert.equal(stepPuzzleSize('small', -1), 'giant', 'wraps backward from Small to Giant');
-  assert.equal(stepPuzzleSize('giant', -1), 'xl');
-});
-
-test('nothing saved, or something unreadable, gives the defaults', () => {
-  assert.deepEqual(parseSettings(null), DEFAULT_SETTINGS);
-  assert.deepEqual(parseSettings(''), DEFAULT_SETTINGS);
-  assert.deepEqual(parseSettings('{not json'), DEFAULT_SETTINGS);
-  assert.deepEqual(parseSettings('"a string"'), DEFAULT_SETTINGS);
-  assert.deepEqual(parseSettings('null'), DEFAULT_SETTINGS);
-  assert.deepEqual(parseSettings('[true, false]'), DEFAULT_SETTINGS);
-});
-
-test('a missing or wrongly typed setting falls back to its default; unknown ones are dropped', () => {
-  assert.deepEqual(parseSettings('{"showPicture": true}'), {
-    showPicture: true,
-    showOutlines: true,
-    picture: 'subdivided',
-    size: 'medium',
-    symmetric: true,
-    effects: true,
-    sound: false
-  });
-  assert.deepEqual(parseSettings('{"showPicture": "yes", "showOutlines": false, "picture": "sunset", "size": "large", "symmetric": false, "effects": false, "sound": true}'), {
-    showPicture: false,
-    showOutlines: false,
-    picture: 'sunset',
-    size: 'large',
-    symmetric: false,
-    effects: false,
-    sound: true
-  });
-  assert.deepEqual(parseSettings('{"showOutlines": 0, "picture": "bogus", "size": "huge", "symmetric": "yes", "effects": "none", "sound": "loud", "volume": 11}'), DEFAULT_SETTINGS);
-});
-
 test('tap-to-rotate selects on first tap and rotates on subsequent taps within TAP_MAX_MOVE', () => {
   assert.equal(shouldTapRotate(false, 0), false, 'first tap only selects');
   assert.equal(shouldTapRotate(false, TAP_MAX_MOVE), false);
@@ -793,126 +702,12 @@ test('moveGroup respects custom board bounds', () => {
   near(p.y, custom.height);
 });
 
-// ---------------------------------------------------------------------
-// Camera (zoom and pan)
-// ---------------------------------------------------------------------
-
-test('screenToWorld and worldToScreen are inverses at any zoom and pan', () => {
-  const cam = { zoom: 2.25, panX: -140, panY: 35 };
-  const world = { x: 185, y: 112 };
-  const screen = worldToScreen(world, 1.5, cam);
-  const back = screenToWorld(screen, 1.5, cam);
-  near(back.x, world.x);
-  near(back.y, world.y);
-});
-
-test('clampCamera bounds zoom, centers at zoom <= 1, and prevents panning off-screen when zoomed in', () => {
-  const vp = { width: 1000, height: 600 };
-  assert.deepEqual(clampCamera({ zoom: 1, panX: 250, panY: -200 }, vp), DEFAULT_CAMERA);
-
-  const zoomedOut = clampCamera({ zoom: 0.2, panX: 999, panY: -999 }, vp);
-  near(zoomedOut.zoom, MIN_ZOOM);
-  near(zoomedOut.panX, (vp.width - vp.width * MIN_ZOOM) / 2);
-  near(zoomedOut.panY, (vp.height - vp.height * MIN_ZOOM) / 2);
-
-  const zoomedIn = clampCamera({ zoom: 10, panX: 5000, panY: -5000 }, vp);
-  near(zoomedIn.zoom, MAX_ZOOM);
-  assert.ok(zoomedIn.panX <= 80 && zoomedIn.panX >= vp.width - vp.width * MAX_ZOOM - 80);
-  assert.ok(zoomedIn.panY <= 80 && zoomedIn.panY >= vp.height - vp.height * MAX_ZOOM - 80);
-});
-
-test('zoomCameraAt keeps the world point under the focus stationary and panCamera moves smoothly', () => {
-  const vp = { width: 1000, height: 600 };
-  const focus = { x: 300, y: 200 };
-  const scale = 1.6;
-  const worldBefore = screenToWorld(focus, scale, DEFAULT_CAMERA);
-
-  const zoomed = zoomCameraAt(DEFAULT_CAMERA, 2, focus, vp);
-  near(zoomed.zoom, 2);
-  const worldAfter = screenToWorld(focus, scale, zoomed);
-  near(worldAfter.x, worldBefore.x);
-  near(worldAfter.y, worldBefore.y);
-
-  const panned = panCamera(zoomed, 50, -30, vp);
-  near(panned.panX, zoomed.panX + 50);
-  near(panned.panY, zoomed.panY - 30);
-
-  // Zooming back to 1 snaps back to default centered fit
-  const fit = zoomCameraAt(panned, 0.5, focus, vp);
-  assert.deepEqual(fit, DEFAULT_CAMERA);
-});
-
 test('popSpotOnBoard places a tapped piece near a custom zoomed-view anchor inside the board', () => {
   const { pieces, layout } = newPuzzleForViewport('small', 4, { width: 1000, height: 700 });
   const anchor = { x: 120, y: 90 };
   const spot = popSpotOnBoard(pieces, layout.board, anchor);
   near(spot.x, anchor.x);
   near(spot.y, anchor.y);
-});
-
-test('trayDragAction distinguishes touch scroll vs drag-out in portrait and landscape, and isTrayTap ignores cancelled pointers', () => {
-  // Mouse lifts once movement exceeds 6 px in any direction
-  assert.equal(trayDragAction(false, true, 3, 4), 'wait');
-  assert.equal(trayDragAction(false, true, 7, 0), 'lift');
-
-  // Touch portrait (bottom strip): horizontal swipes scroll; dragging up lifts onto the board
-  assert.equal(trayDragAction(true, true, 14, 2), 'scroll');
-  assert.equal(trayDragAction(true, true, -14, -4), 'scroll');
-  assert.equal(trayDragAction(true, true, 2, -15), 'lift');
-  assert.equal(trayDragAction(true, true, 2, 15), 'wait', 'dragging downward does not lift');
-  assert.equal(trayDragAction(true, true, 5, -8), 'wait');
-
-  // Touch landscape (right sidebar): vertical swipes scroll; dragging left lifts onto the board
-  assert.equal(trayDragAction(true, false, 2, 14), 'scroll');
-  assert.equal(trayDragAction(true, false, -3, -15), 'scroll');
-  assert.equal(trayDragAction(true, false, -15, 3), 'lift');
-  assert.equal(trayDragAction(true, false, 15, 0), 'wait', 'dragging rightward does not lift');
-
-  // Tap-to-pop fires only on clean un-cancelled, un-scrolled, un-lifted taps within TRAY_TAP_MAX_MOVE
-  assert.equal(isTrayTap(false, false, false, 0), true);
-  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE), true);
-  assert.equal(isTrayTap(false, false, false, TRAY_TAP_MAX_MOVE + 0.5), false);
-  assert.equal(isTrayTap(false, false, true, 2), false, 'pointercancel (e.g. Safari scroll handoff) never pops a piece');
-  assert.equal(isTrayTap(false, true, false, 2), false);
-  assert.equal(isTrayTap(true, false, false, 2), false);
-});
-
-test('isCameraAtFit detects Fit vs zoomed or panned cameras, and easeCamera moves screen points smoothly', () => {
-  assert.equal(isCameraAtFit(DEFAULT_CAMERA), true);
-  assert.equal(isCameraAtFit({ zoom: 1.0002, panX: 0.1, panY: -0.1 }), true);
-  assert.equal(isCameraAtFit({ zoom: 1.25, panX: 0, panY: 0 }), false);
-  assert.equal(isCameraAtFit({ zoom: 0.75, panX: 125, panY: 75 }), false);
-  assert.equal(isCameraAtFit({ zoom: 1, panX: 10, panY: 0 }), false);
-
-  const from = { zoom: 2.5, panX: -320, panY: -180 };
-  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, -0.5), from);
-  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 0), from);
-  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 1), DEFAULT_CAMERA);
-  assert.deepEqual(easeCamera(from, DEFAULT_CAMERA, 1.5), DEFAULT_CAMERA);
-
-  // At t = 0.5, ease-out cubic is 1 - 0.5^3 = 0.875 of the way to Fit
-  const mid = easeCamera(from, DEFAULT_CAMERA, 0.5);
-  near(mid.zoom, from.zoom + (DEFAULT_CAMERA.zoom - from.zoom) * 0.875);
-  near(mid.panX, from.panX + (DEFAULT_CAMERA.panX - from.panX) * 0.875);
-  near(mid.panY, from.panY + (DEFAULT_CAMERA.panY - from.panY) * 0.875);
-
-  // Every world point moves along a straight line on screen
-  const world = { x: 240, y: 170 };
-  const s0 = worldToScreen(world, 1.4, from);
-  const s1 = worldToScreen(world, 1.4, DEFAULT_CAMERA);
-  const sm = worldToScreen(world, 1.4, mid);
-  near(sm.x, s0.x + (s1.x - s0.x) * 0.875);
-  near(sm.y, s0.y + (s1.y - s0.y) * 0.875);
-
-  // Passive viewport resizes clamp the camera without cancelling an active Fit animation
-  const vp = { width: 390, height: 520 };
-  const duringAnim = nextCameraOnResize({ zoom: 2.5, panX: 999, panY: -999 }, vp, true);
-  assert.equal(duringAnim.keepAnimation, true, 'resize must not cancel solve-to-Fit animation');
-  assert.deepEqual(duringAnim.camera, clampCamera({ zoom: 2.5, panX: 999, panY: -999 }, vp));
-
-  const idle = nextCameraOnResize({ zoom: 2.5, panX: 999, panY: -999 }, vp, false);
-  assert.equal(idle.keepAnimation, false);
-  assert.deepEqual(idle.camera, clampCamera({ zoom: 2.5, panX: 999, panY: -999 }, vp));
 });
 
 // ---------------------------------------------------------------------

@@ -1,7 +1,8 @@
 // Canvas drawing for the jigsaw (spec 9). Where everything goes comes
 // from jigsaw.ts; this only paints it.
 import { DEFAULT_BOARD, getVertices, type BoardSize, type Point, type Tile } from '../rules';
-import { boundsOf, coverRect, drawLayers, pieceTile, pieceTransform, type JigsawSettings, type Piece } from '../jigsaw';
+import type { JigsawSettings } from '../settings';
+import { boundsOf, coverRect, drawLayers, pieceTile, pieceTransform, type Piece } from '../jigsaw';
 
 export interface Picture {
   image: CanvasImageSource;

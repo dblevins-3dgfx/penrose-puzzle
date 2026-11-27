@@ -1,18 +1,18 @@
 // The sandbox's Settings dialog (spec 6 & 8): Visual effects and Sound effects
 // switches, persisted alongside Jigsaw settings.
-import type { JigsawSettings } from '../jigsaw';
+import type { SharedSettings } from '../settings';
 import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
-import { playSound } from './jigsawSound';
+import { playSound } from './sound';
 
 interface Props {
-  settings: JigsawSettings;
-  onChange: (settings: JigsawSettings) => void;
+  settings: SharedSettings;
+  onChange: (patch: Partial<SharedSettings>) => void;
   getDebugInfo: () => string;
   onClose: () => void;
 }
 
-const SWITCHES: { key: 'effects' | 'sound'; label: string; detail: string }[] = [
+const SWITCHES: { key: keyof SharedSettings; label: string; detail: string }[] = [
   { key: 'effects', label: 'Visual effects', detail: 'Show placement glow and edge sparks when a tile locks into place' },
   { key: 'sound', label: 'Sound effects', detail: 'Play a subtle synthesized chime when a tile locks into place' }
 ];
@@ -32,7 +32,7 @@ export const SandboxSettingsDialog = ({ settings, onChange, getDebugInfo, onClos
             checked={settings[key]}
             onChange={e => {
               const checked = e.target.checked;
-              onChange({ ...settings, [key]: checked });
+              onChange({ [key]: checked });
               if (key === 'sound' && checked) playSound('lock');
             }}
             className="h-6 w-11 shrink-0 appearance-none rounded-full bg-slate-600 checked:bg-sky-500 relative cursor-pointer transition-colors

@@ -1,6 +1,6 @@
-// Floating board zoom & fit pill in the bottom-left corner of the jigsaw (spec 9).
+// Floating board zoom & fit pill in the bottom-left corner of the board (spec 8 & 9).
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import { isCameraAtFit, MAX_ZOOM, MIN_ZOOM, type Camera } from '../jigsaw';
+import { isCameraAtFit, MAX_ZOOM, MIN_ZOOM, type Camera } from '../camera';
 
 interface Props {
   camera: Camera;
@@ -9,6 +9,7 @@ interface Props {
   onZoomOut: () => void;
   onReset: () => void;
   minZoom?: number;
+  maxZoom?: number;
   isDefault?: boolean;
   resetLabel?: string;
 }
@@ -23,6 +24,7 @@ export const ZoomControls = ({
   onZoomOut,
   onReset,
   minZoom = MIN_ZOOM,
+  maxZoom = MAX_ZOOM,
   isDefault,
   resetLabel = 'Fit'
 }: Props) => {
@@ -64,7 +66,7 @@ export const ZoomControls = ({
       <button
         type="button"
         onClick={onZoomIn}
-        disabled={camera.zoom >= MAX_ZOOM - 1e-3}
+        disabled={camera.zoom >= maxZoom - 1e-3}
         aria-label="Zoom in"
         title="Zoom in (+)"
         className={btn}

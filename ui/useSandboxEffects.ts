@@ -1,9 +1,10 @@
 // Drives Sandbox canvas rendering and placement visual/audio effects (spec 7).
 // Runs a requestAnimationFrame loop only while effects are active.
 import { useEffect, useRef, type RefObject } from 'react';
-import { connectedEdgesForTile, SANDBOX_WORLD, type SandboxCamera, type Tile } from '../rules';
+import { connectedEdgesForTile, SANDBOX_WORLD, type Tile } from '../rules';
+import type { Camera } from '../camera';
 import { drawBoard, type Preview } from './draw';
-import { playSound } from './jigsawSound';
+import { playSound } from './sound';
 import {
   drawSandboxEffects,
   hasActiveSandboxEffects,
@@ -21,7 +22,7 @@ export const useSandboxRenderAndEffects = (
   vpWidth: number,
   vpHeight: number,
   dpr: number,
-  camera: SandboxCamera,
+  camera: Camera,
   effectsEnabled: boolean,
   soundEnabled: boolean
 ) => {

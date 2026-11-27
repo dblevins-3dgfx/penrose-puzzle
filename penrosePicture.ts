@@ -3,7 +3,8 @@
 // unit-tested (penrosePicture.test.ts). ui/penrosePictureDraw.ts paints them.
 
 import { PHI, TILE_SIZE, getVertices, type Point, type Tile, type TileType } from './rules';
-import { boundsOf, seededRandom, type PictureStyle } from './jigsaw';
+import { boundsOf, seededRandom } from './jigsaw';
+import type { PictureStyle } from './settings';
 
 export type PenrosePictureStyle = Exclude<PictureStyle, 'sunset'>;
 

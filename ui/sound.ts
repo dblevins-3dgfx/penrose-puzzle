@@ -1,7 +1,7 @@
-// Synthesized Web Audio sound effects for Jigsaw mode (spec 9):
+// Synthesized Web Audio sound effects shared by Jigsaw and Sandbox (spec 7 & 9):
 // zero external audio assets, lazily initialized on demand, and safe in
 // environments without Web Audio or with strict autoplay restrictions.
-import type { SoundCue } from '../jigsaw';
+import type { SoundCue } from '../settings';
 
 let sharedCtx: AudioContext | null = null;
 
@@ -76,15 +76,18 @@ const playSolve = (ctx: AudioContext, t: number) => {
   });
 };
 
+const SOUND_PLAYERS: Record<SoundCue, (ctx: AudioContext, t: number) => void> = {
+  snap: playSnap,
+  lock: playLock,
+  border: playBorder,
+  solve: playSolve
+};
+
 export const playSound = (cue: SoundCue): void => {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
-    const now = ctx.currentTime;
-    if (cue === 'snap') playSnap(ctx, now);
-    else if (cue === 'lock') playLock(ctx, now);
-    else if (cue === 'border') playBorder(ctx, now);
-    else playSolve(ctx, now);
+    SOUND_PLAYERS[cue](ctx, ctx.currentTime);
   } catch {
     // Ignore audio errors when Web Audio is unavailable or blocked
   }

@@ -1,7 +1,8 @@
 // The app: the jigsaw (spec 9) and the free-building sandbox (spec 4–8),
 // switched in the header. Both modes stay mounted once visited so switching
 // tabs preserves each mode's board state, camera, and settings cleanly.
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import type { SharedSettings } from './settings';
 import { Jigsaw } from './ui/Jigsaw';
 import { ModeSwitch, type Mode } from './ui/ModeSwitch';
 import { Sandbox } from './ui/Sandbox';
@@ -11,6 +12,11 @@ const PenrosePuzzle = () => {
   const [mode, setMode] = useState<Mode>('jigsaw');
   const [visitedSandbox, setVisitedSandbox] = useState(false);
   const [settings, setSettings] = useSharedSettings();
+
+  const patchSharedSettings = useCallback(
+    (patch: Partial<SharedSettings>) => setSettings(prev => ({ ...prev, ...patch })),
+    [setSettings]
+  );
 
   const handleModeChange = (next: Mode) => {
     if (next === 'sandbox') setVisitedSandbox(true);
@@ -35,7 +41,7 @@ const PenrosePuzzle = () => {
             modeSwitch={modeSwitch}
             active={mode === 'sandbox'}
             settings={settings}
-            onChangeSettings={setSettings}
+            onChangeSettings={patchSharedSettings}
           />
         </div>
       )}

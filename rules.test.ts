@@ -7,14 +7,11 @@ import {
   KITE_VERTEX_COLORS,
   PHI,
   AUTO_ROTATE_RADIUS,
-  SANDBOX_MAX_ZOOM,
   SANDBOX_WORLD,
   SNAP_RADIUS,
   autoRotatePlacement,
-  clampSandboxCamera,
   clampTileCenter,
   connectedEdgesForTile,
-  defaultSandboxCamera,
   distanceToSegment,
   edgesOf,
   findOpenEdges,
@@ -27,20 +24,12 @@ import {
   getVertices,
   isLegalPlacement,
   isOutsidePlayfield,
-  isSandboxCameraDefault,
   nextMeasuredSize,
-  panSandboxCamera,
   removeLastTile,
   resolveSandboxTile,
   rotateBy,
-  sandboxMinZoom,
-  sandboxScreenToWorld,
-  sandboxWorldToScreen,
   snapPosition,
   tilesOverlap,
-  wheelDeltaPixels,
-  wheelSteps,
-  zoomSandboxCameraAt,
   type Point,
   type Tile,
   type TileType
@@ -455,89 +444,9 @@ test('rotation turns in 36 degree steps and wraps around', () => {
   assert.equal(rotateBy(36, -12), 324);
 });
 
-test('wheel deltas in lines and pages convert to pixels', () => {
-  assert.equal(wheelDeltaPixels(3, 0), 3);
-  assert.equal(wheelDeltaPixels(3, 1), 48);
-  assert.equal(wheelDeltaPixels(1, 2), 400);
-});
-
-test('a mouse wheel notch turns one step: up clockwise, down counter-clockwise', () => {
-  assert.deepEqual(wheelSteps(0, -100), { steps: 1, total: 0 });
-  assert.deepEqual(wheelSteps(0, 100), { steps: -1, total: 0 });
-  assert.deepEqual(wheelSteps(20, 50), { steps: -1, total: 20 }, 'a notch leaves the swipe total alone');
-});
-
-test('a trackpad swipe turns one step per 50 px scrolled', () => {
-  let total = 0;
-  let steps = 0;
-  for (let i = 0; i < 13; i++) {
-    const r = wheelSteps(total, -10); // 130 px upward in small deltas
-    total = r.total;
-    steps += r.steps;
-  }
-  assert.equal(steps, 2);
-  near(total, -30);
-});
-
-test('a swipe that reverses direction works its total back', () => {
-  const a = wheelSteps(0, -40);
-  assert.deepEqual(a, { steps: 0, total: -40 });
-  const b = wheelSteps(a.total, 30);
-  assert.deepEqual(b, { steps: 0, total: -10 });
-});
-
 // ---------------------------------------------------------------------
-// Sandbox generous world camera, loose-tile resolution, and new edges
+// Sandbox loose-tile resolution, connected edges, and measurement
 // ---------------------------------------------------------------------
-
-test('defaultSandboxCamera centers the generous world at 100% zoom and sandboxMinZoom fits the whole world', () => {
-  const phone = { width: 390, height: 580 };
-  const cam = defaultSandboxCamera(phone);
-  assert.equal(cam.zoom, 1);
-  near(cam.panX, (phone.width - SANDBOX_WORLD.width) / 2);
-  near(cam.panY, (phone.height - SANDBOX_WORLD.height) / 2);
-  assert.equal(isSandboxCameraDefault(cam, phone), true);
-  assert.equal(isSandboxCameraDefault({ ...cam, zoom: 1.5 }, phone), false);
-
-  // World center maps to viewport center at default camera
-  const center = sandboxWorldToScreen({ x: SANDBOX_WORLD.width / 2, y: SANDBOX_WORLD.height / 2 }, cam);
-  near(center.x, phone.width / 2);
-  near(center.y, phone.height / 2);
-
-  // Min zoom on a phone lets the entire 1600x1200 world fit inside the screen
-  const minZ = sandboxMinZoom(phone);
-  assert.ok(minZ >= 0.2 && minZ < 0.3, `phone minZoom ${minZ} fits 1600px wide world`);
-  assert.ok(SANDBOX_WORLD.width * minZ <= phone.width);
-});
-
-test('sandboxScreenToWorld and sandboxWorldToScreen are inverses, and zoom/pan stay clamped', () => {
-  const vp = { width: 1000, height: 600 };
-  const start = defaultSandboxCamera(vp);
-  const focus = { x: 250, y: 180 };
-  const before = sandboxScreenToWorld(focus, start);
-
-  const zoomed = zoomSandboxCameraAt(start, 2, focus, vp);
-  near(zoomed.zoom, 2);
-  const after = sandboxScreenToWorld(focus, zoomed);
-  near(after.x, before.x);
-  near(after.y, before.y);
-
-  const back = sandboxWorldToScreen(after, zoomed);
-  near(back.x, focus.x);
-  near(back.y, focus.y);
-
-  // Panning stays within bounds and extreme zooms clamp cleanly
-  const panned = panSandboxCamera(zoomed, 50000, -50000, vp);
-  assert.ok(panned.panX <= 80);
-  assert.ok(panned.panY >= vp.height - SANDBOX_WORLD.height * zoomed.zoom - 80);
-
-  const tooSmall = clampSandboxCamera({ zoom: 0.01, panX: 999, panY: -999 }, vp);
-  near(tooSmall.zoom, sandboxMinZoom(vp));
-  near(tooSmall.panX, (vp.width - SANDBOX_WORLD.width * tooSmall.zoom) / 2);
-
-  const tooBig = clampSandboxCamera({ zoom: 20, panX: 0, panY: 0 }, vp);
-  near(tooBig.zoom, SANDBOX_MAX_ZOOM);
-});
 
 test('clampTileCenter keeps loose tiles inside the world and resolveSandboxTile snaps legally', () => {
   assert.deepEqual(clampTileCenter({ x: -20, y: 9999 }), { x: 0, y: SANDBOX_WORLD.height });

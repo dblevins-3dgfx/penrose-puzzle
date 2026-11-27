@@ -3,28 +3,24 @@
 // drag-out and tap-to-pop, and dropping single loose pieces back into the tray.
 import { useCallback, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 import type { BoardSize, Point } from '../rules';
+import { panCamera, screenToWorld, zoomCameraAt, type Camera } from '../camera';
+import { isTrayTap, TAP_MAX_MOVE, trayDragAction } from '../gestures';
 import {
   bringToFront,
   canReturnToTray,
   isGroupSelected,
-  isTrayTap,
   moveGroup,
-  panCamera,
   pieceAt,
   popSpotOnBoard,
   returnToTray,
   rotateGroup,
-  screenToWorld,
   settleGroup,
   shouldTapRotate,
   takeFromTray,
-  TAP_MAX_MOVE,
-  trayDragAction,
-  zoomCameraAt,
-  type Camera,
   type Piece,
   type ViewportLayout
 } from '../jigsaw';
+import { isInElement, pairMetrics, stepPinch, type PinchMetrics } from './pointerUtils';
 
 const clientToBoard = (
   canvas: HTMLCanvasElement,
@@ -35,20 +31,6 @@ const clientToBoard = (
 ): Point => {
   const rect = canvas.getBoundingClientRect();
   return screenToWorld({ x: clientX - rect.left, y: clientY - rect.top }, layoutScale, camera);
-};
-
-const isInElement = (el: HTMLElement | null, clientX: number, clientY: number): boolean => {
-  if (!el) return false;
-  const r = el.getBoundingClientRect();
-  return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
-};
-
-const pairMetrics = (pts: [Point, Point]) => {
-  const [a, b] = pts;
-  return {
-    dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
-    mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-  };
 };
 
 // Handles dragging pieces out of the tray onto the board and tapping tray
@@ -147,7 +129,7 @@ export const useBoardPointers = (
   } | null>(null);
   const pan = useRef<{ pointerId: number; startX: number; startY: number; x: number; y: number; maxMove: number } | null>(null);
   const touches = useRef<Map<number, Point>>(new Map());
-  const pinch = useRef<{ dist: number; mid: Point } | null>(null);
+  const pinch = useRef<PinchMetrics | null>(null);
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -193,12 +175,7 @@ export const useBoardPointers = (
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2 && pinch.current) {
-        const next = pairMetrics([...touches.current.values()] as [Point, Point]);
-        const rect = e.currentTarget.getBoundingClientRect();
-        const focus = { x: next.mid.x - rect.left, y: next.mid.y - rect.top };
-        const factor = next.dist / pinch.current.dist;
-        const dx = next.mid.x - pinch.current.mid.x;
-        const dy = next.mid.y - pinch.current.mid.y;
+        const { next, dx, dy, factor, focus } = stepPinch(pinch.current, [...touches.current.values()], e.currentTarget);
         pinch.current = next;
         setCamera(c => zoomCameraAt(panCamera(c, dx, dy, viewport), factor, focus, viewport));
         return;

@@ -2,15 +2,15 @@
 // Only runs a requestAnimationFrame loop while an effect is active; static
 // frames render once per React update with zero idle overhead.
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import type { Camera } from '../camera';
 import {
   detectCelebrations,
   orderedBorderLoops,
   soundCueFor,
-  type Camera,
   type Piece
 } from '../jigsaw';
 import { drawJigsaw, type JigsawView } from './jigsawDraw';
-import { playSound } from './jigsawSound';
+import { playSound } from './sound';
 import {
   BORDER_DURATION_MS,
   BORDER_TOAST_MS,

@@ -90,6 +90,15 @@ export const getVertexColors = (tile: Pick<Tile, 'type'>): readonly VertexColor[
 // handles the dart's concave notch.
 export const toTriangles = (v: readonly Point[]): Point[][] => [[v[0], v[1], v[2]], [v[0], v[2], v[3]]];
 
+// Is p inside the triangle (edges included)?
+const inTriangle = (p: Point, [a, b, c]: Point[]): boolean => {
+  const side = (u: Point, v: Point) => (v.x - u.x) * (p.y - u.y) - (v.y - u.y) * (p.x - u.x);
+  const d1 = side(a, b), d2 = side(b, c), d3 = side(c, a);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+};
+
+export const pointInTile = (p: Point, t: Tile): boolean => toTriangles(getVertices(t)).some(tri => inTriangle(p, tri));
+
 // A tile's four edges in perimeter order, each with its end colors and
 // length label.
 export interface Edge {
@@ -434,103 +443,6 @@ export const countTiles = (tiles: readonly Tile[]) => ({
 // Generous Sandbox world canvas (world units = CSS pixels at zoom 1), allowing
 // large Penrose tilings with pan and zoom on both phones and desktops.
 export const SANDBOX_WORLD: BoardSize = { width: 1600, height: 1200 };
-export const SANDBOX_MAX_ZOOM = 4;
-
-export interface SandboxCamera {
-  zoom: number;
-  panX: number;
-  panY: number;
-}
-
-// Minimum zoom lets the player zoom all the way out to view the entire world
-// canvas (with a small margin), while staying bounded for very tiny viewports.
-export const sandboxMinZoom = (viewport: BoardSize, world: BoardSize = SANDBOX_WORLD): number => {
-  const vw = Math.max(1, viewport.width);
-  const vh = Math.max(1, viewport.height);
-  const fitAll = Math.min((vw - 24) / world.width, (vh - 24) / world.height);
-  return Math.max(0.2, Math.min(0.75, fitAll));
-};
-
-// Default Sandbox view: 100% zoom (1 world unit = 1 CSS pixel) centered on the
-// middle of the generous world canvas.
-export const defaultSandboxCamera = (viewport: BoardSize, world: BoardSize = SANDBOX_WORLD): SandboxCamera => ({
-  zoom: 1,
-  panX: (Math.max(1, viewport.width) - world.width) / 2,
-  panY: (Math.max(1, viewport.height) - world.height) / 2
-});
-
-export const isSandboxCameraDefault = (
-  camera: SandboxCamera,
-  viewport: BoardSize,
-  world: BoardSize = SANDBOX_WORLD
-): boolean => {
-  const def = defaultSandboxCamera(viewport, world);
-  return (
-    Math.abs(camera.zoom - def.zoom) < 1e-3 &&
-    Math.abs(camera.panX - def.panX) < 0.5 &&
-    Math.abs(camera.panY - def.panY) < 0.5
-  );
-};
-
-export const sandboxScreenToWorld = (screen: Point, camera: SandboxCamera): Point => ({
-  x: (screen.x - camera.panX) / camera.zoom,
-  y: (screen.y - camera.panY) / camera.zoom
-});
-
-export const sandboxWorldToScreen = (worldPt: Point, camera: SandboxCamera): Point => ({
-  x: worldPt.x * camera.zoom + camera.panX,
-  y: worldPt.y * camera.zoom + camera.panY
-});
-
-const clampSandboxAxis = (pan: number, vp: number, worldSpan: number, zoom: number): number => {
-  const rendered = worldSpan * zoom;
-  if (rendered <= vp) return (vp - rendered) / 2;
-  const pad = Math.min(80, vp * 0.15);
-  return Math.max(vp - rendered - pad, Math.min(pad, pan));
-};
-
-export const clampSandboxCamera = (
-  camera: SandboxCamera,
-  viewport: BoardSize,
-  world: BoardSize = SANDBOX_WORLD
-): SandboxCamera => {
-  const minZoom = sandboxMinZoom(viewport, world);
-  const zoom = Math.max(minZoom, Math.min(SANDBOX_MAX_ZOOM, camera.zoom));
-  return {
-    zoom,
-    panX: clampSandboxAxis(camera.panX, Math.max(1, viewport.width), world.width, zoom),
-    panY: clampSandboxAxis(camera.panY, Math.max(1, viewport.height), world.height, zoom)
-  };
-};
-
-export const panSandboxCamera = (
-  camera: SandboxCamera,
-  dx: number,
-  dy: number,
-  viewport: BoardSize,
-  world: BoardSize = SANDBOX_WORLD
-): SandboxCamera => clampSandboxCamera({ zoom: camera.zoom, panX: camera.panX + dx, panY: camera.panY + dy }, viewport, world);
-
-export const zoomSandboxCameraAt = (
-  camera: SandboxCamera,
-  factor: number,
-  focus: Point,
-  viewport: BoardSize,
-  world: BoardSize = SANDBOX_WORLD
-): SandboxCamera => {
-  const minZoom = sandboxMinZoom(viewport, world);
-  const nextZoom = Math.max(minZoom, Math.min(SANDBOX_MAX_ZOOM, camera.zoom * factor));
-  const ratio = nextZoom / camera.zoom;
-  return clampSandboxCamera(
-    {
-      zoom: nextZoom,
-      panX: focus.x - (focus.x - camera.panX) * ratio,
-      panY: focus.y - (focus.y - camera.panY) * ratio
-    },
-    viewport,
-    world
-  );
-};
 
 // Keeps a loose Sandbox tile's center inside the world bounds.
 export const clampTileCenter = (p: Point, world: BoardSize = SANDBOX_WORLD): Point => ({
@@ -602,27 +514,3 @@ export const ROTATION_STEP = 36;
 // Rotation after turning `steps` steps (positive = clockwise), in [0, 360).
 export const rotateBy = (rotation: number, steps: number): number =>
   (((rotation + steps * ROTATION_STEP) % 360) + 360) % 360;
-
-// Wheel deltas in pixels: line mode counts 16 px a line, page mode 400 px.
-export const wheelDeltaPixels = (deltaY: number, deltaMode: number): number =>
-  deltaMode === 1 ? deltaY * 16 : deltaMode === 2 ? deltaY * 400 : deltaY;
-
-export const WHEEL_NOTCH = 50;
-export const TRACKPAD_STEP = 50; // lower = faster trackpad rotation
-
-// One wheel event. A delta of WHEEL_NOTCH px or more is a mouse wheel notch
-// and turns one step by itself (the trackpad total is left alone). Smaller
-// deltas are a trackpad swipe: they add up in `total`, and every
-// TRACKPAD_STEP px turns one step. Scrolling up (negative) is clockwise.
-// Returns the steps to turn and the new running total.
-export const wheelSteps = (total: number, dy: number): { steps: number; total: number } => {
-  if (Math.abs(dy) >= WHEEL_NOTCH) return { steps: dy < 0 ? 1 : -1, total };
-
-  let t = total + dy;
-  let steps = 0;
-  while (Math.abs(t) >= TRACKPAD_STEP) {
-    steps += t < 0 ? 1 : -1;
-    t -= Math.sign(t) * TRACKPAD_STEP;
-  }
-  return { steps, total: t };
-};
