@@ -1,7 +1,9 @@
 // Formats a concise, local-only diagnostic snapshot for bug reports (spec 8 & 9).
 // Plain module with no React or DOM calls so it can be unit-tested in debugInfo.test.ts.
-import type { BoardSize, SandboxCamera } from './rules';
-import type { Camera, JigsawSettings, PuzzleSize, TrayFilter } from './jigsaw';
+import type { BoardSize } from './rules';
+import type { Camera } from './camera';
+import type { JigsawSettings, PuzzleSize, SharedSettings } from './settings';
+import type { TrayFilter } from './jigsaw';
 
 export interface DebugEnvironment {
   url: string;
@@ -36,8 +38,8 @@ export interface JigsawDebugSnapshot {
 export interface SandboxDebugSnapshot {
   mode: 'sandbox';
   env: DebugEnvironment;
-  settings: JigsawSettings;
-  camera: SandboxCamera;
+  settings: SharedSettings;
+  camera: Camera;
   kites: number;
   darts: number;
   autoRotate: boolean;
@@ -60,7 +62,7 @@ export const sanitizeUrl = (href: string): string => {
 };
 
 export const formatDebugInfo = (snapshot: DebugSnapshot): string => {
-  const { env, settings, camera } = snapshot;
+  const { env, camera } = snapshot;
   const vv = env.visualViewport ? fmtSize(env.visualViewport) : 'n/a';
   const lines = [
     'Penrose Puzzle debug info',
@@ -71,17 +73,19 @@ export const formatDebugInfo = (snapshot: DebugSnapshot): string => {
   ];
 
   if (snapshot.mode === 'jigsaw') {
+    const s = snapshot.settings;
     lines.push(
       `camera: zoom=${round(camera.zoom)}, pan=(${round(camera.panX, 1)}, ${round(camera.panY, 1)}), layoutScale=${round(snapshot.layoutScale, 3)}`,
       `puzzle: size=${snapshot.size}, seed=${snapshot.seed}, picture=${snapshot.picture}`,
       `progress: ${snapshot.placed}/${snapshot.total} (solved=${snapshot.solved}), tray=${snapshot.trayAll} all / ${snapshot.trayEdges} edges (filter=${snapshot.trayFilter})`,
-      `settings: showPicture=${settings.showPicture}, showOutlines=${settings.showOutlines}, symmetric=${settings.symmetric}, effects=${settings.effects}, sound=${settings.sound}`
+      `settings: showPicture=${s.showPicture}, showOutlines=${s.showOutlines}, symmetric=${s.symmetric}, effects=${s.effects}, sound=${s.sound}`
     );
   } else {
+    const s = snapshot.settings;
     lines.push(
       `camera: zoom=${round(camera.zoom)}, pan=(${round(camera.panX, 1)}, ${round(camera.panY, 1)})`,
       `sandbox: kites=${snapshot.kites}, darts=${snapshot.darts}, autoRotate=${snapshot.autoRotate}, looseTile=${snapshot.hasLooseTile}`,
-      `settings: effects=${settings.effects}, sound=${settings.sound}`
+      `settings: effects=${s.effects}, sound=${s.sound}`
     );
   }
 

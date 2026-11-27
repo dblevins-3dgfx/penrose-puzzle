@@ -2,10 +2,10 @@
 // display/audio switches, and diagnostics copy. Opened from the header; closed
 // like How to Play.
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { PUZZLE_SIZES, stepPuzzleSize, type JigsawSettings, type PuzzleSize } from '../jigsaw';
+import { PUZZLE_SIZES, stepPuzzleSize, type JigsawSettings, type PuzzleSize } from '../settings';
 import { DebugInfoSection } from './DebugInfoSection';
 import { Overlay } from './HelpOverlay';
-import { playSound } from './jigsawSound';
+import { playSound } from './sound';
 
 interface Props {
   settings: JigsawSettings;

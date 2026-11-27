@@ -6,37 +6,22 @@
 import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type RefObject } from 'react';
 import {
   clampTileCenter,
-  panSandboxCamera,
+  pointInTile,
   resolveSandboxTile,
   SANDBOX_WORLD,
-  sandboxScreenToWorld,
-  zoomSandboxCameraAt,
   type BoardSize,
   type Point,
-  type SandboxCamera,
   type Tile,
   type TileType
 } from '../rules';
-import { isTrayTap, pointInTile, TAP_MAX_MOVE, trayDragAction } from '../jigsaw';
+import { panSandboxCamera, sandboxScreenToWorld, zoomSandboxCameraAt, type Camera } from '../camera';
+import { isTrayTap, TAP_MAX_MOVE, trayDragAction } from '../gestures';
 import type { Preview } from './draw';
+import { isInElement, pairMetrics, stepPinch, type PinchMetrics } from './pointerUtils';
 
-const clientToWorld = (canvas: HTMLCanvasElement, clientX: number, clientY: number, camera: SandboxCamera): Point => {
+const clientToWorld = (canvas: HTMLCanvasElement, clientX: number, clientY: number, camera: Camera): Point => {
   const rect = canvas.getBoundingClientRect();
   return sandboxScreenToWorld({ x: clientX - rect.left, y: clientY - rect.top }, camera);
-};
-
-const isInElement = (el: HTMLElement | null, clientX: number, clientY: number): boolean => {
-  if (!el) return false;
-  const r = el.getBoundingClientRect();
-  return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
-};
-
-const pairMetrics = (pts: [Point, Point]) => {
-  const [a, b] = pts;
-  return {
-    dist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
-    mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-  };
 };
 
 interface SandboxRefs {
@@ -50,7 +35,7 @@ export const useSandboxTrayInteraction = (
   canvasRef: RefObject<HTMLCanvasElement | null>,
   trayRef: RefObject<HTMLDivElement | null>,
   viewport: BoardSize,
-  camera: SandboxCamera,
+  camera: Camera,
   isPortrait: boolean,
   state: SandboxRefs,
   onSetLoose: (tile: Tile | null) => void,
@@ -135,8 +120,8 @@ export const useSandboxBoardPointers = (
   autoRotate: boolean,
   autoChoice: number,
   viewport: BoardSize,
-  camera: SandboxCamera,
-  setCamera: (fn: (c: SandboxCamera) => SandboxCamera) => void,
+  camera: Camera,
+  setCamera: (fn: (c: Camera) => Camera) => void,
   onSetLoose: (tile: Tile | null) => void,
   onPlace: (tile: Tile) => void,
   onRotate: (steps: number) => void,
@@ -152,7 +137,7 @@ export const useSandboxBoardPointers = (
   } | null>(null);
   const pan = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const touches = useRef<Map<number, Point>>(new Map());
-  const pinch = useRef<{ dist: number; mid: Point } | null>(null);
+  const pinch = useRef<PinchMetrics | null>(null);
 
   const onPointerDown = (e: PointerEvent<HTMLCanvasElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return;
@@ -189,12 +174,7 @@ export const useSandboxBoardPointers = (
     if (e.pointerType === 'touch' && touches.current.has(e.pointerId)) {
       touches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.current.size === 2 && pinch.current) {
-        const next = pairMetrics([...touches.current.values()] as [Point, Point]);
-        const rect = e.currentTarget.getBoundingClientRect();
-        const focus = { x: next.mid.x - rect.left, y: next.mid.y - rect.top };
-        const factor = next.dist / pinch.current.dist;
-        const dx = next.mid.x - pinch.current.mid.x;
-        const dy = next.mid.y - pinch.current.mid.y;
+        const { next, dx, dy, factor, focus } = stepPinch(pinch.current, [...touches.current.values()], e.currentTarget);
         pinch.current = next;
         setCamera(c => zoomSandboxCameraAt(panSandboxCamera(c, dx, dy, viewport), factor, focus, viewport));
         return;

@@ -2,25 +2,29 @@
 // manipulation mechanics: drag or tap Kite/Dart tiles from the tray, drop on a
 // legal edge to lock with visual/audio feedback, tap to rotate or use floating
 // bottom-right controls, and pan/zoom across the generous 1600x1200 world.
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  clampSandboxCamera,
   countTiles,
-  defaultSandboxCamera,
   isLegalPlacement,
-  isSandboxCameraDefault,
   removeLastTile,
   resolveSandboxTile,
   rotateBy,
   SANDBOX_WORLD,
-  sandboxMinZoom,
-  zoomSandboxCameraAt,
   type Point,
-  type SandboxCamera,
   type Tile,
   type TileType
 } from '../rules';
-import { ZOOM_STEP, type JigsawSettings } from '../jigsaw';
+import {
+  clampSandboxCamera,
+  defaultSandboxCamera,
+  isSandboxCameraDefault,
+  SANDBOX_MAX_ZOOM,
+  sandboxMinZoom,
+  ZOOM_STEP,
+  zoomSandboxCameraAt,
+  type Camera
+} from '../camera';
+import type { SharedSettings } from '../settings';
 import { formatDebugInfo } from '../debugInfo';
 import { collectDebugEnvironment } from './collectDebugEnv';
 import { HelpOverlay } from './HelpOverlay';
@@ -37,7 +41,7 @@ import { useSandboxBoardPointers, useSandboxTrayInteraction } from './useSandbox
 const isTouchDevice = typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 
 const useSandboxCamera = (viewport: { width: number; height: number }, measured: boolean) => {
-  const [camera, setCamera] = useState<SandboxCamera>(() => defaultSandboxCamera(viewport));
+  const [camera, setCamera] = useState<Camera>(() => defaultSandboxCamera(viewport));
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -95,8 +99,8 @@ const buildSandboxDebugInfo = (
   counts: { kite: number; dart: number },
   autoRotate: boolean,
   hasLooseTile: boolean,
-  settings: JigsawSettings,
-  camera: SandboxCamera,
+  settings: SharedSettings,
+  camera: Camera,
   viewport: { width: number; height: number },
   isPortrait: boolean,
   dpr: number
@@ -115,8 +119,8 @@ const buildSandboxDebugInfo = (
 interface SandboxProps {
   modeSwitch: ReactNode;
   active: boolean;
-  settings: JigsawSettings;
-  onChangeSettings: Dispatch<SetStateAction<JigsawSettings>>;
+  settings: SharedSettings;
+  onChangeSettings: (patch: Partial<SharedSettings>) => void;
 }
 
 export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSettings }: SandboxProps) => {
@@ -246,6 +250,7 @@ export const Sandbox = ({ modeSwitch, active, settings, onChangeSettings: setSet
             camera={camera}
             isPortrait={isPortrait}
             minZoom={sandboxMinZoom(viewport)}
+            maxZoom={SANDBOX_MAX_ZOOM}
             isDefault={isSandboxCameraDefault(camera, viewport)}
             resetLabel="100%"
             onZoomIn={zoomIn}

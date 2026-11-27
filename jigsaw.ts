@@ -14,15 +14,17 @@ import {
   centroidOf,
   rotateBy,
   getVertices,
+  pointInTile,
   sameEdge,
   samePoint,
   edgesOf,
-  toTriangles,
   type BoardSize,
   type Point,
   type Tile,
   type TileType
 } from './rules';
+import { TAP_MAX_MOVE } from './gestures';
+import { PIECE_COUNTS, type PuzzleSize, type SoundCue } from './settings';
 
 // ---------------------------------------------------------------------
 // Random numbers: seeded, so a puzzle can be rebuilt and tested
@@ -144,23 +146,6 @@ export const generatePatch = (depth: number, seedShape: 'sun' | 'star' = 'sun'):
 // ---------------------------------------------------------------------
 // Choosing the puzzle
 // ---------------------------------------------------------------------
-
-export type PuzzleSize = 'small' | 'medium' | 'large' | 'xl' | 'giant';
-export const PUZZLE_SIZES: readonly PuzzleSize[] = ['small', 'medium', 'large', 'xl', 'giant'];
-export const PIECE_COUNTS: Record<PuzzleSize, number> = {
-  small: 12,
-  medium: 24,
-  large: 40,
-  xl: 60,
-  giant: 100
-};
-
-// Steps through PUZZLE_SIZES by `delta` (+1 next, -1 previous), wrapping cyclically.
-export const stepPuzzleSize = (current: PuzzleSize, delta: number): PuzzleSize => {
-  const i = PUZZLE_SIZES.indexOf(current);
-  const n = PUZZLE_SIZES.length;
-  return PUZZLE_SIZES[((((i < 0 ? 0 : i) + delta) % n) + n) % n];
-};
 
 // Where the solved puzzle sits: centered here, on the left of the board,
 // leaving the right side and the margins for the loose pieces.
@@ -564,15 +549,6 @@ export const newPuzzleForViewport = (
 // Moving pieces
 // ---------------------------------------------------------------------
 
-// Is p inside the triangle (edges included)?
-const inTriangle = (p: Point, [a, b, c]: Point[]): boolean => {
-  const side = (u: Point, v: Point) => (v.x - u.x) * (p.y - u.y) - (v.y - u.y) * (p.x - u.x);
-  const d1 = side(a, b), d2 = side(b, c), d3 = side(c, a);
-  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
-};
-
-export const pointInTile = (p: Point, t: Tile): boolean => toTriangles(getVertices(t)).some(tri => inTriangle(p, tri));
-
 // Index of the loose on-board piece under p that is drawn on top (pieces later
 // in the list are drawn over earlier ones), or -1. Locked and tray pieces can't
 // be picked up on the board.
@@ -697,101 +673,6 @@ export const repositionForViewport = (
 };
 
 // ---------------------------------------------------------------------
-// Camera (board zoom and pan)
-// ---------------------------------------------------------------------
-
-export interface Camera {
-  // Zoom multiplier on top of layout.scale (1 = fitted to screen)
-  zoom: number;
-  // Pan offset in CSS pixels: where world (0, 0) lands on the canvas
-  panX: number;
-  panY: number;
-}
-
-export const DEFAULT_CAMERA: Camera = { zoom: 1, panX: 0, panY: 0 };
-export const MIN_ZOOM = 0.75;
-export const MAX_ZOOM = 4;
-export const ZOOM_STEP = 1.25;
-
-export const screenToWorld = (screen: Point, layoutScale: number, camera: Camera): Point => {
-  const s = layoutScale * camera.zoom;
-  return { x: (screen.x - camera.panX) / s, y: (screen.y - camera.panY) / s };
-};
-
-export const worldToScreen = (world: Point, layoutScale: number, camera: Camera): Point => {
-  const s = layoutScale * camera.zoom;
-  return { x: world.x * s + camera.panX, y: world.y * s + camera.panY };
-};
-
-const clampPanAxis = (pan: number, vp: number, zoom: number): number => {
-  const rendered = vp * zoom;
-  if (rendered <= vp) return (vp - rendered) / 2;
-  const pad = Math.min(80, vp * 0.15);
-  return Math.max(vp - rendered - pad, Math.min(pad, pan));
-};
-
-// Keeps zoom within [MIN_ZOOM, MAX_ZOOM] and prevents panning the board
-// completely off-screen. At zoom <= 1 the board stays centered cleanly.
-export const clampCamera = (camera: Camera, viewport: BoardSize): Camera => {
-  const zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom));
-  return {
-    zoom,
-    panX: clampPanAxis(camera.panX, Math.max(1, viewport.width), zoom),
-    panY: clampPanAxis(camera.panY, Math.max(1, viewport.height), zoom)
-  };
-};
-
-export const panCamera = (camera: Camera, dx: number, dy: number, viewport: BoardSize): Camera =>
-  clampCamera({ zoom: camera.zoom, panX: camera.panX + dx, panY: camera.panY + dy }, viewport);
-
-// Zooms by `factor` while keeping the world point under `focus` (CSS pixels)
-// stationary, then clamps the resulting camera to the viewport.
-export const zoomCameraAt = (camera: Camera, factor: number, focus: Point, viewport: BoardSize): Camera => {
-  const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camera.zoom * factor));
-  const ratio = nextZoom / camera.zoom;
-  return clampCamera(
-    {
-      zoom: nextZoom,
-      panX: focus.x - (focus.x - camera.panX) * ratio,
-      panY: focus.y - (focus.y - camera.panY) * ratio
-    },
-    viewport
-  );
-};
-
-// True when the camera is effectively already at DEFAULT_CAMERA (Fit).
-export const isCameraAtFit = (camera: Camera): boolean =>
-  Math.abs(camera.zoom - DEFAULT_CAMERA.zoom) < 1e-3 &&
-  Math.abs(camera.panX - DEFAULT_CAMERA.panX) < 0.5 &&
-  Math.abs(camera.panY - DEFAULT_CAMERA.panY) < 0.5;
-
-// Smoothly eases from one camera pose to another with ease-out cubic timing.
-// Interpolating zoom, panX and panY by the same factor moves every world point
-// along a straight line on screen.
-export const easeCamera = (from: Camera, to: Camera, t: number): Camera => {
-  if (t <= 0) return { ...from };
-  if (t >= 1) return { ...to };
-  const e = 1 - (1 - t) ** 3;
-  return {
-    zoom: from.zoom + (to.zoom - from.zoom) * e,
-    panX: from.panX + (to.panX - from.panX) * e,
-    panY: from.panY + (to.panY - from.panY) * e
-  };
-};
-
-// Passive viewport resizes (e.g. mobile Safari address bar shifts or toolbar
-// reflow) clamp the camera to the new viewport without cancelling an active
-// solve-to-Fit animation; only manual pan/zoom or puzzle resets cancel it.
-export const nextCameraOnResize = (
-  camera: Camera,
-  viewport: BoardSize,
-  animatingToFit: boolean
-): { camera: Camera; keepAnimation: boolean } => ({
-  camera: clampCamera(camera, viewport),
-  keepAnimation: animatingToFit
-});
-
-// ---------------------------------------------------------------------
 // Piece tray
 // ---------------------------------------------------------------------
 
@@ -855,35 +736,6 @@ export const returnToTray = (pieces: readonly Piece[], id: number): Piece[] => {
   return [{ ...piece, inTray: true }, ...pieces.filter(p => p.id !== id)];
 };
 
-// Maximum CSS-pixel pointer travel for a press-and-release on a tray thumbnail
-// to count as a tap-to-pop onto the board.
-export const TRAY_TAP_MAX_MOVE = 8;
-
-export type TrayDragAction = 'wait' | 'scroll' | 'lift';
-
-// Decides whether pointer movement starting on a tray thumbnail should keep
-// waiting, yield to native tray scrolling (along the tray's scroll axis on
-// touch), or lift the piece out onto the board.
-export const trayDragAction = (isTouch: boolean, isPortrait: boolean, dx: number, dy: number): TrayDragAction => {
-  if (!isTouch) return Math.hypot(dx, dy) > 6 ? 'lift' : 'wait';
-  const scrollMoved = isPortrait
-    ? Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)
-    : Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx);
-  if (scrollMoved) return 'scroll';
-  const pullOut = isPortrait ? dy < -12 : dx < -12;
-  return pullOut ? 'lift' : 'wait';
-};
-
-// True when releasing a tray thumbnail should pop the piece onto the board.
-// Cancelled pointers (e.g. iOS Safari taking over for native tray scrolling)
-// never pop a piece accidentally.
-export const isTrayTap = (
-  lifted: boolean,
-  scrolled: boolean,
-  cancelled: boolean,
-  moveDistPx: number
-): boolean => !lifted && !scrolled && !cancelled && moveDistPx <= TRAY_TAP_MAX_MOVE;
-
 // The best neighbor for the group to join: a piece outside the group,
 // bordering one of its pieces in the solved puzzle, turned the same way,
 // with that piece within LOCK_RADIUS of where it would sit against it.
@@ -931,10 +783,6 @@ export const settleGroup = (pieces: readonly Piece[], id: number): Piece[] => {
   return current;
 };
 
-// Maximum CSS-pixel pointer travel for a press-and-release on a loose piece
-// to count as a tap rather than a drag.
-export const TAP_MAX_MOVE = 6;
-
 // True if `pieceId` is a loose on-board piece belonging to the same group as
 // `selectedId` (so tapping any piece in an already-selected group rotates it).
 export const isGroupSelected = (
@@ -981,75 +829,8 @@ export const drawLayers = (pieces: readonly Piece[]): Piece[][] => {
 };
 
 // ---------------------------------------------------------------------
-// Settings
+// Progress and celebratory milestones
 // ---------------------------------------------------------------------
-
-export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'sunset';
-export const PICTURE_STYLES: readonly PictureStyle[] = ['subdivided', 'matching', 'independent', 'sunset'];
-
-export interface JigsawSettings {
-  // The whole picture shown faintly inside the outline, like a puzzle box
-  showPicture: boolean;
-  // Edges drawn around each piece and each tile of the outline
-  showOutlines: boolean;
-  // Which built-in picture is drawn on the puzzle
-  picture: PictureStyle;
-  // Piece count preset for new puzzles
-  size: PuzzleSize;
-  // Prefer symmetric (5-fold mandala or bilateral mirror) puzzle layouts
-  symmetric: boolean;
-  // Celebratory canvas visual effects (sparks, glows, shimmer, confetti)
-  effects: boolean;
-  // Synthesized Web Audio feedback on snap, lock, border complete, and solve
-  sound: boolean;
-}
-
-export const DEFAULT_SETTINGS: JigsawSettings = {
-  showPicture: false,
-  showOutlines: true,
-  picture: 'subdivided',
-  size: 'medium',
-  symmetric: true,
-  effects: true,
-  sound: false
-};
-
-// Where the settings are kept in the browser's local storage.
-export const SETTINGS_KEY = 'penrose-puzzle.jigsaw-settings';
-
-export const serializeSettings = (settings: JigsawSettings): string => JSON.stringify(settings);
-
-const isPictureStyle = (value: unknown): value is PictureStyle =>
-  typeof value === 'string' && (PICTURE_STYLES as readonly string[]).includes(value);
-
-const isPuzzleSize = (value: unknown): value is PuzzleSize =>
-  typeof value === 'string' && Object.prototype.hasOwnProperty.call(PIECE_COUNTS, value);
-
-// Settings read back from storage. Anything missing, unreadable or of the
-// wrong type falls back to its default, field by field, and unknown fields
-// are dropped, so an old or damaged saved value never breaks the page.
-export const parseSettings = (raw: string | null): JigsawSettings => {
-  let saved: unknown = null;
-  try {
-    saved = raw === null ? null : JSON.parse(raw);
-  } catch {
-    saved = null;
-  }
-  const fields = saved !== null && typeof saved === 'object' ? (saved as Record<string, unknown>) : {};
-  const flag = (key: 'showPicture' | 'showOutlines' | 'symmetric' | 'effects' | 'sound') =>
-    typeof fields[key] === 'boolean' ? (fields[key] as boolean) : DEFAULT_SETTINGS[key];
-  const picture = isPictureStyle(fields.picture) ? fields.picture : DEFAULT_SETTINGS.picture;
-  const size = isPuzzleSize(fields.size) ? fields.size : DEFAULT_SETTINGS.size;
-  return {
-    showPicture: flag('showPicture'),
-    showOutlines: flag('showOutlines'),
-    picture,
-    size,
-    symmetric: flag('symmetric'),
-    effects: flag('effects'),
-    sound: flag('sound')
-  };
-};
 
 export const progress = (pieces: readonly Piece[]) => ({
   placed: pieces.filter(p => p.locked).length,
@@ -1142,8 +923,6 @@ export const detectCelebrations = (prev: readonly Piece[], next: readonly Piece[
   const borderCompleted = !puzzleSolved && !isBorderComplete(prev) && isBorderComplete(next);
   return { newlyLockedIds, joinedSeams, borderCompleted, puzzleSolved };
 };
-
-export type SoundCue = 'snap' | 'lock' | 'border' | 'solve';
 
 // Picks the single highest-priority sound cue for a celebratory transition so
 // simultaneous milestones (for example locking the final piece) never stack

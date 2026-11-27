@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SETTINGS } from './jigsaw';
+import { DEFAULT_SETTINGS } from './settings';
 import { formatDebugInfo, sanitizeUrl, type DebugEnvironment } from './debugInfo';
 
 const sampleEnv: DebugEnvironment = {

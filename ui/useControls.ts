@@ -1,7 +1,8 @@
 // Keyboard and mouse wheel controls (spec 8 and 9). The step arithmetic is in
-// rules.ts; these hooks only listen for the events.
+// gestures.ts; these hooks only listen for the events.
 import { useEffect, type RefObject } from 'react';
-import { WHEEL_NOTCH, wheelDeltaPixels, wheelSteps, type Point } from '../rules';
+import type { Point } from '../rules';
+import { WHEEL_NOTCH, wheelDeltaPixels, wheelSteps } from '../gestures';
 
 // Turns the tile by a number of 36° steps (positive = clockwise).
 type Rotate = (steps: number) => void;

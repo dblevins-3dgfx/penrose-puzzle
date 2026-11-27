@@ -7,28 +7,28 @@ import type { Point } from '../rules';
 import {
   boundsOf,
   coverRect,
-  DEFAULT_CAMERA,
-  easeCamera,
-  isCameraAtFit,
   isSolved,
   newPuzzleForViewport,
-  nextCameraOnResize,
   progress,
   repositionForViewport,
   resolveTrayFilter,
   rotateGroup,
   seedFromQuery,
   trayPieces,
-  ZOOM_STEP,
-  zoomCameraAt,
-  type Camera,
-  type JigsawSettings,
-  type PictureStyle,
   type Piece,
-  type PuzzleSize,
   type TrayFilter,
   type ViewportLayout
 } from '../jigsaw';
+import {
+  DEFAULT_CAMERA,
+  easeCamera,
+  isCameraAtFit,
+  nextCameraOnResize,
+  ZOOM_STEP,
+  zoomCameraAt,
+  type Camera
+} from '../camera';
+import type { JigsawSettings, PictureStyle, PuzzleSize } from '../settings';
 import { formatDebugInfo } from '../debugInfo';
 import { collectDebugEnvironment } from './collectDebugEnv';
 import { makeDefaultPicture } from './defaultPicture';

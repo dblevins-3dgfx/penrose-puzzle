@@ -2,7 +2,7 @@
 // Your picture, progress, Settings (which holds Puzzle size) and How to Play (spec 9).
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
 import { CircleHelp, ImagePlus, Settings, Shuffle, Sparkles } from 'lucide-react';
-import { PICTURE_STYLES, type PictureStyle } from '../jigsaw';
+import { PICTURE_STYLES, type PictureStyle } from '../settings';
 
 interface Props {
   modeSwitch: ReactNode;
