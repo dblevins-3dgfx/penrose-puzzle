@@ -39,8 +39,14 @@ export const sandboxTileDecorations = (indicators: SandboxTileIndicators): Sandb
   matchingArcs: indicators.matchingArcs
 });
 
-export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'sunset';
-export const PICTURE_STYLES: readonly PictureStyle[] = ['subdivided', 'matching', 'independent', 'sunset'];
+export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'topographic' | 'sunset';
+export const PICTURE_STYLES: readonly PictureStyle[] = [
+  'subdivided',
+  'matching',
+  'independent',
+  'topographic',
+  'sunset'
+];
 
 export type PuzzleSize = 'small' | 'medium' | 'large' | 'xl' | 'giant';
 

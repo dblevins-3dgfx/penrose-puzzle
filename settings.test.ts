@@ -62,7 +62,7 @@ test('saved settings are read back as they were saved', () => {
     {
       showPicture: false,
       showOutlines: false,
-      picture: 'subdivided' as const,
+      picture: 'topographic' as const,
       size: 'giant' as const,
       symmetric: true,
       effects: true,
