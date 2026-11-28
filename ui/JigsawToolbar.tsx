@@ -3,7 +3,7 @@
 import { useRef, type ChangeEvent, type ReactNode } from 'react';
 import { CircleHelp, ImagePlus, Settings, Shuffle, Sparkles } from 'lucide-react';
 import type { PictureStyle } from '../settings';
-import { PICTURE_PROVIDERS } from './pictureRegistry';
+import { PICTURE_PLUGINS } from '../pictures';
 
 interface Props {
   modeSwitch: ReactNode;
@@ -63,7 +63,7 @@ export const JigsawToolbar = (props: Props) => {
           aria-label="Puzzle picture"
           className={selectClass}
         >
-          {PICTURE_PROVIDERS.map(p => (
+          {PICTURE_PLUGINS.map(p => (
             <option key={p.id} value={p.id}>
               {p.label}
             </option>

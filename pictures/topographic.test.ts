@@ -7,7 +7,7 @@ import {
   sampleHypsometricColor,
   shadeTopographicPixel,
   topoConfigForSeed
-} from './topographicPicture';
+} from './topographic';
 
 test('topoConfigForSeed is deterministic per seed, varies across seeds, and keeps anchors in-bounds', () => {
   const a = topoConfigForSeed(42);

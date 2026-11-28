@@ -22,23 +22,10 @@ import {
 } from './rules';
 import { TAP_MAX_MOVE } from './gestures';
 import { generatePatch } from './penroseTiling';
+import { boundsOf, coverRect, seededRandom } from './pictures/types';
 import { PIECE_COUNTS, type PuzzleSize, type SoundCue } from './settings';
 
-// ---------------------------------------------------------------------
-// Random numbers: seeded, so a puzzle can be rebuilt and tested
-// ---------------------------------------------------------------------
-
-// mulberry32: a small, fast seeded generator returning numbers in [0, 1)
-export const seededRandom = (seed: number): (() => number) => {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
+export { boundsOf, coverRect, seededRandom };
 
 // ---------------------------------------------------------------------
 // Choosing the puzzle
@@ -73,16 +60,6 @@ export const choosePieces = (patch: readonly Tile[], center: Point, count: numbe
     rest.splice(next, 1);
   }
   return chosen;
-};
-
-// The smallest box around some tiles.
-export const boundsOf = (tiles: readonly Tile[]) => {
-  const verts = tiles.flatMap(getVertices);
-  const xs = verts.map(v => v.x),
-    ys = verts.map(v => v.y);
-  const x = Math.min(...xs),
-    y = Math.min(...ys);
-  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
 };
 
 // Turns a tile about the origin by `steps` 36° steps, then moves it.
@@ -866,16 +843,6 @@ export const orderedBorderLoops = (pieces: readonly Piece[]): Point[][] => {
 // ---------------------------------------------------------------------
 // The picture
 // ---------------------------------------------------------------------
-
-// Where the picture is drawn so it covers the solved puzzle's box: scaled
-// to cover it, keeping its proportions, and centered (any overhang is cut
-// off evenly on both sides).
-export const coverRect = (imageW: number, imageH: number, box: { x: number; y: number; w: number; h: number }) => {
-  const scale = Math.max(box.w / imageW, box.h / imageH);
-  const w = imageW * scale,
-    h = imageH * scale;
-  return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
-};
 
 // The canvas transform that carries a piece's part of the picture from its
 // home to where the piece is now: translate to the piece, turn by the

@@ -41,7 +41,7 @@ import type { JigsawSettings, PictureStyle, PuzzleSize } from '../settings';
 import { formatDebugInfo } from '../debugInfo';
 import { collectDebugEnvironment } from './collectDebugEnv';
 import type { Picture } from './jigsawDraw';
-import { PICTURE_REGISTRY } from './pictureRegistry';
+import { getPicturePlugin } from '../pictures';
 import { JigsawHelp } from './JigsawHelp';
 import { JigsawSettingsDialog } from './JigsawSettingsDialog';
 import { JigsawToolbar } from './JigsawToolbar';
@@ -59,7 +59,7 @@ const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 const useJigsawPicture = (style: PictureStyle, homes: Piece['home'][], seed: number, pixelScale: number) => {
   const [custom, setCustom] = useState<Picture | null>(null);
   const picture = useMemo<Picture>(
-    () => custom ?? PICTURE_REGISTRY[style].render({ homes, seed, pixelScale }),
+    () => custom ?? getPicturePlugin(style).render({ homes, seed, pixelScale }),
     [custom, style, homes, seed, pixelScale]
   );
 

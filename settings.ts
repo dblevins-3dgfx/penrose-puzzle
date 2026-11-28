@@ -1,6 +1,9 @@
 // Shared settings schema, persisted settings (Jigsaw + Sandbox), and sound cue
 // type (spec 6, 7, 8, and 9). Segregates SharedSettings, JigsawSettings, and
 // SandboxSettings so neither mode depends on the other mode's internals.
+import { DEFAULT_PICTURE_STYLE, PICTURE_STYLES, type PictureStyle } from './pictures';
+
+export { PICTURE_STYLES, type PictureStyle };
 
 export type SoundCue = 'snap' | 'lock' | 'border' | 'solve';
 
@@ -39,15 +42,6 @@ export const sandboxTileDecorations = (indicators: SandboxTileIndicators): Sandb
   matchingArcs: indicators.matchingArcs
 });
 
-export type PictureStyle = 'subdivided' | 'matching' | 'independent' | 'topographic' | 'sunset';
-export const PICTURE_STYLES: readonly PictureStyle[] = [
-  'subdivided',
-  'matching',
-  'independent',
-  'topographic',
-  'sunset'
-];
-
 export type PuzzleSize = 'small' | 'medium' | 'large' | 'xl' | 'giant';
 
 // Ordered presets for the stepped/cyclic selector in Settings (names only).
@@ -85,7 +79,7 @@ export interface AppSettings extends JigsawSettings, SandboxSettings {}
 export const DEFAULT_SETTINGS: AppSettings = {
   showPicture: false,
   showOutlines: true,
-  picture: 'subdivided',
+  picture: DEFAULT_PICTURE_STYLE,
   size: 'medium',
   symmetric: true,
   effects: true,

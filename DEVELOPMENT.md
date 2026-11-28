@@ -31,8 +31,8 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 ## Gotchas
 
-- `npm test` runs `tsx --test *.test.ts`, which only matches test files at the repository root. A test file in `ui/` or another folder would never run.
-- `tsconfig.json` only includes `src`, `ui` and the root `*.ts` / `*.tsx` files. Add any new folder there, or `npm run typecheck` won't check it.
+- `npm test` runs `tsx --test *.test.ts pictures/*.test.ts`. A test file in `ui/` or another folder outside the root and `pictures/` would never run.
+- `tsconfig.json` includes `src`, `ui`, `pictures` and the root `*.ts` / `*.tsx` files. Add any new folder there, or `npm run typecheck` won't check it.
 - Strict TypeScript is off (`"strict": false`), a setting inherited with Penrogo's untyped original component. The rule modules are fully typed anyway; keep new ones that way.
 - The lint limits, copied from Penrogo's `.oxlintrc.json`, shape the code: at most 150 lines per function, nesting at most 4 deep, complexity at most 20. That's why the React code is split across `ui/` (components, `draw.ts`, `useControls.ts`) and `rules.ts` uses small helpers such as `edgesOf` and `sameEdge`. When a component outgrows the limit, split it rather than relaxing the rule.
 - Deploys (#3, #8):
@@ -50,7 +50,7 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 - Kites are amber and darts indigo, chosen when the two-player colors were removed.
 - Auto-rotate stays a mode you switch on; turning the tile while it's on steps through the fits instead of switching it off (#2). It isn't saved.
 - Jigsaw choices:
-  - The default picture is drawn in code (`ui/defaultPicture.ts`), so the repository needs no image files or licences.
+  - Built-in pictures live as self-contained plugins under `pictures/` (registered in `pictures/index.ts`) and are drawn in code, so the repository needs no image files or licences.
   - A picture the player chooses stays on their device and is never uploaded.
   - A piece only locks into its own home, and only snaps to pieces it borders in the solved puzzle.
   - The puzzle's outer border is always drawn on edge pieces, whatever the tile-outlines setting.
