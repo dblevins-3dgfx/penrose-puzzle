@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Penrose Puzzle — Performance Trends</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --grid: #e2e8f0;
+        --link: #0284c7;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1120;
+          --card: #111827;
+          --border: #1e293b;
+          --text: #f1f5f9;
+          --muted: #94a3b8;
+          --grid: #1e293b;
+          --link: #38bdf8;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px 48px;
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.45;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.875rem;
+      }
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .metric-label {
+        font-size: 0.78rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .metric-val {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-top: 4px;
+        font-variant-numeric: tabular-nums;
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      @media (max-width: 520px) {
+        .charts {
+          grid-template-columns: 1fr;
+        }
+      }
+      .chart-card h2 {
+        margin: 0 0 8px;
+        font-size: 1rem;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .swatch {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+        text-align: right;
+      }
+      th:first-child,
+      td:first-child,
+      th:nth-child(2),
+      td:nth-child(2) {
+        text-align: left;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div>
+          <h1>Penrose Puzzle — Performance Trends</h1>
+          <div id="subtitle" class="muted">Loading history.json…</div>
+        </div>
+        <a href="../">← Back to Penrose Puzzle</a>
+      </header>
+      <div id="summary" class="cards"></div>
+      <div id="charts" class="charts"></div>
+      <div class="card">
+        <h2 style="margin: 0 0 10px; font-size: 1rem">Recent <code>main</code> Snapshots</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Commit</th>
+                <th>Date (UTC)</th>
+                <th>JS gzip</th>
+                <th>newPuzzle(giant)</th>
+                <th>Topographic</th>
+                <th>Subdivided</th>
+                <th>Sandbox snap(100)</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const REPO_URL = 'https://github.com/dblevins-3dgfx/penrose-puzzle';
+
+      const fmtNum = (v, unit) => (typeof v === 'number' ? `${v.toFixed(1)} ${unit}` : '—');
+      const fmtKb = b => (typeof b === 'number' ? `${(b / 1024).toFixed(1)} kB` : '—');
+
+      const buildChartSvg = (points, series, unit) => {
+        const W = 500;
+        const H = 200;
+        const pad = { l: 48, r: 16, t: 12, b: 28 };
+        const vals = [];
+        for (const s of series) {
+          for (const p of points) {
+            const v = s.get(p);
+            if (typeof v === 'number') vals.push(v);
+          }
+        }
+        const maxV = Math.max(1, ...vals) * 1.12;
+        const xFor = i =>
+          points.length <= 1 ? (pad.l + W - pad.r) / 2 : pad.l + (i / (points.length - 1)) * (W - pad.l - pad.r);
+        const yFor = v => H - pad.b - (v / maxV) * (H - pad.t - pad.b);
+
+        let grid = '';
+        for (let i = 0; i <= 4; i++) {
+          const v = (maxV * i) / 4;
+          const y = yFor(v).toFixed(1);
+          grid += `<line x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}" stroke="var(--grid)" stroke-width="1"/>`;
+          grid += `<text x="${pad.l - 6}" y="${Number(y) + 4}" text-anchor="end" fill="var(--muted)" font-size="10">${v.toFixed(v >= 100 ? 0 : 1)}</text>`;
+        }
+
+        let paths = '';
+        for (const s of series) {
+          const coords = [];
+          let dots = '';
+          points.forEach((p, i) => {
+            const v = s.get(p);
+            if (typeof v !== 'number') return;
+            const x = xFor(i).toFixed(1);
+            const y = yFor(v).toFixed(1);
+            coords.push(`${x},${y}`);
+            dots += `<circle cx="${x}" cy="${y}" r="3.2" fill="${s.color}"><title>${p.sha} (${p.timestamp.slice(0, 10)}) · ${s.name}: ${v.toFixed(2)} ${unit}</title></circle>`;
+          });
+          if (coords.length > 1) {
+            paths += `<polyline fill="none" stroke="${s.color}" stroke-width="2" points="${coords.join(' ')}"/>`;
+          }
+          paths += dots;
+        }
+
+        const firstSha = points[0]?.sha ?? '';
+        const lastSha = points[points.length - 1]?.sha ?? '';
+        const xLabels =
+          points.length > 1
+            ? `<text x="${pad.l}" y="${H - 6}" fill="var(--muted)" font-size="10">${firstSha}</text><text x="${W - pad.r}" y="${H - 6}" text-anchor="end" fill="var(--muted)" font-size="10">${lastSha}</text>`
+            : `<text x="${(pad.l + W - pad.r) / 2}" y="${H - 6}" text-anchor="middle" fill="var(--muted)" font-size="10">${lastSha}</text>`;
+
+        return `<svg viewBox="0 0 ${W} ${H}" role="img">${grid}${paths}${xLabels}</svg>`;
+      };
+
+      const render = history => {
+        const sub = document.getElementById('subtitle');
+        if (!history.length) {
+          sub.textContent = 'No snapshots recorded yet.';
+          return;
+        }
+        const latest = history[history.length - 1];
+        sub.textContent = `${history.length} snapshot(s) on main · latest ${latest.sha} (${latest.timestamp.slice(0, 10)})`;
+
+        const cards = [
+          ['JS Bundle (gzip)', fmtKb(latest.bundle?.jsGzipBytes)],
+          ['newPuzzle (Giant)', fmtNum(latest.medians['jigsaw.newPuzzle.giant'], 'ms')],
+          ['Topographic Map', fmtNum(latest.medians['pictures.topographic'], 'ms')],
+          ['Sandbox snap (100)', fmtNum(latest.medians['sandbox.snap.100'], 'ms')]
+        ];
+        document.getElementById('summary').innerHTML = cards
+          .map(
+            ([k, v]) => `<div class="card"><div class="metric-label">${k}</div><div class="metric-val">${v}</div></div>`
+          )
+          .join('');
+
+        const chartDefs = [
+          {
+            title: 'Bundle Size (gzip kB)',
+            unit: 'kB',
+            series: [
+              { name: 'JS gzip', color: '#38bdf8', get: p => (p.bundle ? p.bundle.jsGzipBytes / 1024 : null) },
+              { name: 'CSS gzip', color: '#a78bfa', get: p => (p.bundle ? p.bundle.cssGzipBytes / 1024 : null) }
+            ]
+          },
+          {
+            title: 'Puzzle Generation (median ms)',
+            unit: 'ms',
+            series: [
+              { name: 'Giant (100)', color: '#f59e0b', get: p => p.medians['jigsaw.newPuzzle.giant'] },
+              { name: 'Medium (24)', color: '#10b981', get: p => p.medians['jigsaw.newPuzzle.medium'] },
+              { name: 'Large (40)', color: '#6366f1', get: p => p.medians['jigsaw.newPuzzle.large'] }
+            ]
+          },
+          {
+            title: 'Picture Generators (median ms)',
+            unit: 'ms',
+            series: [
+              { name: 'Topographic (840)', color: '#ef4444', get: p => p.medians['pictures.topographic'] },
+              { name: 'Independent (100)', color: '#38bdf8', get: p => p.medians['pictures.independent.giant'] },
+              { name: 'Subdivided (100)', color: '#22c55e', get: p => p.medians['pictures.subdivided.giant'] }
+            ]
+          },
+          {
+            title: 'Sandbox Scaling at 100 Tiles (median ms)',
+            unit: 'ms',
+            series: [
+              { name: 'autoRotatePlacement', color: '#f472b6', get: p => p.medians['sandbox.autorotate.100'] },
+              { name: 'snapPosition', color: '#f59e0b', get: p => p.medians['sandbox.snap.100'] },
+              { name: 'findConnectedEdges', color: '#38bdf8', get: p => p.medians['sandbox.connected.100'] }
+            ]
+          }
+        ];
+
+        document.getElementById('charts').innerHTML = chartDefs
+          .map(
+            c =>
+              `<div class="card chart-card"><h2>${c.title}</h2><div class="legend">${c.series
+                .map(s => `<span><i class="swatch" style="background:${s.color}"></i>${s.name}</span>`)
+                .join('')}</div>${buildChartSvg(history, c.series, c.unit)}</div>`
+          )
+          .join('');
+
+        document.getElementById('rows').innerHTML = [...history]
+          .reverse()
+          .slice(0, 30)
+          .map(
+            p =>
+              `<tr><td><a href="${REPO_URL}/commit/${p.sha}" target="_blank" rel="noreferrer">${p.sha}</a></td><td>${p.timestamp.slice(0, 16).replace('T', ' ')}</td><td>${fmtKb(p.bundle?.jsGzipBytes)}</td><td>${fmtNum(p.medians['jigsaw.newPuzzle.giant'], 'ms')}</td><td>${fmtNum(p.medians['pictures.topographic'], 'ms')}</td><td>${fmtNum(p.medians['pictures.subdivided.giant'], 'ms')}</td><td>${fmtNum(p.medians['sandbox.snap.100'], 'ms')}</td></tr>`
+          )
+          .join('');
+      };
+
+      fetch('./history.json', { cache: 'no-store' })
+        .then(r => (r.ok ? r.json() : []))
+        .then(render)
+        .catch(() => {
+          document.getElementById('subtitle').textContent = 'Could not load history.json.';
+        });
+    </script>
+  </body>
+</html>
