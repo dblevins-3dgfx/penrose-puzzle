@@ -1,0 +1,169 @@
+# Performance benchmarking & trend reporting (issue #86).
+#
+#   pull_request       -> same-runner A/B (main vs. PR) posted as a sticky PR
+#                         comment and job summary (informational, non-blocking).
+#   push (main)        -> records a snapshot to gh-pages/perf/history.json and
+#                         publishes the trend dashboard at /penrose-puzzle/perf/.
+#   workflow_dispatch  -> updates main trend history and runs the headless Chrome
+#                         browser runtime profile into the job summary.
+name: Performance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      backfill_count:
+        description: 'Backfill previous N first-parent commits on main (0 = skip if history exists)'
+        required: false
+        default: '0'
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: perf-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  pr-report:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build & benchmark PR head
+        run: |
+          npm run build
+          npm run bench -- --json /tmp/perf-head.json
+      - name: Build & benchmark base on same runner
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git worktree add /tmp/perf-base "origin/${BASE_REF}"
+          trap 'git worktree remove --force /tmp/perf-base 2>/dev/null || true' EXIT
+          if [ -f /tmp/perf-base/perf/bench.ts ]; then
+            if cmp -s package-lock.json /tmp/perf-base/package-lock.json; then
+              cp -a node_modules /tmp/perf-base/node_modules
+            else
+              (cd /tmp/perf-base && npm ci)
+            fi
+            (cd /tmp/perf-base && npm run build && npm run bench -- --json /tmp/perf-base.json)
+            echo "base_json=/tmp/perf-base.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_json=none" >> "$GITHUB_OUTPUT"
+          fi
+        id: base
+      - name: Generate performance report
+        env:
+          BASE_JSON: ${{ steps.base.outputs.base_json }}
+          TREND_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/perf/
+        run: |
+          npm run bench -- --compare "$BASE_JSON" /tmp/perf-head.json \
+            --marker "<!-- perf-report -->" \
+            --trend-url "$TREND_URL" \
+            --md /tmp/perf-report.md
+          cat /tmp/perf-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Post or update sticky PR comment
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          marker="<!-- perf-report -->"
+          comment_id=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq ".[] | select((.body // \"\") | contains(\"${marker}\")) | .id" | head -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api -X PATCH "repos/${REPO}/issues/comments/${comment_id}" -F body=@/tmp/perf-report.md >/dev/null
+          else
+            gh api -X POST "repos/${REPO}/issues/${PR_NUMBER}/comments" -F body=@/tmp/perf-report.md >/dev/null
+          fi
+
+  record-main:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build & benchmark main
+        env:
+          TREND_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/perf/
+        run: |
+          npm run build
+          npm run bench -- --json /tmp/perf-main.json
+          npm run bench -- --compare none /tmp/perf-main.json --trend-url "$TREND_URL" --md /tmp/perf-main.md
+          cat /tmp/perf-main.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: .gh-pages-perf
+      - name: Update gh-pages perf trend history
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          BACKFILL_INPUT: ${{ inputs.backfill_count || '0' }}
+        run: |
+          mkdir -p .gh-pages-perf/perf
+          if [ ! -f .gh-pages-perf/perf/history.json ]; then
+            npm run bench:backfill -- --ref HEAD~1 --count 10 --out .gh-pages-perf/perf/history.json
+          elif [ "${BACKFILL_INPUT}" != "0" ]; then
+            npm run bench:backfill -- --ref HEAD~1 --count "${BACKFILL_INPUT}" --out .gh-pages-perf/perf/history.json
+          fi
+          npm run bench -- --append-history .gh-pages-perf/perf/history.json /tmp/perf-main.json
+          cp perf/dashboard.html .gh-pages-perf/perf/index.html
+          touch .gh-pages-perf/.nojekyll
+          cd .gh-pages-perf
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add perf/history.json perf/index.html .nojekyll
+          if git diff --cached --quiet; then
+            echo "No perf history changes to commit."
+            exit 0
+          fi
+          git commit -qm "Record perf baseline for ${HEAD_SHA:0:7}"
+          for attempt in 1 2 3 4; do
+            git push && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase
+          done
+          exit 1
+
+  browser-profile:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Run headless Chrome runtime profile
+        run: |
+          npx vite preview --port 4173 --strictPort >/tmp/vite.log 2>&1 &
+          VITE_PID=$!
+          google-chrome --headless=new --no-sandbox --disable-gpu \
+            --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-perf about:blank >/tmp/chrome.log 2>&1 &
+          CHROME_PID=$!
+          trap 'kill $VITE_PID $CHROME_PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:4173 >/dev/null && curl -sf http://127.0.0.1:9222/json >/dev/null && break
+            sleep 0.25
+          done
+          node perf/browserBench.mjs --markdown >> "$GITHUB_STEP_SUMMARY"

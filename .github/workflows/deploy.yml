@@ -75,8 +75,10 @@ jobs:
           folder: dist
           branch: gh-pages
           target-folder: ${{ steps.target.outputs.folder }}
-          # A main deploy replaces the root but keeps the PR previews
-          clean-exclude: branch
+          # A main deploy replaces the root but keeps PR previews and perf trends
+          clean-exclude: |
+            branch
+            perf
           force: false
       - name: Preview link
         run: echo "Deployed to https://${{ github.repository_owner }}.github.io${{ steps.target.outputs.base }}" >> "$GITHUB_STEP_SUMMARY"

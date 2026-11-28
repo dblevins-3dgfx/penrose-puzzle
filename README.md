@@ -40,6 +40,7 @@ Every pull request runs the type checker, the linter, the unit tests and the pro
 | `npm run build` | Build for production into `dist/` |
 | `npm run preview` | Serve the production build |
 | `npm test` | Run the unit tests for the rules |
+| `npm run bench` | Run deterministic Jigsaw, picture, and Sandbox benchmarks (+ bundle size) |
 | `npm run lint` | Run the linter ([oxlint](https://oxc.rs), configured in `.oxlintrc.json`) |
 | `npm run typecheck` | Run the TypeScript checker |
 
@@ -48,6 +49,7 @@ Every pull request runs the type checker, the linter, the unit tests and the pro
 - `rules.ts`: the game rules as plain functions (geometry, matching rules, snapping, rotation), tested in `rules.test.ts`
 - `jigsaw.ts`: the jigsaw's logic as plain functions (generating the tiling, choosing and scattering pieces, moving and locking them), tested in `jigsaw.test.ts`
 - `pictures/`: self-contained built-in Jigsaw picture plugins registered in `pictures/index.ts` (`penrose.ts`, `topographic.ts`, `sunset.ts`, plus shared `types.ts`), tested in `pictures/*.test.ts`
+- `perf/`: performance benchmark runner (`bench.ts`), historical backfill (`backfill.ts`), reporting/comparison helpers (`report.ts`, tested in `report.test.ts`), optional headless Chrome profiler (`browserBench.mjs`), and `gh-pages` trend dashboard (`dashboard.html`)
 - `debugInfo.ts`: plain-text diagnostics formatter for bug reports, tested in `debugInfo.test.ts`
 - `penrose-puzzle.tsx`: the React root, switching between the jigsaw and the sandbox
 - `ui/`: the React side. Sandbox: `Sandbox.tsx`, `draw.ts`, `sandboxEffects.ts`, `useSandboxEffects.ts`, `useSandboxPointers.ts`, `SandboxTray.tsx`, `SandboxSettingsDialog.tsx`, `Toolbar.tsx`. Jigsaw: `Jigsaw.tsx`, `jigsawDraw.ts`, `jigsawEffects.ts`, `useJigsawEffects.ts`, `JigsawToolbar.tsx`, `JigsawTray.tsx`, `useJigsawPointers.ts`, `JigsawSettingsDialog.tsx`, `JigsawHelp.tsx`. Shared: `ModeSwitch.tsx`, `ZoomControls.tsx`, `RotateControls.tsx`, `DebugInfoSection.tsx`, `collectDebugEnv.ts`, `useSharedSettings.ts`, `useControls.ts` (keyboard and wheel), `useBoardSize.ts` (responsive canvas sizing), `sound.ts`, `HelpOverlay.tsx`. All of it calls `rules.ts`, `jigsaw.ts`, `pictures/` and `debugInfo.ts` for decisions
