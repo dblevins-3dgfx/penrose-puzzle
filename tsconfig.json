@@ -12,5 +12,5 @@
     "noEmit": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "ui", "pictures", "*.ts", "*.tsx"]
+  "include": ["src", "ui", "pictures", "perf", "*.ts", "*.tsx"]
 }

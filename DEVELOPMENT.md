@@ -31,12 +31,12 @@ What a newcomer can't learn from the other files. Read [README.md](README.md) (r
 
 ## Gotchas
 
-- `npm test` runs `tsx --test *.test.ts pictures/*.test.ts`. A test file in `ui/` or another folder outside the root and `pictures/` would never run.
-- `tsconfig.json` includes `src`, `ui`, `pictures` and the root `*.ts` / `*.tsx` files. Add any new folder there, or `npm run typecheck` won't check it.
+- `npm test` runs `tsx --test *.test.ts pictures/*.test.ts perf/*.test.ts`. A test file in `ui/` or another folder outside those globs would never run.
+- `tsconfig.json` includes `src`, `ui`, `pictures`, `perf` and the root `*.ts` / `*.tsx` files. Add any new folder there, or `npm run typecheck` won't check it.
 - Strict TypeScript is off (`"strict": false`), a setting inherited with Penrogo's untyped original component. The rule modules are fully typed anyway; keep new ones that way.
 - The lint limits, copied from Penrogo's `.oxlintrc.json`, shape the code: at most 150 lines per function, nesting at most 4 deep, complexity at most 20. That's why the React code is split across `ui/` (components, `draw.ts`, `useControls.ts`) and `rules.ts` uses small helpers such as `edgesOf` and `sameEdge`. When a component outgrows the limit, split it rather than relaxing the rule.
-- Deploys (#3, #8):
-  - A `main` deploy must keep `gh-pages`'s `branch/` folder. `clean-exclude: branch` in `deploy.yml` does that; without it, every `main` deploy wipes all PR previews.
+- Deploys (#3, #8, #86):
+  - A `main` deploy must keep `gh-pages`'s `branch/` (PR previews) and `perf/` (performance trend history & dashboard) folders. `clean-exclude` in `deploy.yml` preserves both.
   - Deploys of `main` and different PRs can run at once. They push to `gh-pages` without force (`force: false`) and rebase onto each other.
   - If a build is identical to what's already published, the deploy action adds no commit to `gh-pages`, and the job log says `deployment_status: skipped`. Don't wait for a `gh-pages` commit that will never come.
 - The live site and every pull-request preview share one origin, `dblevins-3dgfx.github.io`, so they share local storage. A setting saved in one preview applies in all of them.
