@@ -13,6 +13,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      backfill_count:
+        description: 'Backfill previous N first-parent commits on main (0 = skip if history exists)'
+        required: false
+        default: '0'
+        type: string
 
 permissions:
   contents: write
@@ -88,6 +94,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -108,8 +116,14 @@ jobs:
       - name: Update gh-pages perf trend history
         env:
           HEAD_SHA: ${{ github.sha }}
+          BACKFILL_INPUT: ${{ inputs.backfill_count || '0' }}
         run: |
           mkdir -p .gh-pages-perf/perf
+          if [ ! -f .gh-pages-perf/perf/history.json ]; then
+            npm run bench:backfill -- --ref HEAD~1 --count 10 --out .gh-pages-perf/perf/history.json
+          elif [ "${BACKFILL_INPUT}" != "0" ]; then
+            npm run bench:backfill -- --ref HEAD~1 --count "${BACKFILL_INPUT}" --out .gh-pages-perf/perf/history.json
+          fi
           npm run bench -- --append-history .gh-pages-perf/perf/history.json /tmp/perf-main.json
           cp perf/dashboard.html .gh-pages-perf/perf/index.html
           touch .gh-pages-perf/.nojekyll

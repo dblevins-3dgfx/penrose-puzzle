@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test *.test.ts pictures/*.test.ts perf/*.test.ts",
     "bench": "tsx perf/bench.ts",
+    "bench:backfill": "tsx perf/backfill.ts",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives-severity=error",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
