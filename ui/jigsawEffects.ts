@@ -14,7 +14,7 @@ export const SOLVE_DURATION_MS = 3400;
 export const BORDER_TOAST_MS = 2400;
 
 const CONFETTI_COUNT = 56;
-// Stained-glass jewel palette matching ui/penrosePictureDraw.ts
+// Stained-glass jewel palette matching pictures/penrose.ts
 const CONFETTI_COLORS = ['#ea982e', '#c43d6c', '#1c9c98', '#424eb8', '#fef08a', '#67e8f9'];
 
 const UNIT_KITE = getVertices({ type: 'kite', x: 0, y: 0, rotation: 0 });

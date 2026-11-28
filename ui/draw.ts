@@ -1,5 +1,5 @@
 // Canvas drawing for the board (spec 7). No rules are decided here: what
-// to draw comes from rules.ts, settings.ts, and penrosePicture.ts.
+// to draw comes from rules.ts, settings.ts, and pictures/penrose.ts.
 import {
   DEFAULT_BOARD,
   findConnectedEdges,
@@ -10,7 +10,7 @@ import {
   type Point,
   type Tile
 } from '../rules';
-import { arcsForTile, type CircularArc } from '../penrosePicture';
+import { arcsForTile, type CircularArc } from '../pictures/penrose';
 import { DEFAULT_SANDBOX_INDICATORS, sandboxTileDecorations, type SandboxTileIndicators } from '../settings';
 
 // Tile fills: kites and darts get their own colors so the pattern reads.

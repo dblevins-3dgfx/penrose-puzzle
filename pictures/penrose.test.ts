@@ -10,8 +10,8 @@ import {
   trianglesOverlap,
   type Point,
   type Tile
-} from './rules';
-import { boundsOf, newPuzzle } from './jigsaw';
+} from '../rules';
+import { boundsOf, newPuzzle } from '../jigsaw';
 import {
   INDEPENDENT_TILE_SIZE,
   PENROSE_PALETTES,
@@ -30,7 +30,7 @@ import {
   type CircularArc,
   type RGB,
   type TilingTile
-} from './penrosePicture';
+} from './penrose';
 
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 const near = (actual: number, expected: number, eps = 1e-6, msg?: string) =>

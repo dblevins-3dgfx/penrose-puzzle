@@ -1,15 +1,15 @@
-// Penrose tiling pictures for the jigsaw (spec section 9) as plain functions
-// without React, so the tiling geometry and circular matching-arc math can be
-// unit-tested (penrosePicture.test.ts). ui/penrosePictureDraw.ts paints them.
+// Penrose tiling picture plugins for Jigsaw (spec section 9) plus shared
+// Conway circular matching-arc math (`tileArcs`, `arcsForTile`, also used by
+// Sandbox). Pure geometry/palette math is unit-tested in pictures/penrose.test.ts;
+// `makePenrosePicture` paints onto an offscreen canvas in the browser.
 
-import { PHI, TILE_SIZE, centroidOf, getVertices, type Point, type Tile } from './rules';
-import { deflateNTimes, joinToTiling, splitTile, sunHalves, type TilingTile } from './penroseTiling';
-import { boundsOf, seededRandom } from './jigsaw';
+import { PHI, TILE_SIZE, centroidOf, getVertices, type Point, type Tile } from '../rules';
+import { deflateNTimes, joinToTiling, splitTile, sunHalves, type TilingTile } from '../penroseTiling';
+import { boundsOf, coverRect, seededRandom, type Box, type Picture, type PicturePlugin, type RGB } from './types';
 
-export type { TilingTile };
+export type { RGB, TilingTile };
 export type PenrosePictureStyle = 'subdivided' | 'matching' | 'independent';
 export const PENROSE_PICTURE_STYLES: readonly PenrosePictureStyle[] = ['subdivided', 'matching', 'independent'];
-export type RGB = [number, number, number];
 export type GradientKind = 'bilinear' | 'conic';
 
 export interface PenrosePalette {
@@ -123,11 +123,7 @@ export const colorSchemeForSeed = (seed: number): PenroseColorScheme => {
 };
 
 // Samples the unshaded stained-glass wash color at an arbitrary board point.
-export const sampleGradientColor = (
-  p: Point,
-  box: { x: number; y: number; w: number; h: number },
-  scheme: PenroseColorScheme
-): RGB => {
+export const sampleGradientColor = (p: Point, box: Box, scheme: PenroseColorScheme): RGB => {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
   const nx = (p.x - cx) / ((box.w || 1) / 2);
@@ -161,11 +157,7 @@ export const sampleGradientColor = (
 
 // Final stained-glass tile fill color, keeping kites subtly brighter/warmer
 // and darts deeper/cooler so tile shapes remain crisp.
-export const sampleTileColor = (
-  tile: TilingTile,
-  box: { x: number; y: number; w: number; h: number },
-  scheme: PenroseColorScheme
-): RGB => {
+export const sampleTileColor = (tile: TilingTile, box: Box, scheme: PenroseColorScheme): RGB => {
   const base = sampleGradientColor(centroidOf(tile.vertices), box, scheme);
   const shaded = tile.type === 'kite' ? mixRgb(base, KITE_TINT, 0.16) : mixRgb(base, DART_SHADE, 0.26);
   return [Math.round(shaded[0]), Math.round(shaded[1]), Math.round(shaded[2])];
@@ -249,11 +241,7 @@ const transformPoint2D = (p: Point, cos: number, sin: number, dx: number, dy: nu
   y: p.x * sin + p.y * cos + dy
 });
 
-const tileIntersectsBox = (
-  t: TilingTile,
-  box: { x: number; y: number; w: number; h: number },
-  pad: number
-): boolean => {
+const tileIntersectsBox = (t: TilingTile, box: Box, pad: number): boolean => {
   let minX = Infinity,
     maxX = -Infinity,
     minY = Infinity,
@@ -269,7 +257,7 @@ const tileIntersectsBox = (
 
 // 3. Independent tiling: a separate Penrose tiling from a derived seed, at
 // INDEPENDENT_TILE_SIZE and an independent angle and offset, covering `box`.
-export const independentTiling = (box: { x: number; y: number; w: number; h: number }, seed: number): TilingTile[] => {
+export const independentTiling = (box: Box, seed: number): TilingTile[] => {
   const depth = 6;
   const halves = deflateNTimes(sunHalves(INDEPENDENT_TILE_SIZE * PHI ** depth), depth);
   const raw = joinToTiling(halves, INDEPENDENT_TILE_SIZE, false);
@@ -303,3 +291,115 @@ export const PENROSE_TILING_GENERATORS: Record<
 
 export const pictureTiles = (style: PenrosePictureStyle, homes: readonly Tile[], seed: number): TilingTile[] =>
   homes.length === 0 ? [] : PENROSE_TILING_GENERATORS[style](homes, seed);
+
+// ---------------------------------------------------------------------
+// Canvas painting & plugin descriptors
+// ---------------------------------------------------------------------
+
+const BG_COLOR = '#0f172a';
+const LEAD_COLOR = 'rgba(15, 23, 42, 0.42)';
+const ARC_CASING = 'rgba(15, 23, 42, 0.78)';
+const PRIMARY_ARC_COLOR = '#fef08a'; // luminous warm gold (kite O, dart M)
+const SECONDARY_ARC_COLOR = '#67e8f9'; // crisp aqua cyan (kite C, dart A')
+
+const RENDER_SCALE = 2;
+
+const traceTile = (ctx: CanvasRenderingContext2D, tile: TilingTile) => {
+  const [v0, v1, v2, v3] = tile.vertices;
+  ctx.beginPath();
+  ctx.moveTo(v0.x, v0.y);
+  ctx.lineTo(v1.x, v1.y);
+  ctx.lineTo(v2.x, v2.y);
+  ctx.lineTo(v3.x, v3.y);
+  ctx.closePath();
+};
+
+const strokeArcs = (ctx: CanvasRenderingContext2D, arcs: CircularArc[], color: string, width: number) => {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const a of arcs) {
+    ctx.moveTo(a.center.x + a.radius * Math.cos(a.startAngle), a.center.y + a.radius * Math.sin(a.startAngle));
+    ctx.arc(a.center.x, a.center.y, a.radius, a.startAngle, a.endAngle, a.anticlockwise);
+  }
+  ctx.stroke();
+  ctx.restore();
+};
+
+export const makePenrosePicture = (
+  style: PenrosePictureStyle,
+  homes: readonly Tile[],
+  seed: number,
+  pixelScale = RENDER_SCALE
+): Picture => {
+  const canvas = document.createElement('canvas');
+  if (homes.length === 0) {
+    canvas.width = 1;
+    canvas.height = 1;
+    return { image: canvas, width: 1, height: 1 };
+  }
+
+  const box = boundsOf(homes);
+  const scale = Math.max(RENDER_SCALE, Math.min(4, Math.ceil(pixelScale)));
+  canvas.width = Math.max(1, Math.round(box.w * scale));
+  canvas.height = Math.max(1, Math.round(box.h * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { image: canvas, width: canvas.width, height: canvas.height };
+
+  // Align board coordinates to the exact rect drawJigsaw will map this canvas onto.
+  const rect = coverRect(canvas.width, canvas.height, box);
+  ctx.fillStyle = BG_COLOR;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.scale(canvas.width / rect.w, canvas.height / rect.h);
+  ctx.translate(-rect.x, -rect.y);
+
+  const tiles = pictureTiles(style, homes, seed);
+  const scheme = colorSchemeForSeed(seed);
+  const longEdge = tiles[0]?.longEdge ?? 40;
+
+  // 1. Stained-glass tile fills and subtle lead lines
+  ctx.strokeStyle = LEAD_COLOR;
+  ctx.lineWidth = Math.max(0.75, longEdge * 0.032);
+  ctx.lineJoin = 'round';
+  for (const tile of tiles) {
+    traceTile(ctx, tile);
+    const [r, g, b] = sampleTileColor(tile, box, scheme);
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // 2. Circular matching arcs: casings first so tangent arcs never cut each other
+  const primary: CircularArc[] = [];
+  const secondary: CircularArc[] = [];
+  for (const tile of tiles) {
+    const [p, s] = tileArcs(tile);
+    primary.push(p);
+    secondary.push(s);
+  }
+
+  const casingWidth = Math.max(2.6, longEdge * 0.135);
+  const arcWidth = Math.max(1.4, longEdge * 0.072);
+  strokeArcs(ctx, [...primary, ...secondary], ARC_CASING, casingWidth);
+  strokeArcs(ctx, primary, PRIMARY_ARC_COLOR, arcWidth);
+  strokeArcs(ctx, secondary, SECONDARY_ARC_COLOR, arcWidth);
+
+  ctx.restore();
+  return { image: canvas, width: canvas.width, height: canvas.height };
+};
+
+const penrosePlugin = <const Id extends PenrosePictureStyle>(id: Id, label: string): PicturePlugin<Id> => ({
+  id,
+  label,
+  render: ({ homes, seed, pixelScale }) => makePenrosePicture(id, homes, seed, pixelScale)
+});
+
+export const PENROSE_PICTURE_PLUGINS = [
+  penrosePlugin('subdivided', 'Penrose (Subdivided)'),
+  penrosePlugin('matching', 'Penrose (Matching)'),
+  penrosePlugin('independent', 'Penrose (Independent)')
+] as const;

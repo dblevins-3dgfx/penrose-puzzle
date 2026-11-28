@@ -3,12 +3,9 @@
 import { DEFAULT_BOARD, getVertices, type BoardSize, type Point, type Tile } from '../rules';
 import type { JigsawSettings } from '../settings';
 import { boundsOf, coverRect, drawLayers, pieceTile, pieceTransform, type Piece } from '../jigsaw';
+import type { Picture } from '../pictures/types';
 
-export interface Picture {
-  image: CanvasImageSource;
-  width: number;
-  height: number;
-}
+export type { Picture };
 
 const tracePolygon = (ctx: CanvasRenderingContext2D, vertices: Point[]) => {
   ctx.moveTo(vertices[0].x, vertices[0].y);

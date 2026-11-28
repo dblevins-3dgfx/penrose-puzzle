@@ -1,10 +1,8 @@
-// Topographic relief map generator for Jigsaw (spec section 9) as plain
-// functions without React or Canvas, so the seeded elevation field, hypsometric
-// ramp, directional hillshading, and contour math can be unit-tested
-// (topographicPicture.test.ts). ui/topographicPictureDraw.ts paints the pixels.
-
-import { seededRandom } from './jigsaw';
-import type { RGB } from './penrosePicture';
+// Topographic Relief Map picture plugin for Jigsaw (spec section 9).
+// Pure elevation, hypsometric color, hillshading, and contour math is
+// unit-tested in pictures/topographic.test.ts; `makeTopographicPicture` paints
+// the pixels onto a cached offscreen canvas when invoked in the browser.
+import { seededRandom, type Picture, type PicturePlugin, type RGB } from './types';
 
 export const TOPO_CANVAS_SIZE = 840;
 export const TOPO_CONTOUR_LEVELS = 16;
@@ -208,4 +206,46 @@ export const renderTopographicPixels = (size: number, seed: number): Uint8Clampe
     }
   }
   return pixels;
+};
+
+let cached: { seed: number; picture: Picture } | null = null;
+
+export const makeTopographicPicture = (seed: number): Picture => {
+  if (cached && cached.seed === seed) return cached.picture;
+
+  const size = TOPO_CANVAS_SIZE;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { image: canvas, width: size, height: size };
+
+  const pixels = renderTopographicPixels(size, seed);
+  const img = new ImageData(new Uint8ClampedArray(pixels), size, size);
+  ctx.putImageData(img, 0, 0);
+
+  // Subtle cartographic graticule hairlines across the relief map
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 252, 240, 0.16)';
+  ctx.lineWidth = Math.max(0.75, size / 560);
+  const step = size / 6;
+  for (let i = 1; i < 6; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * step, 0);
+    ctx.lineTo(i * step, size);
+    ctx.moveTo(0, i * step);
+    ctx.lineTo(size, i * step);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const picture: Picture = { image: canvas, width: size, height: size };
+  cached = { seed, picture };
+  return picture;
+};
+
+export const topographicPlugin: PicturePlugin<'topographic'> = {
+  id: 'topographic',
+  label: 'Topographic Map',
+  render: ({ seed }) => makeTopographicPicture(seed)
 };

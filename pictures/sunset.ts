@@ -1,6 +1,7 @@
-// The picture the jigsaw uses until the player chooses one of their own: a
-// landscape at sunset, drawn in code so the project needs no image files.
-// Plenty of distinct shapes and colors, so pieces can be told apart.
+// Sunset landscape picture plugin for Jigsaw (spec section 9), drawn in code
+// so the project needs no image files. Plenty of distinct shapes and colors
+// so pieces can be told apart.
+import type { Picture, PicturePlugin } from './types';
 
 const SIZE = 600;
 
@@ -144,12 +145,12 @@ const drawShore = (ctx: CanvasRenderingContext2D) => {
   ctx.fill();
 };
 
-export const makeDefaultPicture = (): HTMLCanvasElement => {
+export const makeSunsetPicture = (): Picture => {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return canvas;
+  if (!ctx) return { image: canvas, width: SIZE, height: SIZE };
 
   drawSky(ctx);
   mountains(
@@ -182,5 +183,16 @@ export const makeDefaultPicture = (): HTMLCanvasElement => {
   );
   drawLake(ctx);
   drawShore(ctx);
-  return canvas;
+  return { image: canvas, width: SIZE, height: SIZE };
+};
+
+let cachedSunset: Picture | null = null;
+
+export const sunsetPlugin: PicturePlugin<'sunset'> = {
+  id: 'sunset',
+  label: 'Sunset',
+  render: () => {
+    if (!cachedSunset) cachedSunset = makeSunsetPicture();
+    return cachedSunset;
+  }
 };

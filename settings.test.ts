@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_SETTINGS,
+  PICTURE_STYLES,
   PUZZLE_SIZES,
   parseSettings,
   sandboxTileDecorations,
@@ -59,17 +60,11 @@ test('saved settings are read back as they were saved', () => {
       vertexDots: false,
       matchingArcs: false
     },
-    {
-      showPicture: false,
-      showOutlines: false,
-      picture: 'topographic' as const,
-      size: 'giant' as const,
-      symmetric: true,
-      effects: true,
-      sound: true,
-      vertexDots: true,
-      matchingArcs: false
-    }
+    ...PICTURE_STYLES.map((picture, i) => ({
+      ...DEFAULT_SETTINGS,
+      picture,
+      size: PUZZLE_SIZES[i % PUZZLE_SIZES.length]
+    }))
   ];
   for (const settings of cases) {
     assert.deepEqual(parseSettings(serializeSettings(settings)), settings);

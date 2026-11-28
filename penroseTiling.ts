@@ -1,7 +1,7 @@
 // Shared Robinson half-tile deflation engine for Penrose kite-and-dart tilings
 // (spec section 9). Plain module without React so it can be unit-tested in
 // penroseTiling.test.ts; shared by jigsaw.ts (puzzle patches) and
-// penrosePicture.ts (subdivided & independent picture tilings).
+// pictures/penrose.ts (subdivided & independent picture tilings).
 //
 // Half-tiles are [type, apex, axisEnd, side]:
 //   half-kite: apex = kite tip O (72°), axisEnd = C (144°), side = B or D
