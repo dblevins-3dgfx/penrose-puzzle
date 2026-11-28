@@ -5,13 +5,14 @@
 // `PictureStyle`, `PICTURE_STYLES`, settings persistence, and Jigsaw's Picture
 // selector all derive automatically from this list.
 import { PENROSE_PICTURE_PLUGINS } from './penrose';
+import { starChartPlugin } from './starChart';
 import { sunsetPlugin } from './sunset';
 import { topographicPlugin } from './topographic';
 import type { PicturePlugin } from './types';
 
 export type { Box, Picture, PicturePlugin, PictureRenderContext, RGB } from './types';
 
-export const PICTURE_PLUGINS = [...PENROSE_PICTURE_PLUGINS, topographicPlugin, sunsetPlugin] as const;
+export const PICTURE_PLUGINS = [...PENROSE_PICTURE_PLUGINS, topographicPlugin, starChartPlugin, sunsetPlugin] as const;
 
 export type PictureStyle = (typeof PICTURE_PLUGINS)[number]['id'];
 
