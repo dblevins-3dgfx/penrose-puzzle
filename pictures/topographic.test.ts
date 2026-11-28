@@ -96,3 +96,27 @@ test('renderTopographicPixels produces a deterministic opaque RGBA buffer that v
     assert.equal(a[i], 255, 'every pixel is fully opaque');
   }
 });
+
+test('renderTopographicPixels upsampled fast path closely matches direct per-pixel sampling and shading', () => {
+  const size = 720;
+  const seed = 42;
+  const fast = renderTopographicPixels(size, seed);
+  const sample = makeElevationSampler(seed);
+
+  let totalErr = 0;
+  let count = 0;
+  for (let py = 12; py < size - 12; py += 23) {
+    for (let px = 12; px < size - 12; px += 23) {
+      const h = sample(px / size, py / size);
+      const dhx = (sample((px + 1) / size, py / size) - sample((px - 1) / size, py / size)) * 0.5;
+      const dhy = (sample(px / size, (py + 1) / size) - sample(px / size, (py - 1) / size)) * 0.5;
+      const [r, g, b] = shadeTopographicPixel(h, dhx, dhy, size);
+      const o = (py * size + px) * 4;
+      totalErr += (Math.abs(fast[o] - r) + Math.abs(fast[o + 1] - g) + Math.abs(fast[o + 2] - b)) / 3;
+      count++;
+    }
+  }
+
+  const meanErr = totalErr / count;
+  assert.ok(meanErr < 2, `upsampled render should closely match reference (mean RGB error=${meanErr.toFixed(2)})`);
+});
